@@ -148,7 +148,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as THREE from 'three'
-import { useZoom } from '@/composables/useZoom'
+// import { useZoom } from '@/composables/useZoom'
 import type { ClassAttendance, EngagementMetrics } from '@/types/api'
 
 interface Props {

@@ -166,7 +166,7 @@
                   <td class="px-6 py-4 whitespace-nowrap">
                     <select
                       :value="attendanceRecord.status"
-                      @change="updateAttendanceStatus(attendanceRecord, $event.target.value)"
+                      @change="updateAttendanceStatus(attendanceRecord, ($event.target as HTMLSelectElement).value)"
                       class="text-sm border border-gray-300 rounded-md px-2 py-1"
                       :class="getStatusClasses(attendanceRecord.status)"
                     >
@@ -385,7 +385,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useZoom } from '@/composables/useZoom'
-import type { LiveClass, ClassAttendance } from '@/types/api'
+import type { ClassAttendance } from '@/types/api'
 
 interface Props {
   liveClassId: string
@@ -483,7 +483,7 @@ const getStatusClasses = (status: string) => {
 
 const getStatusPercentage = (status: string) => {
   const total = engagementMetrics.value?.total_students || 1
-  const count = engagementMetrics.value?.status_breakdown?.[status] || 0
+  const count = engagementMetrics.value?.status_breakdown?.[status as keyof typeof engagementMetrics.value.status_breakdown] || 0
   return Math.round((count / total) * 100)
 }
 
@@ -526,7 +526,7 @@ const saveAttendanceEdit = async () => {
     if (index !== -1) {
       attendance.value[index] = {
         ...attendance.value[index],
-        status: editForm.value.status,
+        status: editForm.value.status as 'present' | 'absent' | 'partial' | 'late',
         participation_score: editForm.value.participation_score,
         questions_asked: editForm.value.questions_asked
       }

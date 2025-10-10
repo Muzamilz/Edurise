@@ -246,7 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useZoom } from '@/composables/useZoom'
-import type { LiveClass } from '@/types/api'
+// import type { LiveClass } from '@/types/api'
 
 interface Props {
   liveClassId: string
@@ -261,7 +261,7 @@ const {
   connectWebSocket,
   disconnectWebSocket,
   isConnected,
-  error
+  // error
 } = useZoom()
 
 // Local state

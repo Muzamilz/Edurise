@@ -305,7 +305,7 @@
     <div v-if="showScheduler" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
         <LiveClassScheduler
-          :live-class="editingClass"
+          :live-class="editingClass || undefined"
           @success="handleScheduleSuccess"
           @cancel="closeScheduler"
         />
@@ -352,7 +352,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useZoom } from '@/composables/useZoom'
 import { useCourse } from '@/composables/useCourse'
@@ -361,15 +361,15 @@ import LiveClassJoinInterface from '@/components/live-classes/LiveClassJoinInter
 import AttendanceTrackingDashboard from '@/components/live-classes/AttendanceTrackingDashboard.vue'
 import type { LiveClass } from '@/types/api'
 
-const router = useRouter()
+// const router = useRouter()
 const { user } = useAuth()
 const { courses } = useCourse()
 
 const {
   liveClasses,
-  upcomingClasses,
+  // upcomingClasses,
   liveClasses_active,
-  completedClasses,
+  // completedClasses,
   fetchLiveClasses,
   joinZoomMeeting,
   isLoading,
@@ -483,7 +483,7 @@ const watchRecording = (liveClass: LiveClass) => {
   }
 }
 
-const handleScheduleSuccess = (liveClass: LiveClass) => {
+const handleScheduleSuccess = (_liveClass: LiveClass) => {
   closeScheduler()
   fetchLiveClasses() // Refresh the list
 }

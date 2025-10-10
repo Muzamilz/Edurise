@@ -269,6 +269,17 @@ class AttendanceService:
                         status='present',
                         join_time=timezone.now()
                     )
+                    
+                    # Broadcast participant joined via WebSocket
+                    from .websocket_service import broadcast_participant_joined
+                    broadcast_participant_joined(
+                        str(live_class.id),
+                        {
+                            'user_id': str(student.id),
+                            'user_name': f"{student.first_name} {student.last_name}".strip() or student.email,
+                            'email': student.email
+                        }
+                    )
                 except User.DoesNotExist:
                     # Log unknown participant
                     pass
@@ -297,6 +308,17 @@ class AttendanceService:
                         attendance.duration_minutes = int(duration.total_seconds() / 60)
                     
                     attendance.save()
+                    
+                    # Broadcast participant left via WebSocket
+                    from .websocket_service import broadcast_participant_left
+                    broadcast_participant_left(
+                        str(live_class.id),
+                        {
+                            'user_id': str(student.id),
+                            'user_name': f"{student.first_name} {student.last_name}".strip() or student.email,
+                            'email': student.email
+                        }
+                    )
                 except (User.DoesNotExist, ClassAttendance.DoesNotExist):
                     pass
             
@@ -317,6 +339,14 @@ class AttendanceService:
                         duration = attendance.leave_time - attendance.join_time
                         attendance.duration_minutes = int(duration.total_seconds() / 60)
                         attendance.save()
+                
+                # Broadcast class ended via WebSocket
+                from .websocket_service import broadcast_class_status_update
+                broadcast_class_status_update(
+                    str(live_class.id),
+                    'completed',
+                    {'meeting_ended': True}
+                )
                         
         except LiveClass.DoesNotExist:
             # Meeting not found in our system

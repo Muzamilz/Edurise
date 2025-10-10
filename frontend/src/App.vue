@@ -5,6 +5,9 @@
       <router-view />
     </main>
     <AppFooter />
+    
+    <!-- AI Assistant Widget - Available on all pages -->
+    <AIAssistantWidget />
   </div>
 </template>
 
@@ -14,6 +17,7 @@ import { useTenant } from '@/composables/useTenant'
 import { useAuth } from '@/composables/useAuth'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import AIAssistantWidget from '@/components/landing/AIAssistantWidget.vue'
 
 const { initializeTenant, applyBranding } = useTenant()
 const { initialize } = useAuth()

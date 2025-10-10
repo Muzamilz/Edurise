@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+// import { computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import StudentDashboard from '@/components/dashboard/StudentDashboard.vue'
 import TeacherDashboard from '@/components/dashboard/TeacherDashboard.vue'
@@ -46,7 +46,7 @@ import AdminDashboard from '@/components/dashboard/AdminDashboard.vue'
 import SuperAdminDashboard from '@/components/dashboard/SuperAdminDashboard.vue'
 
 const { 
-  user,
+  // user,
   isTeacher, 
   isStaff,
   isSuperuser,
@@ -55,12 +55,12 @@ const {
   switchTenant 
 } = useAuth()
 
-const currentDashboard = computed(() => {
-  if (isSuperuser.value) return 'SuperAdmin'
-  if (isStaff.value) return 'Admin'
-  if (isTeacher.value) return 'Teacher'
-  return 'Student'
-})
+// const currentDashboard = computed(() => {
+//   if (isSuperuser.value) return 'SuperAdmin'
+//   if (isStaff.value) return 'Admin'
+//   if (isTeacher.value) return 'Teacher'
+//   return 'Student'
+// })
 
 const handleTenantSwitch = async (event: Event) => {
   const target = event.target as HTMLSelectElement

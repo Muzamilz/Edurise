@@ -204,7 +204,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useZoom } from '@/composables/useZoom'
 import { useCourse } from '@/composables/useCourse'
-import type { LiveClass, Course } from '@/types/api'
+import type { LiveClass } from '@/types/api'
 
 interface Props {
   liveClass?: LiveClass
