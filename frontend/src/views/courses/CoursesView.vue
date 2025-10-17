@@ -23,10 +23,28 @@
     </div>
 
     <!-- Featured Courses -->
-    <section v-if="featuredCourses.length > 0" class="featured-section">
+    <section class="featured-section">
       <div class="container">
         <h2 class="section-title">Featured Courses</h2>
-        <div class="featured-grid">
+        
+        <!-- Loading State -->
+        <div v-if="featuredLoading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading featured courses...</p>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="featuredError" class="error-state">
+          <div class="error-icon">⚠️</div>
+          <h3>Unable to load featured courses</h3>
+          <p>{{ featuredError.message }}</p>
+          <button @click="handleRetryFeatured" class="retry-btn">
+            Try Again
+          </button>
+        </div>
+        
+        <!-- Featured Courses Grid -->
+        <div v-else-if="featuredCourses && featuredCourses.length > 0" class="featured-grid">
           <CourseCard
             v-for="course in featuredCourses"
             :key="course.id"
@@ -37,14 +55,36 @@
             @continue="handleContinue"
           />
         </div>
+        
+        <!-- Empty State -->
+        <div v-else class="empty-state">
+          <div class="empty-icon">📚</div>
+          <h3>No featured courses available</h3>
+          <p>Check back later for featured content</p>
+        </div>
       </div>
     </section>
 
     <!-- Categories -->
-    <section v-if="categories.length > 0" class="categories-section">
+    <section class="categories-section">
       <div class="container">
         <h2 class="section-title">Browse by Category</h2>
-        <div class="categories-grid">
+        
+        <!-- Loading State -->
+        <div v-if="categoriesLoading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading categories...</p>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="categoriesError" class="error-state">
+          <div class="error-icon">⚠️</div>
+          <h3>Unable to load categories</h3>
+          <p>{{ categoriesError.message }}</p>
+        </div>
+        
+        <!-- Categories Grid -->
+        <div v-else-if="categories && categories.length > 0" class="categories-grid">
           <div
             v-for="category in categories"
             :key="category.category"
@@ -62,6 +102,13 @@
               </span>
             </p>
           </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div v-else class="empty-state">
+          <div class="empty-icon">📂</div>
+          <h3>No categories available</h3>
+          <p>Categories will appear as courses are added</p>
         </div>
       </div>
     </section>
@@ -98,30 +145,81 @@
         />
       </div>
     </section>
+    
+    <!-- Payment Modal -->
+    <PaymentModal
+      v-if="selectedCourse && selectedCourse.price !== undefined"
+      :show="showPaymentModal"
+      :course="{
+        id: selectedCourse.id,
+        title: selectedCourse.title,
+        price: selectedCourse.price || 0,
+        thumbnail: selectedCourse.thumbnail,
+        instructor: {
+          first_name: selectedCourse.instructor.first_name,
+          last_name: selectedCourse.instructor.last_name
+        }
+      }"
+      @close="handlePaymentClose"
+      @success="handlePaymentSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import CourseCard from '../../components/courses/CourseCard.vue'
 import CourseList from '../../components/courses/CourseList.vue'
-import { useCourseStore } from '../../stores/courses'
-import { useAuthStore } from '../../stores/auth'
+import PaymentModal from '../../components/payments/PaymentModal.vue'
+import { useApiData } from '../../composables/useApiData'
+import { useErrorHandler } from '../../composables/useErrorHandler'
+import { useAuth } from '../../composables/useAuth'
+import { useEnrollment } from '../../composables/useEnrollment'
+import { CachePresets } from '../../utils/apiCache'
 import type { Course } from '../../types/api'
 
 const router = useRouter()
-const courseStore = useCourseStore()
-const authStore = useAuthStore()
+const { isAuthenticated } = useAuth()
+const { handleApiError } = useErrorHandler()
+const { enrollInCourse, isEnrolledInCourse } = useEnrollment()
 
 // Local state
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
+const showPaymentModal = ref(false)
+const selectedCourse = ref<Course | null>(null)
 
-// Computed
-const featuredCourses = computed(() => courseStore.featuredCourses)
-const categories = computed(() => courseStore.categories)
-const isEnrolledInCourse = computed(() => courseStore.isEnrolledInCourse)
+// Featured courses from centralized API
+const { 
+  data: featuredCourses, 
+  loading: featuredLoading, 
+  error: featuredError,
+  refresh: refreshFeatured
+} = useApiData<Course[]>('/courses/featured/', {
+  ...CachePresets.courseCatalog,
+  transform: (data) => {
+    // Handle both direct array and response with data property
+    const courses = data.data || data
+    return Array.isArray(courses) ? courses.slice(0, 6) : []
+  }
+})
+
+// Course categories from centralized API
+const { 
+  data: categories, 
+  loading: categoriesLoading, 
+  error: categoriesError 
+} = useApiData<Array<{ category: string; count: number; avg_rating: number }>>('/courses/categories/', {
+  ...CachePresets.courseCatalog,
+  transform: (data) => {
+    // Handle both direct array and response with data property
+    const categoryData = data.data || data
+    return Array.isArray(categoryData) ? categoryData : []
+  }
+})
+
+// Computed - enrollment status is handled by useEnrollment composable
 
 // Methods
 const performSearch = () => {
@@ -145,18 +243,25 @@ const goToCourse = (course: Course) => {
 }
 
 const handleEnroll = async (course: Course) => {
-  if (!authStore.isAuthenticated) {
+  if (!isAuthenticated.value) {
     router.push('/auth/login')
     return
   }
 
   try {
-    await courseStore.enrollInCourse(course.id)
-    // Show success message or redirect
-    router.push(`/courses/${course.id}`)
+    // If course is free, enroll directly
+    if (!course.price || course.price === 0) {
+      await enrollInCourse(course.id, course)
+      router.push(`/courses/${course.id}`)
+    } else {
+      // For paid courses, show payment modal
+      selectedCourse.value = course
+      showPaymentModal.value = true
+    }
   } catch (error) {
-    console.error('Failed to enroll in course:', error)
-    // Show error message
+    handleApiError(error as any, {
+      context: { action: 'enroll_in_course', courseId: course.id }
+    })
   }
 }
 
@@ -181,19 +286,30 @@ const getCategoryIcon = (category: string) => {
   return icons[category] || '📚'
 }
 
-// Lifecycle
-onMounted(async () => {
-  // Load featured courses and categories
-  await Promise.all([
-    courseStore.fetchFeaturedCourses(),
-    courseStore.fetchCategories()
-  ])
-
-  // Load enrollment status if user is logged in
-  if (authStore.isAuthenticated) {
-    await courseStore.fetchEnrollments()
+// Payment modal handlers
+const handlePaymentSuccess = () => {
+  showPaymentModal.value = false
+  if (selectedCourse.value) {
+    router.push(`/courses/${selectedCourse.value.id}`)
   }
-})
+  selectedCourse.value = null
+}
+
+const handlePaymentClose = () => {
+  showPaymentModal.value = false
+  selectedCourse.value = null
+}
+
+// Error handling for featured courses and categories
+const handleRetryFeatured = async () => {
+  try {
+    await refreshFeatured()
+  } catch (error) {
+    handleApiError(error as any, { context: { action: 'retry_featured_courses' } })
+  }
+}
+
+// Lifecycle - data is loaded automatically by composables
 </script>
 
 <style scoped>
@@ -384,6 +500,76 @@ onMounted(async () => {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Loading and Error States */
+.loading-state, .error-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.error-state .error-icon, .empty-state .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-state h3, .empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.error-state p, .empty-state p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  max-width: 400px;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
 }
 
 /* Responsive */

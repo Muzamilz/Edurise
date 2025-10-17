@@ -1,275 +1,185 @@
-# Edurise LMS Platform
+# Edurise - Educational Platform
 
-A hybrid SaaS Learning Management System that combines the scalability of a public marketplace with the customization of private institutional portals. Built with Django REST Framework and Vue.js, featuring real-time teaching powered by Zoom integration and AI-driven learning assistance via Gemini API.
+A comprehensive educational platform built with Django (backend) and Vue.js (frontend), featuring course management, live classes, user authentication, and advanced analytics.
 
-## 🚀 Features
-
-### Core Functionality
-- **Multi-Tenant Architecture** - Support for both public marketplace and private institutional portals
-- **Real-Time Live Classes** - Zoom integration for live teaching sessions
-- **AI-Powered Learning** - Gemini API integration for tutoring, summaries, and quiz generation
-- **Comprehensive Course Management** - Full course lifecycle management
-- **Advanced Analytics** - Detailed attendance tracking and engagement metrics
-- **Flexible Payment System** - Support for Stripe, PayPal, and bank transfers
-- **Multi-Language Support** - English, Arabic (RTL), and Somali
-
-### Technical Features
-- **Modern Frontend** - Vue.js 3 with Vite, Animation.js, and Three.js
-- **Robust Backend** - Django REST Framework with multi-tenant support
-- **Real-Time Communication** - WebSocket integration for live updates
-- **Secure Authentication** - JWT tokens with Google OAuth support
-- **Scalable Architecture** - Redis caching, Celery background tasks
-- **Cloud Storage** - AWS S3/MinIO integration for recordings and files
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   External      │
-│   (Vue.js)      │◄──►│   (Django)      │◄──►│   Services      │
-│                 │    │                 │    │                 │
-│ • Vue 3 + Vite  │    │ • REST API      │    │ • Zoom API      │
-│ • Animation.js  │    │ • Multi-tenant  │    │ • Gemini AI     │
-│ • Three.js      │    │ • WebSockets    │    │ • Stripe/PayPal │
-│ • Pinia Store   │    │ • Celery Tasks  │    │ • AWS S3/MinIO  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-## 📋 Prerequisites
-
-- **Backend**: Python 3.11+, Django 4.2+, PostgreSQL/SQLite
-- **Frontend**: Node.js 18+, npm/yarn
-- **External Services**: Zoom API, Google OAuth, Gemini API
-- **Optional**: Redis, Celery, AWS S3/MinIO
-
-## 🛠️ Installation
-
-### 1. Clone the Repository
+## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/Muzamilz/Edurise.git
-cd Edurise
+# Clone the repository
+git clone <repository-url>
+cd edurise
+
+# Setup backend
+cd backend
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+
+# Setup frontend (in new terminal)
+cd frontend
+pnpm install
+pnpm run dev
 ```
 
-### 2. Backend Setup
+## 📁 Project Structure
 
+```
+edurise/
+├── 📂 backend/              # Django REST API backend
+│   ├── apps/               # Django applications
+│   ├── config/             # Django configuration
+│   ├── templates/          # HTML templates
+│   └── tests/              # Backend tests
+├── 📂 frontend/            # Vue.js frontend application
+│   ├── src/                # Source code
+│   ├── tests/              # Frontend tests
+│   └── dist/               # Build output
+├── 📂 docs/                # 📚 All documentation
+│   ├── backend/            # Backend-specific docs
+│   └── frontend/           # Frontend-specific docs
+├── 📂 scripts/             # 🔧 Utility and setup scripts
+│   ├── backend/            # Backend test scripts
+│   └── frontend/           # Frontend utility scripts
+├── 📂 archive/             # 🗄️ Archived/unused files
+└── 📂 .kiro/               # Kiro IDE configuration
+```
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Framework**: Django 4.x + Django REST Framework
+- **Database**: SQLite (development) / PostgreSQL (production)
+- **Cache**: Redis
+- **Authentication**: JWT tokens
+- **API Integration**: Zoom API for live classes
+
+### Frontend
+- **Framework**: Vue.js 3 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **State Management**: Pinia
+- **Testing**: Vitest + Playwright
+- **3D Graphics**: Three.js
+- **Animations**: Custom animation library
+
+## 📚 Documentation
+
+All documentation is organized in the `docs/` directory:
+
+- **[Setup Guide](docs/REPOSITORY_SETUP.md)** - Initial project setup
+- **[Data Setup](docs/DATA_SETUP_README.md)** - Database configuration
+- **[Redis Setup](docs/REDIS_SETUP.md)** - Redis configuration
+- **[Zoom Integration](docs/ZOOM_API_SETUP.md)** - Zoom API setup
+- **[Contributing](docs/CONTRIBUTING.md)** - Contribution guidelines
+
+### Backend Documentation
+- **[API Summary](docs/backend/CENTRALIZED_API_SUMMARY.md)** - API endpoints overview
+- **[Recommendation System](docs/backend/RECOMMENDATION_SYSTEM_SUMMARY.md)** - AI recommendations
+- **[Wishlist Implementation](docs/backend/WISHLIST_IMPLEMENTATION_SUMMARY.md)** - Wishlist features
+
+### Frontend Documentation
+- **[Integration Status](docs/frontend/INTEGRATION_STATUS.md)** - Current integration status
+- **[API Integration](docs/frontend/FRONTEND_API_INTEGRATION_STATUS.md)** - Frontend API usage
+- **[Troubleshooting](docs/frontend/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## 🔧 Scripts & Utilities
+
+All scripts are organized in the `scripts/` directory:
+
+### Setup Scripts
+```bash
+# Setup Redis (Windows)
+powershell scripts/setup_redis.ps1
+
+# Setup test data
+python scripts/setup_test_data.py
+```
+
+### Test Scripts
+```bash
+# Backend tests
+python scripts/backend/test_auth_endpoints.py
+python scripts/backend/test_wishlist_api.py
+
+# Frontend tests
+node scripts/frontend/run_ai_tests.js
+```
+
+### Utility Scripts
+```bash
+# Fix API endpoints
+python scripts/fix_api_endpoints.py
+
+# Clear frontend cache
+node scripts/frontend/clear-cache.js
+```
+
+## 🌟 Key Features
+
+- **👥 User Management**: Multi-role authentication (Students, Teachers, Admins)
+- **📚 Course Management**: Create, manage, and enroll in courses
+- **🎥 Live Classes**: Zoom integration for virtual classrooms
+- **📊 Analytics**: Comprehensive analytics and reporting
+- **💝 Wishlist System**: Course wishlist with analytics
+- **🤖 AI Recommendations**: Intelligent course recommendations
+- **📱 Responsive Design**: Mobile-first responsive interface
+- **🎨 Modern UI**: Beautiful interface with 3D animations
+- **🔒 Security**: JWT authentication with refresh tokens
+- **⚡ Performance**: Optimized for speed and scalability
+
+## 🚀 Development
+
+### Backend Development
 ```bash
 cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment file
-cp .env.example .env.development
-
-# Configure your environment variables in .env.development
-# See ZOOM_API_SETUP.md for detailed configuration
-
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Start development server
 python manage.py runserver
 ```
 
-### 3. Frontend Setup
-
+### Frontend Development
 ```bash
 cd frontend
-
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env.development
-
-# Configure your environment variables in .env.development
-
-# Start development server
-npm run dev
+pnpm run dev
 ```
 
-### 4. Test Zoom API Integration
-
+### Building for Production
 ```bash
+# Backend
 cd backend
+python manage.py collectstatic
 
-# Test Zoom API connection
-python manage.py test_zoom_api
-
-# Create a test meeting
-python manage.py test_zoom_api --create-meeting
+# Frontend
+cd frontend
+pnpm run build
 ```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-#### Backend (.env.development)
-```bash
-# Django Configuration
-SECRET_KEY=your-secret-key
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Database
-DATABASE_URL=sqlite:///db.sqlite3
-
-# Zoom API
-ZOOM_ACCOUNT_ID=your-zoom-account-id
-ZOOM_CLIENT_ID=your-zoom-client-id
-ZOOM_CLIENT_SECRET=your-zoom-client-secret
-
-# Gemini AI
-GEMINI_API_KEY=your-gemini-api-key
-
-# Payment Processing
-STRIPE_SECRET_KEY=sk_test_your-stripe-secret
-PAYPAL_CLIENT_ID=your-paypal-client-id
-```
-
-#### Frontend (.env.development)
-```bash
-# API Configuration
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-
-# Zoom SDK
-VITE_ZOOM_SDK_KEY=your-zoom-sdk-key
-
-# Payment Processing
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-key
-```
-
-See `ZOOM_API_SETUP.md` for detailed Zoom API configuration.
 
 ## 🧪 Testing
 
 ### Backend Tests
 ```bash
 cd backend
-
-# Run all tests
 python manage.py test
-
-# Run specific test suite
-python manage.py test tests.test_simple_live_class
-
-# Run with coverage
-coverage run --source='.' manage.py test
-coverage report
+pytest
 ```
 
 ### Frontend Tests
 ```bash
 cd frontend
-
-# Run all tests
-npm test
-
-# Run specific test file
-npm test tests/integration/live-class-integration.test.ts
-
-# Run with coverage
-npm run test:coverage
+pnpm run test
+pnpm run test:e2e
 ```
 
-## 🌿 Branching Strategy
+## 📝 License
 
-We follow a Git Flow branching model:
-
-- **`main`** - Production-ready code
-- **`production`** - Pre-production staging
-- **`development`** - Integration branch for features
-- **`feature/*`** - Individual feature branches
-
-### Workflow:
-1. Create feature branch from `development`
-2. Develop and test feature
-3. Create PR to `development`
-4. After testing, merge to `production`
-5. After validation, merge to `main`
-
-## 📚 API Documentation
-
-The API documentation is available at:
-- Development: `http://localhost:8000/api/docs/`
-- Swagger UI: `http://localhost:8000/api/swagger/`
-
-## 🚀 Deployment
-
-### Docker Deployment
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Manual Deployment
-1. Set up production environment variables
-2. Configure PostgreSQL database
-3. Set up Redis for caching and WebSockets
-4. Configure Nginx for static files and reverse proxy
-5. Set up SSL certificates
-6. Configure monitoring and logging
-
-## 📊 Monitoring
-
-- **Application Monitoring**: Sentry integration
-- **Performance Monitoring**: Django Debug Toolbar (development)
-- **Logging**: Structured logging with rotation
-- **Health Checks**: Built-in health check endpoints
+This project is licensed under the MIT License - see the [LICENSE](docs/LICENSE) file for details.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Please read our [Contributing Guide](docs/CONTRIBUTING.md) before submitting pull requests.
 
-### Code Standards
-- **Backend**: Follow PEP 8, use Black for formatting
-- **Frontend**: Follow Vue.js style guide, use Prettier for formatting
-- **Testing**: Maintain test coverage above 80%
-- **Documentation**: Update docs for new features
+## 📞 Support
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check the `/docs` folder for detailed guides
-- **Issues**: Create an issue on GitHub for bugs or feature requests
-- **Discussions**: Use GitHub Discussions for questions and ideas
-
-## 🙏 Acknowledgments
-
-- **Django REST Framework** - Powerful API framework
-- **Vue.js** - Progressive JavaScript framework
-- **Zoom API** - Video conferencing integration
-- **Google Gemini** - AI-powered features
-- **Three.js** - 3D visualizations
-- **Animation.js** - Smooth animations
-
-## 📈 Roadmap
-
-- [ ] Mobile app development (React Native)
-- [ ] Advanced AI features (personalized learning paths)
-- [ ] Integration with more video platforms
-- [ ] Advanced analytics and reporting
-- [ ] Blockchain-based certificates
-- [ ] VR/AR learning experiences
+For support and questions, please check our [Troubleshooting Guide](docs/frontend/TROUBLESHOOTING.md) or contact the development team.
 
 ---
 
-**Built with ❤️ for the future of education**
+**Built with ❤️ by the Edurise Team**

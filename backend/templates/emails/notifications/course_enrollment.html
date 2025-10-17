@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Enrollment Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .course-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #4f46e5;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎉 Welcome to Your New Course!</h1>
+        <p>{{ tenant.name|default:"Edurise LMS" }}</p>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{ user.get_full_name|default:user.email }},</p>
+        
+        <p>Congratulations! You have successfully enrolled in a new course.</p>
+        
+        <div class="course-info">
+            <h2>{{ notification.title }}</h2>
+            <p>{{ notification.message }}</p>
+        </div>
+        
+        <p>You can now access your course materials, participate in live classes, and track your progress.</p>
+        
+        {% if site_url %}
+        <a href="{{ site_url }}/courses" class="button">Start Learning</a>
+        {% endif %}
+        
+        <p>Happy learning!</p>
+        
+        <div class="footer">
+            <p>Enrolled on {{ notification.created_at|date:"F d, Y at g:i A" }}</p>
+            <p>You can manage your notification preferences in your account settings.</p>
+        </div>
+    </div>
+</body>
+</html>

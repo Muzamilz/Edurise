@@ -6,7 +6,24 @@
       <p>Continue your learning journey and discover new skills</p>
     </div>
 
-    <div class="dashboard-content">
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Loading your dashboard...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <h3>Unable to load dashboard</h3>
+      <p>{{ error.message }}</p>
+      <button @click="handleRetry" class="retry-btn">
+        Try Again
+      </button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div v-else class="dashboard-content">
       <!-- Student Stats -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -79,15 +96,15 @@
               <img :src="course.thumbnail || '/placeholder-course.jpg'" :alt="course.title" />
               <div class="progress-overlay">
                 <div class="progress-circle">
-                  <span>{{ course.progress }}%</span>
+                  <span>{{ course.progress || 0 }}%</span>
                 </div>
               </div>
             </div>
             <div class="course-info">
               <h3>{{ course.title }}</h3>
-              <p class="instructor">{{ course.instructor.first_name }} {{ course.instructor.last_name }}</p>
+              <p class="instructor">{{ course.instructor }}</p>
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: course.progress + '%' }"></div>
+                <div class="progress-fill" :style="{ width: (course.progress || 0) + '%' }"></div>
               </div>
               <div class="course-actions">
                 <router-link :to="`/courses/${course.id}/learn`" class="continue-btn">
@@ -142,10 +159,10 @@
             <img :src="course.thumbnail || '/placeholder-course.jpg'" :alt="course.title" />
             <div class="recommendation-info">
               <h3>{{ course.title }}</h3>
-              <p class="category">{{ formatCategory(course.category) }}</p>
+              <p class="category">{{ formatCategory((course as any).category || 'general') }}</p>
               <div class="rating">
                 <span class="stars">★★★★★</span>
-                <span class="rating-text">{{ course.average_rating?.toFixed(1) || 'New' }}</span>
+                <span class="rating-text">{{ course.rating?.toFixed(1) || 'New' }}</span>
               </div>
               <router-link :to="`/courses/${course.id}`" class="view-course-btn">
                 View Course
@@ -159,72 +176,95 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import { useDashboardData } from '@/composables/useDashboardData'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { fullName } = useAuth()
+const { studentData } = useDashboardData()
+const { handleApiError } = useErrorHandler()
 
-// Mock data - replace with real data from API
-const enrolledCoursesCount = ref(3)
-const completedCoursesCount = ref(1)
-const hoursLearned = ref(24)
-const weeklyHours = ref(8)
-const certificatesCount = ref(1)
-const completionRate = computed(() => 
-  enrolledCoursesCount.value > 0 ? Math.round((completedCoursesCount.value / enrolledCoursesCount.value) * 100) : 0
+// Real data from API
+const dashboardData = computed(() => studentData.data.value)
+const loading = computed(() => studentData.loading.value)
+const error = computed(() => studentData.error.value)
+
+// Computed properties for dashboard stats
+const enrolledCoursesCount = computed(() => 
+  dashboardData.value?.enrolledCourses?.length || 0
 )
 
-// Learning goals
-const weeklyGoal = ref(10)
-const weeklyProgress = ref(8)
-const monthlyGoal = ref(3)
-const monthlyProgress = ref(1)
+const completedCoursesCount = computed(() => 
+  dashboardData.value?.progressStats?.completedCourses || 0
+)
 
-// Mock current courses
-const currentCourses = ref([
-  {
-    id: '1',
-    title: 'Introduction to Web Development',
-    instructor: { first_name: 'John', last_name: 'Doe' },
-    thumbnail: '/placeholder-course.jpg',
-    progress: 65
-  },
-  {
-    id: '2',
-    title: 'Advanced JavaScript Concepts',
-    instructor: { first_name: 'Jane', last_name: 'Smith' },
-    thumbnail: '/placeholder-course.jpg',
-    progress: 30
-  }
-])
+const hoursLearned = computed(() => 
+  dashboardData.value?.hoursLearned || 0
+)
 
-// Mock recommended courses
-const recommendedCourses = ref([
-  {
-    id: '3',
-    title: 'React for Beginners',
-    category: 'technology',
-    thumbnail: '/placeholder-course.jpg',
-    average_rating: 4.8
-  },
-  {
-    id: '4',
-    title: 'UI/UX Design Fundamentals',
-    category: 'design',
-    thumbnail: '/placeholder-course.jpg',
-    average_rating: 4.6
-  }
-])
+const certificatesCount = computed(() => 
+  dashboardData.value?.certificates?.length || 0 // Using real certificates data from centralized API
+)
 
+const completionRate = computed(() => 
+  dashboardData.value?.progressStats?.averageProgress || 0
+)
+
+const weeklyHours = computed(() => {
+  // Calculate weekly hours from recent activity
+  const recentActivity = dashboardData.value?.recentActivity || []
+  const oneWeekAgo = new Date()
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+  
+  return recentActivity
+    .filter(activity => new Date(activity.timestamp) > oneWeekAgo)
+    .reduce((total, activity) => {
+      // Extract hours from activity description if available
+      const hoursMatch = activity.description.match(/(\d+\.?\d*)\s*hours?/i)
+      return total + (hoursMatch ? parseFloat(hoursMatch[1]) : 0)
+    }, 0)
+})
+
+// Learning goals (these could come from user preferences or be calculated)
+const weeklyGoal = computed(() => 10) // Could be from user settings
+const weeklyProgress = computed(() => weeklyHours.value)
+const monthlyGoal = computed(() => 3) // Could be from user settings
+const monthlyProgress = computed(() => {
+  const thisMonth = new Date().getMonth()
+  const thisYear = new Date().getFullYear()
+  
+  return dashboardData.value?.completedCourses?.filter(course => {
+    if (!(course as any).completedAt) return false
+    const completedDate = new Date((course as any).completedAt)
+    return completedDate.getMonth() === thisMonth && completedDate.getFullYear() === thisYear
+  }).length || 0
+})
+
+// Current courses (in progress)
+const currentCourses = computed(() => 
+  dashboardData.value?.currentCourses || []
+)
+
+// Recommended courses
+const recommendedCourses = computed(() => 
+  dashboardData.value?.recommendations || []
+)
+
+// Utility functions
 const formatCategory = (category: string) => {
   return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
 }
 
-onMounted(() => {
-  // Load student dashboard data
-  // useCourseStore().fetchEnrolledCourses()
-  // useCourseStore().fetchRecommendedCourses()
-})
+const handleRetry = async () => {
+  try {
+    await studentData.refresh()
+  } catch (err) {
+    handleApiError(err as any, { 
+      context: { action: 'retry_dashboard_load' } 
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -666,6 +706,80 @@ onMounted(() => {
   border-color: #f59e0b;
 }
 
+/* Loading and Error States */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(254, 243, 226, 0.3));
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.1);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.error-state .error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+}
+
+.error-state p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  max-width: 400px;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .student-dashboard {
@@ -688,6 +802,10 @@ onMounted(() => {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
+  }
+  
+  .loading-state, .error-state {
+    padding: 2rem 1rem;
   }
 }
 </style>

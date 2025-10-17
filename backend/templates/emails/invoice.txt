@@ -1,0 +1,44 @@
+INVOICE {{ invoice.invoice_number }}
+Edurise Learning Management System
+
+Bill To:
+{{ invoice.billing_name }}
+{{ invoice.billing_email }}
+{% if invoice.billing_address_line1 %}
+{{ invoice.billing_address_line1 }}
+{% if invoice.billing_address_line2 %}{{ invoice.billing_address_line2 }}{% endif %}
+{{ invoice.billing_city }}, {{ invoice.billing_state }} {{ invoice.billing_postal_code }}
+{{ invoice.billing_country }}
+{% endif %}
+
+Invoice Details:
+Invoice Date: {{ invoice.issue_date|date:"F d, Y" }}
+Due Date: {{ invoice.due_date|date:"F d, Y" }}
+Status: {{ invoice.get_status_display }}
+
+Items:
+{% for item in line_items %}
+{{ item.description }}
+Quantity: {{ item.quantity }} | Unit Price: ${{ item.unit_price }} | Total: ${{ item.total_price }}
+{% endfor %}
+
+Summary:
+Subtotal: ${{ invoice.subtotal }}
+{% if invoice.tax_amount > 0 %}Tax: ${{ invoice.tax_amount }}{% endif %}
+{% if invoice.discount_amount > 0 %}Discount: -${{ invoice.discount_amount }}{% endif %}
+Total: ${{ invoice.total_amount }} {{ invoice.currency }}
+
+{% if invoice.notes %}
+Notes:
+{{ invoice.notes }}
+{% endif %}
+
+{% if invoice.status != 'paid' %}
+To view and pay this invoice, visit: {{ frontend_url }}/invoice/{{ invoice.id }}
+{% endif %}
+
+Thank you for choosing Edurise!
+
+If you have any questions about this invoice, please contact us at support@edurise.com
+
+© {{ "now"|date:"Y" }} Edurise. All rights reserved.

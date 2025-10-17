@@ -2,145 +2,155 @@ import { api } from './api'
 import type { Payment, PaginatedResponse } from '../types/api'
 
 export class PaymentService {
-  // Payment operations
+  // Payment operations - using centralized API endpoints
   static async getPayments(): Promise<PaginatedResponse<Payment>> {
-    const response = await api.get<PaginatedResponse<Payment>>('/payments/payments/')
-    return response.data
+    const response = await api.get<PaginatedResponse<Payment>>('/v1/payments/')
+    return response.data.data
   }
 
   static async getPayment(id: string): Promise<Payment> {
-    const response = await api.get<Payment>(`/payments/payments/${id}/`)
-    return response.data
+    const response = await api.get<Payment>(`/v1/payments/${id}/`)
+    return response.data.data
   }
 
-  // Course purchase
-  static async purchaseCourse(courseId: string, paymentMethod: 'stripe' | 'paypal'): Promise<{
+  // Course purchase - using centralized API
+  static async purchaseCourse(courseId: string, amount: number, paymentMethod: 'stripe' | 'paypal' | 'bank_transfer'): Promise<{
     payment_id: string
     client_secret?: string // For Stripe
     approval_url?: string // For PayPal
+    order_id?: string // For PayPal
+    bank_transfer_details?: any // For Bank Transfer
   }> {
-    const response = await api.post('/payments/payments/purchase_course/', {
+    const response = await api.post('/v1/payments/create_course_payment/', {
       course_id: courseId,
+      amount: amount,
       payment_method: paymentMethod
     })
-    return response.data
+    return response.data.data
   }
 
-  // Stripe integration
-  static async createStripePaymentIntent(amount: number, currency: string = 'usd'): Promise<{
-    client_secret: string
-    payment_intent_id: string
-  }> {
-    const response = await api.post('/payments/payments/create_stripe_intent/', {
-      amount,
-      currency
+  // Payment confirmation - using centralized API
+  static async confirmPayment(paymentId: string): Promise<Payment> {
+    const response = await api.post<Payment>(`/v1/payments/${paymentId}/confirm_payment/`)
+    return response.data.data
+  }
+
+  // Bank transfer approval (admin only) - using centralized API
+  static async approveBankTransfer(paymentId: string): Promise<{ message: string }> {
+    const response = await api.post(`/v1/payments/${paymentId}/approve_bank_transfer/`)
+    return response.data.data
+  }
+
+  static async rejectBankTransfer(paymentId: string, reason?: string): Promise<{ message: string }> {
+    const response = await api.post(`/v1/payments/${paymentId}/reject_bank_transfer/`, {
+      reason: reason || ''
     })
-    return response.data
+    return response.data.data
   }
 
-  static async confirmStripePayment(paymentIntentId: string): Promise<Payment> {
-    const response = await api.post<Payment>('/payments/payments/confirm_stripe_payment/', {
-      payment_intent_id: paymentIntentId
-    })
-    return response.data
-  }
-
-  // PayPal integration
-  static async createPayPalOrder(amount: number, currency: string = 'USD'): Promise<{
-    order_id: string
-    approval_url: string
-  }> {
-    const response = await api.post('/payments/payments/create_paypal_order/', {
-      amount,
-      currency
-    })
-    return response.data
-  }
-
-  static async capturePayPalOrder(orderId: string): Promise<Payment> {
-    const response = await api.post<Payment>('/payments/payments/capture_paypal_order/', {
-      order_id: orderId
-    })
-    return response.data
-  }
-
-  // Refunds
-  static async requestRefund(paymentId: string, reason?: string): Promise<Payment> {
-    const response = await api.post<Payment>(`/payments/payments/${paymentId}/refund/`, {
-      reason
-    })
-    return response.data
-  }
-
-  // Payment history
+  // Payment history - using centralized API
   static async getUserPaymentHistory(): Promise<PaginatedResponse<Payment>> {
-    const response = await api.get<PaginatedResponse<Payment>>('/payments/payments/my_payments/')
-    return response.data
+    const response = await api.get<PaginatedResponse<Payment>>('/v1/payments/')
+    return response.data.data
   }
 
-  // Revenue analytics (for admins/teachers)
-  static async getRevenueStats(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<{
-    total_revenue: number
-    total_transactions: number
-    successful_payments: number
-    failed_payments: number
-    refunded_amount: number
-    revenue_by_period: Array<{
-      period: string
-      revenue: number
-      transactions: number
-    }>
-  }> {
-    const response = await api.get('/payments/payments/revenue_stats/', {
-      params: { timeframe }
-    })
-    return response.data
+  // Payment status updates and notifications - using centralized API
+  static async getPaymentNotifications(): Promise<any[]> {
+    const response = await api.get('/v1/notifications/')
+    return response.data.data.results.filter((n: any) => 
+      ['payment_success', 'payment_failed', 'payment_overdue'].includes(n.type)
+    )
   }
 
-  // Subscription management (if applicable)
+  // Subscription management - using centralized API
   static async getSubscriptions(): Promise<PaginatedResponse<any>> {
-    const response = await api.get<PaginatedResponse<any>>('/payments/subscriptions/')
-    return response.data
+    const response = await api.get<PaginatedResponse<any>>('/v1/subscriptions/')
+    return response.data.data
   }
 
-  static async createSubscription(planId: string): Promise<any> {
-    const response = await api.post('/payments/subscriptions/', {
-      plan_id: planId
+  static async createSubscription(plan: string, billingCycle: 'monthly' | 'yearly' = 'monthly', paymentMethod: 'stripe' | 'paypal' | 'bank_transfer' = 'stripe'): Promise<any> {
+    const response = await api.post('/v1/subscriptions/create_subscription/', {
+      plan,
+      billing_cycle: billingCycle,
+      payment_method: paymentMethod
     })
-    return response.data
+    return response.data.data
   }
 
   static async cancelSubscription(subscriptionId: string): Promise<any> {
-    const response = await api.post(`/payments/subscriptions/${subscriptionId}/cancel/`)
-    return response.data
+    const response = await api.post(`/v1/subscriptions/${subscriptionId}/cancel_subscription/`)
+    return response.data.data
   }
 
-  // Payment methods management
-  static async getPaymentMethods(): Promise<any[]> {
-    const response = await api.get('/payments/payment_methods/')
-    return response.data
+  static async renewSubscription(subscriptionId: string): Promise<any> {
+    const response = await api.post(`/v1/subscriptions/${subscriptionId}/renew_subscription/`)
+    return response.data.data
   }
 
-  static async addPaymentMethod(paymentMethodData: any): Promise<any> {
-    const response = await api.post('/payments/payment_methods/', paymentMethodData)
-    return response.data
+  // Subscription plans - using centralized API
+  static async getSubscriptionPlans(): Promise<any[]> {
+    const response = await api.get('/v1/subscription-plans/')
+    return response.data.data.results
   }
 
-  static async removePaymentMethod(paymentMethodId: string): Promise<void> {
-    await api.delete(`/payments/payment_methods/${paymentMethodId}/`)
+  static async getSubscriptionPlansComparison(): Promise<any> {
+    const response = await api.get('/v1/subscription-plans/compare/')
+    return response.data.data
   }
 
-  // Invoices
+  // Billing automation - using centralized API
+  static async getBillingAutomation(): Promise<any> {
+    const response = await api.get('/v1/subscriptions/billing_automation/')
+    return response.data.data
+  }
+
+  // Payment analytics - using centralized API
+  static async getPaymentAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
+    const response = await api.get('/v1/payments/payment_analytics/', {
+      params: { timeframe }
+    })
+    return response.data.data
+  }
+
+  // Invoice analytics - using centralized API
+  static async getInvoiceAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
+    const response = await api.get('/v1/invoices/invoice_analytics/', {
+      params: { timeframe }
+    })
+    return response.data.data
+  }
+
+  // Invoices - using centralized API
   static async getInvoices(): Promise<PaginatedResponse<any>> {
-    const response = await api.get<PaginatedResponse<any>>('/payments/invoices/')
-    return response.data
+    const response = await api.get<PaginatedResponse<any>>('/v1/invoices/')
+    return response.data.data
+  }
+
+  static async getInvoice(invoiceId: string): Promise<any> {
+    const response = await api.get(`/v1/invoices/${invoiceId}/`)
+    return response.data.data
+  }
+
+  static async sendInvoice(invoiceId: string): Promise<{ message: string }> {
+    const response = await api.post(`/v1/invoices/${invoiceId}/send_invoice/`)
+    return response.data.data
+  }
+
+  static async markInvoicePaid(invoiceId: string): Promise<{ message: string }> {
+    const response = await api.post(`/v1/invoices/${invoiceId}/mark_paid/`)
+    return response.data.data
+  }
+
+  static async getOverdueInvoices(): Promise<any[]> {
+    const response = await api.get('/v1/invoices/overdue_invoices/')
+    return response.data.data
   }
 
   static async downloadInvoice(invoiceId: string): Promise<Blob> {
-    const response = await api.get(`/payments/invoices/${invoiceId}/download/`, {
+    const response = await api.get(`/v1/invoices/${invoiceId}/download/`, {
       responseType: 'blob'
     })
-    return response.data
+    return response.data.data
   }
 
   // Utility methods

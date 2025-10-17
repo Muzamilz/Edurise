@@ -31,7 +31,8 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null
 
       const response = await api.post<AuthResponse>('/accounts/auth/login/', credentials)
-      const { user: userData, tokens } = response.data
+      const responseData = response.data as any
+      const { user: userData, tokens } = responseData
 
       // Store user data and tokens
       user.value = userData
@@ -60,7 +61,8 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null
 
       const response = await api.post<AuthResponse>('/accounts/auth/register/', userData)
-      const { user: newUser, tokens } = response.data
+      const responseData = response.data as any
+      const { user: newUser, tokens } = responseData
 
       // Store user data and tokens
       user.value = newUser
@@ -117,15 +119,31 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('No refresh token available')
       }
 
-      const response = await api.post<{ access: string }>('/accounts/auth/token/refresh/', {
+      const response = await api.post<{ access: string; refresh?: string }>('/accounts/auth/token/refresh/', {
         refresh: refreshToken.value
       })
 
-      accessToken.value = response.data.access
-      localStorage.setItem('access_token', response.data.access)
-      
-      return true
+      // Handle both direct response and wrapped response
+      const responseData = response.data as any
+      const newAccessToken = responseData.access
+      const newRefreshToken = responseData.refresh
+
+      if (newAccessToken) {
+        accessToken.value = newAccessToken
+        localStorage.setItem('access_token', newAccessToken)
+
+        // Update refresh token if provided
+        if (newRefreshToken) {
+          refreshToken.value = newRefreshToken
+          localStorage.setItem('refresh_token', newRefreshToken)
+        }
+
+        return true
+      } else {
+        throw new Error('No access token in refresh response')
+      }
     } catch (err) {
+      console.error('Token refresh failed:', err)
       // Refresh failed, logout user
       await logout()
       return false
@@ -172,7 +190,8 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post<AuthResponse>('/accounts/auth/google/', {
         access_token: googleAccessToken
       })
-      const { user: userData, tokens } = response.data
+      const responseData = response.data as any
+      const { user: userData, tokens } = responseData
 
       // Store user data and tokens
       user.value = userData
@@ -198,8 +217,8 @@ export const useAuthStore = defineStore('auth', () => {
   const loadUserTenants = async (): Promise<void> => {
     try {
       const response = await api.get<Organization[]>('/accounts/users/tenants/')
-      userTenants.value = response.data
-      
+      userTenants.value = response.data as unknown as Organization[]
+
       // Set current tenant if not set
       if (!currentTenant.value && userTenants.value.length > 0) {
         currentTenant.value = userTenants.value[0]
@@ -222,7 +241,8 @@ export const useAuthStore = defineStore('auth', () => {
         tenant_id: tenantId
       })
 
-      const { tenant, tokens } = response.data
+      const responseData = response.data as any
+      const { tenant, tokens } = responseData
 
       // Update tokens and tenant
       accessToken.value = tokens.access
@@ -245,7 +265,7 @@ export const useAuthStore = defineStore('auth', () => {
   const getCurrentUser = async (): Promise<void> => {
     try {
       const response = await api.get<User>('/accounts/users/me/')
-      user.value = response.data
+      user.value = response.data as unknown as User
       localStorage.setItem('user', JSON.stringify(response.data))
     } catch (err) {
       console.warn('Failed to get current user:', err)
@@ -264,7 +284,7 @@ export const useAuthStore = defineStore('auth', () => {
         accessToken.value = storedToken
         refreshToken.value = storedRefreshToken
         user.value = JSON.parse(storedUser)
-        
+
         // Load user tenants and set current tenant
         loadUserTenants().then(() => {
           if (storedTenantId) {
@@ -294,7 +314,7 @@ export const useAuthStore = defineStore('auth', () => {
     userTenants: readonly(userTenants),
     isLoading: readonly(isLoading),
     error: readonly(error),
-    
+
     // Getters
     isAuthenticated,
     isTeacher,
@@ -302,7 +322,7 @@ export const useAuthStore = defineStore('auth', () => {
     isStaff,
     isSuperuser,
     fullName,
-    
+
     // Actions
     login,
     register,

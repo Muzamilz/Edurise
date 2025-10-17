@@ -35,6 +35,14 @@ class Course(TenantAwareModel):
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='other')
     tags = models.JSONField(default=list, blank=True)
     thumbnail = models.ImageField(upload_to='course_thumbnails/', blank=True, null=True)
+    # New centralized file reference
+    thumbnail_file = models.ForeignKey(
+        'files.FileUpload',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='course_thumbnails'
+    )
     
     # Pricing and access
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -99,6 +107,8 @@ class LiveClass(models.Model):
     # Recording
     recording_url = models.URLField(blank=True)
     recording_password = models.CharField(max_length=50, blank=True)
+    has_recording = models.BooleanField(default=False)
+    recording_processed = models.BooleanField(default=False)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -110,6 +120,121 @@ class LiveClass(models.Model):
     
     def __str__(self):
         return f"{self.course.title} - {self.title}"
+    
+    @property
+    def is_accessible_to_user(self, user):
+        """Check if user can access this live class"""
+        if self.course.instructor == user or user.is_staff:
+            return True
+        
+        # Check if user is enrolled in the course
+        return Enrollment.objects.filter(
+            student=user,
+            course=self.course,
+            status='active'
+        ).exists()
+
+
+class ClassRecording(models.Model):
+    """Class recording files with access control"""
+    
+    RECORDING_TYPE_CHOICES = [
+        ('zoom_cloud', 'Zoom Cloud Recording'),
+        ('zoom_local', 'Zoom Local Recording'),
+        ('manual_upload', 'Manual Upload'),
+        ('processed', 'Processed Recording'),
+    ]
+    
+    ACCESS_LEVEL_CHOICES = [
+        ('enrolled', 'Enrolled Students Only'),
+        ('public', 'Public Access'),
+        ('instructor', 'Instructor Only'),
+        ('premium', 'Premium Students Only'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    live_class = models.ForeignKey(LiveClass, on_delete=models.CASCADE, related_name='recordings')
+    
+    # Recording metadata
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    recording_type = models.CharField(max_length=20, choices=RECORDING_TYPE_CHOICES, default='zoom_cloud')
+    
+    # File information
+    file_url = models.URLField()
+    file_size_mb = models.PositiveIntegerField(default=0)
+    duration_minutes = models.PositiveIntegerField(default=0)
+    file_format = models.CharField(max_length=10, default='mp4')
+    
+    # Access control
+    access_level = models.CharField(max_length=20, choices=ACCESS_LEVEL_CHOICES, default='enrolled')
+    password_protected = models.BooleanField(default=False)
+    access_password = models.CharField(max_length=100, blank=True)
+    
+    # Processing status
+    is_processed = models.BooleanField(default=False)
+    processing_status = models.CharField(max_length=50, default='pending')
+    thumbnail_url = models.URLField(blank=True)
+    
+    # Analytics
+    view_count = models.PositiveIntegerField(default=0)
+    download_count = models.PositiveIntegerField(default=0)
+    
+    # Timestamps
+    recorded_at = models.DateTimeField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'class_recordings'
+        ordering = ['-recorded_at']
+    
+    def __str__(self):
+        return f"{self.live_class.title} - {self.title}"
+    
+    def can_access(self, user):
+        """Check if user can access this recording"""
+        if self.access_level == 'instructor':
+            return self.live_class.course.instructor == user or user.is_staff
+        
+        if self.access_level == 'public':
+            return True
+        
+        if self.access_level == 'enrolled':
+            return (
+                self.live_class.course.instructor == user or
+                user.is_staff or
+                Enrollment.objects.filter(
+                    student=user,
+                    course=self.live_class.course,
+                    status='active'
+                ).exists()
+            )
+        
+        if self.access_level == 'premium':
+            # Check if user has premium access (implement based on your subscription logic)
+            return (
+                self.live_class.course.instructor == user or
+                user.is_staff or
+                Enrollment.objects.filter(
+                    student=user,
+                    course=self.live_class.course,
+                    status='active'
+                    # Add premium subscription check here
+                ).exists()
+            )
+        
+        return False
+    
+    def increment_view_count(self):
+        """Increment view count"""
+        self.view_count += 1
+        self.save(update_fields=['view_count'])
+    
+    def increment_download_count(self):
+        """Increment download count"""
+        self.download_count += 1
+        self.save(update_fields=['download_count'])
 
 
 class CourseModule(models.Model):
@@ -193,6 +318,116 @@ class CourseLicense(models.Model):
     
     def __str__(self):
         return f"{self.course.title} - {self.license_type}"
+
+
+class Wishlist(TenantAwareModel):
+    """Student wishlist for courses"""
+    
+    PRIORITY_CHOICES = [
+        (1, 'Low'),
+        (2, 'Medium'),
+        (3, 'High'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlist_items')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='wishlist_items')
+    
+    # Wishlist metadata
+    priority = models.PositiveIntegerField(choices=PRIORITY_CHOICES, default=2)
+    notes = models.TextField(blank=True, help_text="Personal notes about this course")
+    
+    # Notification preferences
+    notify_price_change = models.BooleanField(default=True)
+    notify_course_updates = models.BooleanField(default=True)
+    notify_enrollment_opening = models.BooleanField(default=True)
+    
+    # Timestamps
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'wishlists'
+        unique_together = ['user', 'course', 'tenant']
+        ordering = ['-priority', '-added_at']
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.course.title}"
+    
+    @property
+    def is_course_available(self):
+        """Check if course is still available for enrollment"""
+        if not self.course.is_public:
+            return False
+        
+        if self.course.max_students:
+            current_enrollments = self.course.enrollments.filter(status='active').count()
+            return current_enrollments < self.course.max_students
+        
+        return True
+    
+    @property
+    def price_at_addition(self):
+        """Get the price when item was added to wishlist (for price change tracking)"""
+        # This could be enhanced to track price history
+        return self.course.price
+    
+    def is_enrolled(self):
+        """Check if user is already enrolled in this course"""
+        return Enrollment.objects.filter(
+            student=self.user,
+            course=self.course,
+            tenant=self.tenant
+        ).exists()
+
+
+class RecommendationInteraction(TenantAwareModel):
+    """Track user interactions with course recommendations"""
+    
+    INTERACTION_TYPES = [
+        ('view', 'Viewed Recommendation'),
+        ('click', 'Clicked on Course'),
+        ('wishlist', 'Added to Wishlist'),
+        ('enroll', 'Enrolled in Course'),
+        ('dismiss', 'Dismissed Recommendation'),
+    ]
+    
+    ALGORITHM_TYPES = [
+        ('collaborative', 'Collaborative Filtering'),
+        ('content_based', 'Content-Based Filtering'),
+        ('popularity', 'Popularity-Based'),
+        ('hybrid', 'Hybrid Algorithm'),
+        ('wishlist_based', 'Wishlist-Based'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recommendation_interactions')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='recommendation_interactions')
+    
+    interaction_type = models.CharField(max_length=20, choices=INTERACTION_TYPES)
+    algorithm_used = models.CharField(max_length=20, choices=ALGORITHM_TYPES, null=True, blank=True)
+    recommendation_score = models.FloatField(null=True, blank=True)
+    recommendation_reason = models.TextField(blank=True)
+    
+    # Context information
+    session_id = models.CharField(max_length=100, blank=True)
+    page_context = models.CharField(max_length=100, blank=True)  # e.g., 'homepage', 'course_detail', 'wishlist'
+    position_in_list = models.PositiveIntegerField(null=True, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'recommendation_interactions'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['course', 'interaction_type']),
+            models.Index(fields=['algorithm_used', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.interaction_type} - {self.course.title}"
 
 
 class Enrollment(TenantAwareModel):

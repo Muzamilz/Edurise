@@ -39,9 +39,9 @@ export const useTenant = () => {
       error.value = null
 
       const response = await api.get<Organization>(`/accounts/organizations/by_subdomain/?subdomain=${subdomain}`)
-      currentTenant.value = response.data
+      currentTenant.value = response.data.data
       
-      return response.data
+      return response.data.data
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to load tenant information'
       currentTenant.value = null

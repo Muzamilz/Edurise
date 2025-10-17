@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     CourseViewSet, LiveClassViewSet, CourseModuleViewSet,
-    CourseReviewViewSet, EnrollmentViewSet
+    CourseReviewViewSet, EnrollmentViewSet, WishlistViewSet, RecommendationViewSet
 )
 
 router = DefaultRouter()
@@ -11,6 +11,8 @@ router.register(r'live-classes', LiveClassViewSet, basename='liveclass')
 router.register(r'modules', CourseModuleViewSet, basename='coursemodule')
 router.register(r'reviews', CourseReviewViewSet, basename='coursereview')
 router.register(r'enrollments', EnrollmentViewSet, basename='enrollment')
+router.register(r'wishlist', WishlistViewSet, basename='wishlist')
+router.register(r'recommendations', RecommendationViewSet, basename='recommendation')
 
 urlpatterns = [
     path('', include(router.urls)),

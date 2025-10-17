@@ -71,7 +71,7 @@ export class WebSocketService {
           this.isConnecting = false
           this.stopHeartbeat()
           this.disconnectionHandlers.forEach(handler => handler())
-          
+
           if (!event.wasClean && this.shouldReconnect()) {
             this.scheduleReconnect()
           }
@@ -187,9 +187,9 @@ export class WebSocketService {
   private scheduleReconnect(): void {
     this.reconnectAttempts++
     const delay = this.config.reconnectInterval! * Math.pow(2, this.reconnectAttempts - 1)
-    
+
     console.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`)
-    
+
     setTimeout(() => {
       if (!this.isConnected) {
         this.connect().catch(error => {

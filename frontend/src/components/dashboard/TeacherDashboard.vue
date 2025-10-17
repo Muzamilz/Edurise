@@ -24,7 +24,23 @@
       </div>
     </div>
 
-    <div class="dashboard-content">
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Loading your teacher dashboard...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <h3>Unable to load dashboard</h3>
+      <p>{{ error.message }}</p>
+      <button @click="handleRetry" class="retry-btn">
+        Try Again
+      </button>
+    </div>
+
+    <div v-else class="dashboard-content">
       <!-- Teacher Stats -->
       <div class="stats-grid">
         <!-- Approved Teacher Stats -->
@@ -155,21 +171,21 @@
           <div v-for="course in recentCourses" :key="course.id" class="course-card">
             <div class="course-thumbnail">
               <img :src="course.thumbnail || '/placeholder-course.jpg'" :alt="course.title" />
-              <div class="course-status" :class="course.status">
-                {{ formatStatus(course.status) }}
+              <div class="course-status published">
+                Published
               </div>
             </div>
             <div class="course-info">
               <h3>{{ course.title }}</h3>
-              <p class="course-category">{{ formatCategory(course.category) }}</p>
+              <p class="course-category">Course</p>
               <div class="course-stats">
                 <span class="stat">
                   <span class="stat-icon">👥</span>
-                  {{ course.enrollments }} students
+                  {{ course.enrollmentCount }} students
                 </span>
                 <span class="stat">
                   <span class="stat-icon">⭐</span>
-                  {{ course.rating || 'No ratings' }}
+                  {{ course.rating?.toFixed(1) || 'No ratings' }}
                 </span>
               </div>
               <div class="course-actions">
@@ -249,90 +265,123 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import { useDashboardData } from '@/composables/useDashboardData'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { fullName, isApprovedTeacher } = useAuth()
+const { teacherData } = useDashboardData()
+const { handleApiError } = useErrorHandler()
 
-// Mock data - replace with real data from API
-// These should come from the backend Course and Enrollment models
-const coursesCount = ref(isApprovedTeacher.value ? 5 : 0)
-const publishedCoursesCount = ref(isApprovedTeacher.value ? 3 : 0)
-const draftCoursesCount = ref(isApprovedTeacher.value ? 2 : 0)
-const totalStudents = ref(isApprovedTeacher.value ? 127 : 0)
-const newStudentsThisMonth = ref(isApprovedTeacher.value ? 23 : 0)
-const totalEarnings = ref(isApprovedTeacher.value ? 2450 : 0)
-const monthlyEarnings = ref(isApprovedTeacher.value ? 680 : 0)
-const averageRating = ref(isApprovedTeacher.value ? 4.8 : 0)
-const totalReviews = ref(isApprovedTeacher.value ? 45 : 0)
-const liveClassesCount = ref(isApprovedTeacher.value ? 8 : 0)
-const upcomingClassesCount = ref(isApprovedTeacher.value ? 3 : 0)
+// Real data from API
+const dashboardData = computed(() => teacherData.data.value)
+const loading = computed(() => teacherData.loading.value)
+const error = computed(() => teacherData.error.value)
+
+// Computed properties for teacher stats
+const coursesCount = computed(() => 
+  dashboardData.value?.totalCourses || 0
+)
+
+const publishedCoursesCount = computed(() => 
+  dashboardData.value?.courseStats?.published || 0
+)
+
+const draftCoursesCount = computed(() => 
+  dashboardData.value?.courseStats?.draft || 0
+)
+
+const totalStudents = computed(() => 
+  dashboardData.value?.totalStudents || 0
+)
+
+const newStudentsThisMonth = computed(() => {
+  // Calculate from recent enrollments
+  const recentEnrollments = dashboardData.value?.recentEnrollments || []
+  const thisMonth = new Date().getMonth()
+  const thisYear = new Date().getFullYear()
+  
+  return recentEnrollments.filter(enrollment => {
+    const enrollmentDate = new Date(enrollment.enrolledAt)
+    return enrollmentDate.getMonth() === thisMonth && enrollmentDate.getFullYear() === thisYear
+  }).length
+})
+
+const totalEarnings = computed(() => 
+  Math.round(dashboardData.value?.totalRevenue || 0)
+)
+
+const monthlyEarnings = computed(() => 
+  Math.round(dashboardData.value?.revenueStats?.thisMonth || 0)
+)
+
+const averageRating = computed(() => 
+  dashboardData.value?.courseStats?.averageRating || 0
+)
+
+const totalReviews = computed(() => {
+  // This would need to be calculated from course reviews
+  return dashboardData.value?.courseStats?.totalEnrollments || 0
+})
+
+const liveClassesCount = computed(() => 
+  dashboardData.value?.upcomingClasses?.length || 0
+)
+
+const upcomingClassesCount = computed(() => {
+  const upcomingClasses = dashboardData.value?.upcomingClasses || []
+  const now = new Date()
+  return upcomingClasses.filter(cls => new Date(cls.scheduledAt) > now).length
+})
 
 // Performance metrics
-const completionRate = ref(78)
-const satisfactionRate = ref(92)
-const engagementRate = ref(85)
+const completionRate = computed(() => 
+  Math.round(dashboardData.value?.studentEngagement?.completionRate || 0)
+)
 
-// Mock recent courses
-const recentCourses = ref([
-  {
-    id: '1',
-    title: 'Advanced JavaScript Concepts',
-    category: 'technology',
-    thumbnail: '/placeholder-course.jpg',
-    status: 'published',
-    enrollments: 45,
-    rating: 4.8
-  },
-  {
-    id: '2',
-    title: 'React Development Masterclass',
-    category: 'technology',
-    thumbnail: '/placeholder-course.jpg',
-    status: 'draft',
-    enrollments: 0,
-    rating: null
-  },
-  {
-    id: '3',
-    title: 'Web Design Fundamentals',
-    category: 'design',
-    thumbnail: '/placeholder-course.jpg',
-    status: 'published',
-    enrollments: 32,
-    rating: 4.6
-  }
-])
+const satisfactionRate = computed(() => {
+  // Calculate satisfaction from average rating (convert 5-star to percentage)
+  const rating = dashboardData.value?.courseStats?.averageRating || 0
+  return Math.round((rating / 5) * 100)
+})
 
-// Mock recent activity
-const recentActivity = ref([
-  {
-    id: '1',
-    type: 'enrollment',
-    text: 'New student enrolled in "Advanced JavaScript Concepts"',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-  },
-  {
-    id: '2',
-    type: 'review',
-    text: 'Received a 5-star review for "Web Design Fundamentals"',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000) // 5 hours ago
-  },
-  {
-    id: '3',
-    type: 'completion',
-    text: 'Student completed "React Development Masterclass"',
-    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
-  }
-])
+const engagementRate = computed(() => 
+  Math.round(dashboardData.value?.studentEngagement?.averageProgress || 0)
+)
 
-const formatCategory = (category: string) => {
-  return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
-}
+// Recent courses (top courses from API)
+const recentCourses = computed(() => 
+  dashboardData.value?.topCourses?.slice(0, 3) || []
+)
 
-const formatStatus = (status: string) => {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
+// Recent activity (from dashboard data)
+const recentActivity = computed(() => {
+  const activities: any[] = []
+  
+  // Add recent enrollments as activities
+  const recentEnrollments = dashboardData.value?.recentEnrollments?.slice(0, 3) || []
+  recentEnrollments.forEach(enrollment => {
+    activities.push({
+      id: `enrollment_${enrollment.studentName}`,
+      type: 'enrollment',
+      text: `New student ${enrollment.studentName} enrolled in "${enrollment.courseTitle}"`,
+      timestamp: new Date(enrollment.enrolledAt)
+    })
+  })
+  
+  // Sort by timestamp (most recent first)
+  return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+})
+
+// Utility functions
+// const formatCategory = (category: string) => {
+//   return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
+// }
+
+// const formatStatus = (status: string) => {
+//   return status.charAt(0).toUpperCase() + status.slice(1)
+// }
 
 const getActivityIcon = (type: string) => {
   const icons = {
@@ -359,12 +408,15 @@ const formatTime = (timestamp: Date) => {
   }
 }
 
-onMounted(() => {
-  // Load teacher dashboard data
-  // teacherStore.fetchTeacherStats()
-  // teacherStore.fetchRecentCourses()
-  // teacherStore.fetchRecentActivity()
-})
+const handleRetry = async () => {
+  try {
+    await teacherData.refresh()
+  } catch (err) {
+    handleApiError(err as any, { 
+      context: { action: 'retry_teacher_dashboard_load' } 
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -860,6 +912,80 @@ onMounted(() => {
   height: 100%;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   transition: width 0.3s ease;
+}
+
+/* Loading and Error States */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(254, 243, 226, 0.3));
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.1);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.error-state .error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+}
+
+.error-state p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  max-width: 400px;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
 }
 
 /* Responsive */

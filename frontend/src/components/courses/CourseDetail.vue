@@ -157,7 +157,7 @@
             <p>{{ course.description }}</p>
           </section>
           
-          <section class="content-section" v-if="modules.length > 0">
+          <section class="content-section" v-if="modules && modules.length > 0">
             <h3>Course Curriculum</h3>
             <div class="modules-list">
               <div 
@@ -176,7 +176,7 @@
             </div>
           </section>
           
-          <section class="content-section" v-if="liveClasses.length > 0">
+          <section class="content-section" v-if="liveClasses && liveClasses.length > 0">
             <h3>Live Classes</h3>
             <div class="live-classes-list">
               <div 
@@ -285,7 +285,7 @@
               <p class="review-comment">{{ review.comment }}</p>
             </div>
             
-            <div v-if="reviews.length === 0" class="no-reviews">
+            <div v-if="!reviews || reviews.length === 0" class="no-reviews">
               <p>No reviews yet. Be the first to review this course!</p>
             </div>
           </div>
@@ -299,7 +299,22 @@
             <h3>About the Instructor</h3>
             <div class="instructor-details">
               <h4>{{ course.instructor.first_name }} {{ course.instructor.last_name }}</h4>
-              <p>Experienced instructor with expertise in {{ formatCategory(course.category) }}.</p>
+              <p v-if="(course.instructor as any)?.bio">{{ (course.instructor as any).bio }}</p>
+              <p v-else>Experienced instructor with expertise in {{ formatCategory(course.category) }}.</p>
+              <div class="instructor-stats" v-if="instructorStats">
+                <div class="stat-item">
+                  <span class="stat-number">{{ instructorStats.total_courses }}</span>
+                  <span class="stat-label">Courses</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-number">{{ instructorStats.total_students }}</span>
+                  <span class="stat-label">Students</span>
+                </div>
+                <div class="stat-item" v-if="instructorStats.avg_rating > 0">
+                  <span class="stat-number">{{ instructorStats.avg_rating.toFixed(1) }}</span>
+                  <span class="stat-label">Rating</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -312,7 +327,22 @@
     <p>Loading course details...</p>
   </div>
   
+  <div v-else-if="courseError" class="error-state">
+    <div class="error-icon">⚠️</div>
+    <h3>Unable to load course</h3>
+    <p>{{ courseError.message }}</p>
+    <div class="error-actions">
+      <button @click="handleRetry" class="btn btn-primary">
+        Try Again
+      </button>
+      <router-link to="/courses" class="btn btn-outline">
+        Browse Courses
+      </router-link>
+    </div>
+  </div>
+  
   <div v-else class="error-state">
+    <div class="error-icon">📚</div>
     <h3>Course not found</h3>
     <p>The course you're looking for doesn't exist or has been removed.</p>
     <router-link to="/courses" class="btn btn-primary">
@@ -322,36 +352,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useCourse } from '../../composables/useCourse'
-import { useCourseStore } from '../../stores/courses'
-import { useAuthStore } from '../../stores/auth'
-import type { LiveClass } from '../../types/api'
+import { useApiData, useApiMutation } from '../../composables/useApiData'
+import { useErrorHandler } from '../../composables/useErrorHandler'
+import { useAuth } from '../../composables/useAuth'
+import { api } from '../../services/api'
+import { CachePresets, CacheInvalidation } from '../../utils/apiCache'
+import type { Course, CourseModule, CourseReview, LiveClass } from '../../types/api'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
-const courseStore = useCourseStore()
-const { 
-  currentCourse: course, 
-  modules, 
-  reviews,
-  loading, 
-
-  fetchCourse,
-  fetchCourseModules,
-  fetchCourseReviews,
-  createReview,
-  enrollInCourse: enrollInCourseAction
-} = useCourse()
+const { user, isAuthenticated } = useAuth()
+const { handleApiError } = useErrorHandler()
 
 // Local state
 const activeTab = ref('overview')
-const enrolling = ref(false)
 const showReviewForm = ref(false)
-const submittingReview = ref(false)
-const liveClasses = ref<LiveClass[]>([])
+const courseId = computed(() => route.params.id as string)
 
 const newReview = ref({
   rating: 5,
@@ -364,49 +382,139 @@ const tabs = [
   { id: 'instructor', label: 'Instructor' }
 ]
 
+// Course data from centralized API
+const { 
+  data: course, 
+  loading, 
+  error: courseError,
+  refresh: refreshCourse
+} = useApiData<Course>(() => `/courses/${courseId.value}/`, {
+  immediate: true,
+  transform: (data) => data.data || data,
+  ...CachePresets.courseCatalog
+})
+
+// Course modules from centralized API
+const { 
+  data: modules 
+} = useApiData<CourseModule[]>(() => `/course-modules/?course=${courseId.value}`, {
+  immediate: true,
+  transform: (data) => {
+    const moduleData = data.data || data
+    return moduleData.results || moduleData || []
+  },
+  ...CachePresets.courseCatalog
+})
+
+// Course reviews from centralized API
+const { 
+  data: reviews,
+  refresh: refreshReviews
+} = useApiData<CourseReview[]>(() => `/course-reviews/?course=${courseId.value}`, {
+  immediate: true,
+  transform: (data) => {
+    const reviewData = data.data || data
+    return reviewData.results || reviewData || []
+  },
+  ...CachePresets.courseCatalog
+})
+
+// Live classes from centralized API
+const { 
+  data: liveClasses 
+} = useApiData<LiveClass[]>(() => `/live-classes/?course=${courseId.value}`, {
+  immediate: !!courseId.value,
+  transform: (data) => {
+    const classData = data.data || data
+    return classData.results || classData || []
+  },
+  ...CachePresets.courseCatalog
+})
+
+// User enrollments for checking enrollment status
+const { 
+  data: enrollments, 
+  refresh: refreshEnrollments 
+} = useApiData<any[]>('/enrollments/', {
+  immediate: isAuthenticated.value,
+  transform: (data) => {
+    const enrollmentData = data.data || data
+    return enrollmentData.results || enrollmentData || []
+  },
+  ...CachePresets.userProfile
+})
+
+// Instructor statistics
+const { 
+  data: instructorStats 
+} = useApiData<any>(() => `/users/${course.value?.instructor.id}/instructor_stats/`, {
+  immediate: !!course.value?.instructor,
+  transform: (data) => data.data || data,
+  ...CachePresets.courseCatalog
+})
+
+// Enrollment and review mutations using centralized API
+const { mutate: enrollMutation, loading: enrolling } = useApiMutation(
+  (courseId: string) => api.post(`/courses/${courseId}/enroll/`),
+  {
+    onSuccess: () => {
+      refreshEnrollments()
+      CacheInvalidation.invalidateCourses()
+    },
+    onError: (error) => {
+      handleApiError(error, { context: { action: 'enroll_in_course' } })
+    }
+  }
+)
+
+const { mutate: reviewMutation, loading: submittingReview } = useApiMutation(
+  (reviewData: any) => api.post('/course-reviews/', reviewData),
+  {
+    onSuccess: () => {
+      refreshReviews()
+      refreshCourse() // Refresh to update average rating
+      newReview.value = { rating: 5, comment: '' }
+      showReviewForm.value = false
+    },
+    onError: (error) => {
+      handleApiError(error, { context: { action: 'submit_review' } })
+    }
+  }
+)
+
 // Computed
+const enrolledCourseIds = computed(() => 
+  enrollments.value?.map(enrollment => enrollment.course?.id || enrollment.course) || []
+)
+
 const isEnrolled = computed(() => {
   if (!course.value) return false
-  return courseStore.isEnrolledInCourse(course.value.id)
+  return enrolledCourseIds.value.includes(course.value.id)
 })
 
 const isOwner = computed(() => {
-  if (!course.value || !authStore.user) return false
-  return course.value.instructor.id === authStore.user.id
+  if (!course.value || !user.value) return false
+  return course.value.instructor.id === user.value.id
 })
 
 const hasUserReview = computed(() => {
-  if (!authStore.user) return false
-  return reviews.value.some(review => review.student.id === authStore.user!.id)
+  if (!user.value || !reviews.value) return false
+  return reviews.value.some(review => review.student.id === user.value!.id)
 })
 
 // Methods
-const loadCourseData = async () => {
-  const courseId = route.params.id as string
-  if (!courseId) return
-  
-  await fetchCourse(courseId)
-  
-  if (course.value) {
-    await Promise.all([
-      fetchCourseModules(courseId),
-      fetchCourseReviews(courseId)
-    ])
-  }
-}
-
 const enrollInCourse = async () => {
   if (!course.value) return
   
+  if (!isAuthenticated.value) {
+    router.push('/auth/login')
+    return
+  }
+  
   try {
-    enrolling.value = true
-    await enrollInCourseAction(course.value.id)
-    // Refresh enrollment status
-    await courseStore.fetchEnrollments()
+    await enrollMutation(course.value.id)
   } catch (error) {
-    console.error('Failed to enroll in course:', error)
-  } finally {
-    enrolling.value = false
+    // Error handling is done in the mutation
   }
 }
 
@@ -424,30 +532,27 @@ const submitReview = async () => {
   if (!course.value || !newReview.value.rating) return
   
   try {
-    submittingReview.value = true
-    await createReview({
+    await reviewMutation({
       course: course.value.id,
       rating: newReview.value.rating,
       comment: newReview.value.comment
     })
-    
-    // Refresh reviews
-    await fetchCourseReviews(course.value.id)
-    
-    // Reset form
-    newReview.value = { rating: 5, comment: '' }
-    showReviewForm.value = false
-    
   } catch (error) {
-    console.error('Failed to submit review:', error)
-  } finally {
-    submittingReview.value = false
+    // Error handling is done in the mutation
   }
 }
 
 const cancelReview = () => {
   newReview.value = { rating: 5, comment: '' }
   showReviewForm.value = false
+}
+
+const handleRetry = async () => {
+  try {
+    await refreshCourse()
+  } catch (error) {
+    handleApiError(error as any, { context: { action: 'retry_course_load' } })
+  }
 }
 
 // Utility functions
@@ -471,20 +576,9 @@ const formatDate = (dateString: string) => {
   })
 }
 
-// Lifecycle
-onMounted(async () => {
-  await loadCourseData()
-  
-  // Load enrollment status if user is logged in
-  if (authStore.isAuthenticated) {
-    await courseStore.fetchEnrollments()
-  }
-})
+// Lifecycle - data is loaded automatically by composables
 
-// Watch for route changes
-watch(() => route.params.id, async () => {
-  await loadCourseData()
-})
+// Watch for route changes - courseId computed property will trigger refresh
 </script>
 
 <style scoped>
@@ -1097,11 +1191,40 @@ watch(() => route.params.id, async () => {
 .instructor-details p {
   color: #6B7280;
   line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.instructor-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.instructor-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.instructor-stats .stat-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 4px;
+}
+
+.instructor-stats .stat-label {
+  font-size: 0.875rem;
+  color: #6B7280;
+  font-weight: 500;
 }
 
 .loading-state, .error-state {
   text-align: center;
   padding: 60px 20px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .loading-spinner {
@@ -1119,6 +1242,11 @@ watch(() => route.params.id, async () => {
   100% { transform: rotate(360deg); }
 }
 
+.error-state .error-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
 .error-state h3 {
   font-size: 1.5rem;
   font-weight: 600;
@@ -1129,6 +1257,13 @@ watch(() => route.params.id, async () => {
 .error-state p {
   color: #6B7280;
   margin-bottom: 24px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* Responsive */

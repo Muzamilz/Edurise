@@ -210,6 +210,51 @@ class ZoomService:
             raise Exception(f"Network error while getting participants: {str(e)}")
         except Exception as e:
             raise Exception(f"Zoom API error: {str(e)}")
+    
+    def get_meeting_recordings(self, meeting_id):
+        """Get meeting recordings from Zoom"""
+        try:
+            headers = {
+                'Authorization': f'Bearer {self.get_access_token()}',
+            }
+            
+            response = requests.get(
+                f"{self.base_url}/meetings/{meeting_id}/recordings",
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 404:
+                return None  # No recordings found
+            else:
+                raise Exception(f"Failed to get recordings. Status: {response.status_code}, Response: {response.text}")
+                
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Network error while getting recordings: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Zoom API error: {str(e)}")
+    
+    def delete_meeting_recording(self, meeting_id):
+        """Delete meeting recordings from Zoom"""
+        try:
+            headers = {
+                'Authorization': f'Bearer {self.get_access_token()}',
+            }
+            
+            response = requests.delete(
+                f"{self.base_url}/meetings/{meeting_id}/recordings",
+                headers=headers,
+                timeout=30
+            )
+            
+            return response.status_code == 204
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Network error while deleting recordings: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Zoom API error: {str(e)}")
 
 
 class AttendanceService:

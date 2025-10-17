@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Class Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .class-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #f59e0b;
+            margin: 20px 0;
+        }
+        .urgent {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #f59e0b;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⏰ Live Class Reminder</h1>
+        <p>{{ tenant.name|default:"Edurise LMS" }}</p>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{ user.get_full_name|default:user.email }},</p>
+        
+        <div class="urgent">
+            <strong>⚡ Your live class is starting soon!</strong>
+        </div>
+        
+        <div class="class-info">
+            <h2>{{ notification.title }}</h2>
+            <p>{{ notification.message }}</p>
+        </div>
+        
+        <p>Don't miss out on this interactive learning session. Make sure you have:</p>
+        <ul>
+            <li>A stable internet connection</li>
+            <li>Your camera and microphone ready</li>
+            <li>Course materials at hand</li>
+            <li>A quiet environment for learning</li>
+        </ul>
+        
+        {% if site_url %}
+        <a href="{{ site_url }}/classes" class="button">Join Class Now</a>
+        {% endif %}
+        
+        <p>See you in class!</p>
+        
+        <div class="footer">
+            <p>Reminder sent on {{ notification.created_at|date:"F d, Y at g:i A" }}</p>
+            <p>You can manage your notification preferences in your account settings.</p>
+        </div>
+    </div>
+</body>
+</html>

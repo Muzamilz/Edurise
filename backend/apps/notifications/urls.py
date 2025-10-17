@@ -1,10 +1,7 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import NotificationViewSet
-
-router = DefaultRouter()
-router.register(r'notifications', NotificationViewSet, basename='notification')
+# Note: NotificationViewSet is registered in the centralized API router (apps/api/urls.py)
+# This file is kept for potential future non-ViewSet notification endpoints
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Future notification-specific endpoints (non-ViewSet) can be added here
+    # For example: push notification registration, email preferences, etc.
 ]

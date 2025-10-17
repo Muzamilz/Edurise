@@ -6,7 +6,23 @@
       <p>Manage your organization users, courses, and settings</p>
     </div>
 
-    <div class="dashboard-content">
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Loading admin dashboard...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <h3>Unable to load dashboard</h3>
+      <p>{{ error.message }}</p>
+      <button @click="handleRetry" class="retry-btn">
+        Try Again
+      </button>
+    </div>
+
+    <div v-else class="dashboard-content">
       <!-- Admin Stats -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -168,16 +184,14 @@
           <div class="health-card">
             <div class="health-header">
               <h3>Server Status</h3>
-              <div class="health-status online">Online</div>
+              <div class="health-status" :class="systemHealth.serverStatus === 'healthy' ? 'online' : 'warning'">
+                {{ systemHealth.serverStatus || 'Unknown' }}
+              </div>
             </div>
             <div class="health-metrics">
               <div class="metric">
-                <span class="metric-label">Uptime</span>
-                <span class="metric-value">99.9%</span>
-              </div>
-              <div class="metric">
                 <span class="metric-label">Response Time</span>
-                <span class="metric-value">120ms</span>
+                <span class="metric-value">{{ systemHealth.apiResponseTime || 0 }}ms</span>
               </div>
             </div>
           </div>
@@ -185,33 +199,29 @@
           <div class="health-card">
             <div class="health-header">
               <h3>Database</h3>
-              <div class="health-status online">Healthy</div>
+              <div class="health-status" :class="systemHealth.databaseStatus === 'healthy' ? 'online' : 'warning'">
+                {{ systemHealth.databaseStatus || 'Unknown' }}
+              </div>
             </div>
             <div class="health-metrics">
               <div class="metric">
-                <span class="metric-label">Connections</span>
-                <span class="metric-value">45/100</span>
-              </div>
-              <div class="metric">
-                <span class="metric-label">Query Time</span>
-                <span class="metric-value">8ms</span>
+                <span class="metric-label">Status</span>
+                <span class="metric-value">{{ systemHealth.databaseStatus || 'Unknown' }}</span>
               </div>
             </div>
           </div>
           
           <div class="health-card">
             <div class="health-header">
-              <h3>Storage</h3>
-              <div class="health-status warning">75% Used</div>
+              <h3>Cache</h3>
+              <div class="health-status" :class="systemHealth.cacheStatus === 'healthy' ? 'online' : 'warning'">
+                {{ systemHealth.cacheStatus || 'Unknown' }}
+              </div>
             </div>
             <div class="health-metrics">
               <div class="metric">
-                <span class="metric-label">Used Space</span>
-                <span class="metric-value">750GB</span>
-              </div>
-              <div class="metric">
-                <span class="metric-label">Available</span>
-                <span class="metric-value">250GB</span>
+                <span class="metric-label">Status</span>
+                <span class="metric-value">{{ systemHealth.cacheStatus || 'Unknown' }}</span>
               </div>
             </div>
           </div>
@@ -263,98 +273,204 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
+import { useDashboardData } from '@/composables/useDashboardData'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useApiMutation } from '@/composables/useApiData'
+import { api } from '@/services/api'
 
-// Mock data - replace with real data from API
-// These should come from the backend User, Course, and Enrollment models
-const totalUsers = ref(1247)
-const totalStudents = ref(1089)
-const totalTeachers = ref(145)
-const pendingTeachersCount = ref(13)
-const totalCourses = ref(156)
-const publishedCourses = ref(134)
-const draftCourses = ref(22)
-const totalRevenue = ref(45680)
-const monthlyRevenue = ref(8920)
-const lastMonthRevenue = ref(7960)
-const activeEnrollments = ref(3421)
-const completedEnrollments = ref(1876)
-const enrollmentGrowth = ref(15)
-const liveClassesActive = ref(24)
-const contentModerationQueue = ref(7)
+const { adminData } = useDashboardData()
+const { handleApiError } = useErrorHandler()
 
-// Mock pending teachers
-const pendingTeachers = ref([
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john.smith@example.com',
-    avatar: '/default-avatar.jpg',
-    appliedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    experience: '5 years in web development',
-    expertise: 'JavaScript, React, Node.js'
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    email: 'sarah.j@example.com',
-    avatar: '/default-avatar.jpg',
-    appliedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    experience: '8 years in UX/UI design',
-    expertise: 'Design Systems, Figma, User Research'
+// Real data from API
+const dashboardData = computed(() => adminData.data.value)
+const loading = computed(() => adminData.loading.value)
+const error = computed(() => adminData.error.value)
+
+// Computed properties for admin stats
+const totalUsers = computed(() => 
+  dashboardData.value?.userStats?.totalUsers || 0
+)
+
+const totalStudents = computed(() => 
+  dashboardData.value?.userStats?.studentCount || 0
+)
+
+const totalTeachers = computed(() => 
+  dashboardData.value?.userStats?.teacherCount || 0
+)
+
+const pendingTeachersCount = computed(() => {
+  // This would need to be added to the admin dashboard API
+  return 0 // Placeholder - would come from backend
+})
+
+const totalCourses = computed(() => 
+  dashboardData.value?.courseStats?.totalCourses || 0
+)
+
+const publishedCourses = computed(() => 
+  dashboardData.value?.courseStats?.publishedCourses || 0
+)
+
+const draftCourses = computed(() => 
+  totalCourses.value - publishedCourses.value
+)
+
+const totalRevenue = computed(() => 
+  Math.round(dashboardData.value?.revenueStats?.totalRevenue || 0)
+)
+
+const monthlyRevenue = computed(() => 
+  Math.round(dashboardData.value?.revenueStats?.monthlyRevenue || 0)
+)
+
+const lastMonthRevenue = computed(() => {
+  const currentRevenue = monthlyRevenue.value
+  const growth = dashboardData.value?.revenueStats?.revenueGrowth || 0
+  return Math.round(currentRevenue / (1 + growth / 100))
+})
+
+const activeEnrollments = computed(() => 
+  dashboardData.value?.courseStats?.totalEnrollments || 0
+)
+
+const completedEnrollments = computed(() => {
+  const total = activeEnrollments.value
+  const completionRate = dashboardData.value?.courseStats?.completionRate || 0
+  return Math.round(total * (completionRate / 100))
+})
+
+const enrollmentGrowth = computed(() => 
+  Math.round(dashboardData.value?.revenueStats?.revenueGrowth || 0)
+)
+
+const liveClassesActive = computed(() => {
+  // This would need to be added to admin dashboard API
+  return 0 // Placeholder
+})
+
+const contentModerationQueue = computed(() => {
+  // This would need to be added to admin dashboard API
+  return 0 // Placeholder
+})
+
+// System health data
+const systemHealth = computed(() => 
+  dashboardData.value?.systemHealth || {
+    serverStatus: 'healthy',
+    databaseStatus: 'healthy',
+    cacheStatus: 'healthy',
+    apiResponseTime: 0
   }
+)
+
+// Recent activity
+const recentActivity = computed(() => {
+  const activities: any[] = []
+  
+  // Add recent enrollments as activities
+  const recentEnrollments = (dashboardData.value?.recentActivity as any)?.recent_enrollments || []
+  recentEnrollments.forEach((enrollment: any) => {
+    activities.push({
+      id: `enrollment_${enrollment.student_name}`,
+      type: 'enrollment',
+      text: `${enrollment.student_name} enrolled in "${enrollment.course_title}"`,
+      timestamp: new Date(enrollment.enrolled_at),
+      status: 'completed'
+    })
+  })
+  
+  // Add recent courses as activities
+  const recentCourses = (dashboardData.value?.recentActivity as any)?.recent_courses || []
+  recentCourses.forEach((course: any) => {
+    activities.push({
+      id: `course_${course.id}`,
+      type: 'course',
+      text: `New course "${course.title}" created by ${course.instructor_name}`,
+      timestamp: new Date(course.created_at),
+      status: course.is_public ? 'completed' : 'pending'
+    })
+  })
+  
+  // Sort by timestamp (most recent first)
+  return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 5)
+})
+
+// Top performing courses
+const popularCourses = computed(() => 
+  dashboardData.value?.topPerformingCourses?.slice(0, 4).map(course => ({
+    id: course.id,
+    title: course.title,
+    enrollments: course.enrollmentCount
+  })) || []
+)
+
+// Mock pending teachers (this would come from a separate API endpoint)
+interface PendingTeacher {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  appliedAt: string
+  experience: string
+  expertise: string
+}
+
+const pendingTeachers = computed((): PendingTeacher[] => [
+  // This would be fetched from /api/v1/teacher-approvals/ endpoint
 ])
 
-// Mock recent activity
-const recentActivity = ref([
+// Teacher approval mutations
+const { mutate: approveTeacherMutation } = useApiMutation(
+  (teacherId: string) => api.patch(`/teacher-approvals/${teacherId}/`, { status: 'approved' }),
   {
-    id: '1',
-    type: 'user',
-    text: 'New user registration: jane.doe@example.com',
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-    status: 'completed'
-  },
-  {
-    id: '2',
-    type: 'course',
-    text: 'Course "Advanced React" submitted for review',
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    status: 'pending'
-  },
-  {
-    id: '3',
-    type: 'payment',
-    text: 'Payment processed: $299 for Premium subscription',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    status: 'completed'
+    onSuccess: () => {
+      console.log('Teacher approved successfully')
+      // Refresh dashboard data
+      adminData.refresh()
+    },
+    onError: (error) => {
+      handleApiError(error, { context: { action: 'approve_teacher' } })
+    }
   }
-])
+)
 
-// Mock popular courses
-const popularCourses = ref([
-  { id: '1', title: 'JavaScript Fundamentals', enrollments: 245 },
-  { id: '2', title: 'React Development', enrollments: 189 },
-  { id: '3', title: 'UI/UX Design Basics', enrollments: 156 },
-  { id: '4', title: 'Python for Beginners', enrollments: 134 }
-])
+const { mutate: rejectTeacherMutation } = useApiMutation(
+  (teacherId: string) => api.patch(`/teacher-approvals/${teacherId}/`, { status: 'rejected' }),
+  {
+    onSuccess: () => {
+      console.log('Teacher rejected successfully')
+      // Refresh dashboard data
+      adminData.refresh()
+    },
+    onError: (error) => {
+      handleApiError(error, { context: { action: 'reject_teacher' } })
+    }
+  }
+)
 
 const approveTeacher = async (teacherId: string) => {
-  // Implement teacher approval logic
-  console.log('Approving teacher:', teacherId)
-  // Remove from pending list
-  pendingTeachers.value = pendingTeachers.value.filter(t => t.id !== teacherId)
+  try {
+    await approveTeacherMutation(teacherId)
+  } catch (error) {
+    // Error handling is done in the mutation
+  }
 }
 
 const rejectTeacher = async (teacherId: string) => {
-  // Implement teacher rejection logic
-  console.log('Rejecting teacher:', teacherId)
-  // Remove from pending list
-  pendingTeachers.value = pendingTeachers.value.filter(t => t.id !== teacherId)
+  try {
+    await rejectTeacherMutation(teacherId)
+  } catch (error) {
+    // Error handling is done in the mutation
+  }
 }
 
-const formatDate = (date: Date) => {
+// Utility functions
+const formatDate = (date: Date | string) => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
-  const diff = now.getTime() - date.getTime()
+  const diff = now.getTime() - dateObj.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
   if (days === 0) return 'today'
@@ -367,14 +483,17 @@ const getActivityIcon = (type: string) => {
     user: '👤',
     course: '📚',
     payment: '💳',
-    system: '⚙️'
+    system: '⚙️',
+    enrollment: '📝',
+    completion: '✅'
   }
   return icons[type as keyof typeof icons] || '📝'
 }
 
-const formatTime = (timestamp: Date) => {
+const formatTime = (timestamp: Date | string) => {
+  const dateObj = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
   const now = new Date()
-  const diff = now.getTime() - timestamp.getTime()
+  const diff = now.getTime() - dateObj.getTime()
   const hours = Math.floor(diff / (1000 * 60 * 60))
   
   if (hours < 1) return 'Just now'
@@ -382,12 +501,15 @@ const formatTime = (timestamp: Date) => {
   return `${hours} hours ago`
 }
 
-onMounted(() => {
-  // Load admin dashboard data
-  // adminStore.fetchDashboardStats()
-  // adminStore.fetchPendingTeachers()
-  // adminStore.fetchRecentActivity()
-})
+const handleRetry = async () => {
+  try {
+    await adminData.refresh()
+  } catch (err) {
+    handleApiError(err as any, { 
+      context: { action: 'retry_admin_dashboard_load' } 
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -909,6 +1031,80 @@ onMounted(() => {
 
 .revenue-change.positive {
   color: #10b981;
+}
+
+/* Loading and Error States */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(254, 243, 226, 0.3));
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.1);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.error-state .error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+}
+
+.error-state p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  max-width: 400px;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
 }
 
 /* Responsive */

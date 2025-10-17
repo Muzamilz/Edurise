@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment
+from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment, Wishlist
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -112,6 +112,48 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class WishlistSerializer(serializers.ModelSerializer):
+    """Serializer for Wishlist model"""
+    
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_price = serializers.DecimalField(source='course.price', max_digits=10, decimal_places=2, read_only=True)
+    course_instructor = serializers.CharField(source='course.instructor.get_full_name', read_only=True)
+    course_category = serializers.CharField(source='course.category', read_only=True)
+    course_difficulty = serializers.CharField(source='course.difficulty_level', read_only=True)
+    course_thumbnail = serializers.ImageField(source='course.thumbnail', read_only=True)
+    course_average_rating = serializers.ReadOnlyField(source='course.average_rating')
+    course_total_enrollments = serializers.ReadOnlyField(source='course.total_enrollments')
+    is_course_available = serializers.ReadOnlyField()
+    is_enrolled = serializers.SerializerMethodField()
+    price_change_percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Wishlist
+        fields = [
+            'id', 'user', 'course', 'course_title', 'course_price', 'course_instructor',
+            'course_category', 'course_difficulty', 'course_thumbnail', 'course_average_rating',
+            'course_total_enrollments', 'priority', 'notes', 'notify_price_change',
+            'notify_course_updates', 'notify_enrollment_opening', 'is_course_available',
+            'is_enrolled', 'price_change_percentage', 'added_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'added_at', 'updated_at']
+    
+    def get_is_enrolled(self, obj):
+        """Check if user is enrolled in the course"""
+        return obj.is_enrolled()
+    
+    def get_price_change_percentage(self, obj):
+        """Calculate price change percentage since addition to wishlist"""
+        # For now, return 0 as we don't have price history tracking
+        # This can be enhanced later with a price history model
+        return 0
+    
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        validated_data['tenant'] = self.context['request'].tenant
+        return super().create(validated_data)
+
+
 class CourseDetailSerializer(CourseSerializer):
     """Detailed serializer for Course with related data"""
     
@@ -119,8 +161,20 @@ class CourseDetailSerializer(CourseSerializer):
     live_classes = LiveClassSerializer(many=True, read_only=True)
     reviews = CourseReviewSerializer(many=True, read_only=True)
     license = CourseLicenseSerializer(read_only=True)
+    is_in_wishlist = serializers.SerializerMethodField()
     
     class Meta(CourseSerializer.Meta):
         fields = CourseSerializer.Meta.fields + [
-            'modules', 'live_classes', 'reviews', 'license'
+            'modules', 'live_classes', 'reviews', 'license', 'is_in_wishlist'
         ]
+    
+    def get_is_in_wishlist(self, obj):
+        """Check if course is in user's wishlist"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Wishlist.objects.filter(
+                user=request.user,
+                course=obj,
+                tenant=getattr(request, 'tenant', None)
+            ).exists()
+        return False

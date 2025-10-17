@@ -52,13 +52,23 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading && courses.length === 0" class="loading-state">
+    <div v-if="loading && (!courses || courses.length === 0)" class="loading-state">
       <div class="loading-spinner"></div>
       <p>Loading courses...</p>
     </div>
 
+    <!-- Error State -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <h3>Unable to load courses</h3>
+      <p>{{ error.message }}</p>
+      <button @click="handleRetry" class="retry-btn">
+        Try Again
+      </button>
+    </div>
+
     <!-- Empty State -->
-    <div v-else-if="!loading && courses.length === 0" class="empty-state">
+    <div v-else-if="!loading && (!courses || courses.length === 0)" class="empty-state">
       <div class="empty-icon">📚</div>
       <h3>No courses found</h3>
       <p>Try adjusting your search criteria or filters.</p>
@@ -91,7 +101,7 @@
     </div>
 
     <!-- Loading More -->
-    <div v-if="loading && courses.length > 0" class="loading-more">
+    <div v-if="loading && courses && courses.length > 0" class="loading-more">
       <div class="loading-spinner small"></div>
       <span>Loading more courses...</span>
     </div>
@@ -99,11 +109,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import CourseCard from './CourseCard.vue'
-import { useCourse } from '../../composables/useCourse'
-import { useCourseStore } from '../../stores/courses'
+import { usePaginatedData, useApiMutation } from '../../composables/useApiData'
+import { useErrorHandler } from '../../composables/useErrorHandler'
+import { useAuth } from '../../composables/useAuth'
+import { api } from '../../services/api'
+import { CachePresets, CacheInvalidation } from '../../utils/apiCache'
 import type { Course } from '../../types/api'
 
 interface Props {
@@ -131,17 +144,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const router = useRouter()
-const courseStore = useCourseStore()
-const { 
-  courses, 
-  loading, 
-  hasNextPage,
-  fetchCourses,
-  fetchMarketplaceCourses,
-  nextPage,
-  updateFilters,
-  clearFilters: clearCourseFilters
-} = useCourse()
+const { isAuthenticated } = useAuth()
+const { handleApiError } = useErrorHandler()
 
 // Local state
 const searchQuery = ref('')
@@ -150,47 +154,113 @@ const selectedDifficulty = ref('')
 const sortBy = ref('-created_at')
 const enrollingCourseId = ref<string | null>(null)
 
+// Build API endpoint based on props - using centralized API
+const endpoint = computed(() => {
+  if (props.useMarketplace) {
+    // Use centralized marketplace endpoint with query parameters
+    const params = new URLSearchParams()
+    if (searchQuery.value) params.append('search', searchQuery.value)
+    if (selectedCategory.value) params.append('category', selectedCategory.value)
+    if (selectedDifficulty.value) params.append('difficulty_level', selectedDifficulty.value)
+    if (sortBy.value) params.append('ordering', sortBy.value)
+    
+    return `/courses/marketplace/${params.toString() ? '?' + params.toString() : ''}`
+  }
+  return '/courses/'
+})
+
+// Build query parameters for regular courses endpoint
+const queryParams = computed(() => {
+  if (props.useMarketplace) return {} // Parameters are handled in endpoint for marketplace
+  
+  const params: Record<string, any> = {}
+  
+  if (searchQuery.value) params.search = searchQuery.value
+  if (selectedCategory.value) params.category = selectedCategory.value
+  if (selectedDifficulty.value) params.difficulty_level = selectedDifficulty.value
+  if (sortBy.value) params.ordering = sortBy.value
+  
+  return params
+})
+
+// Paginated course data from centralized API
+const {
+  data: courses,
+  loading,
+  error,
+
+  hasNextPage,
+  nextPage,
+  refresh: refreshCourses
+} = usePaginatedData<Course>(endpoint.value, {
+  pageSize: 12,
+  dependencies: props.useMarketplace ? [] : [queryParams], // Marketplace handles params in endpoint
+  ...CachePresets.courseCatalog
+})
+
+// User enrollments for checking enrollment status
+const { 
+  data: enrollments, 
+  refresh: refreshEnrollments 
+} = usePaginatedData<any>('/enrollments/', {
+  immediate: isAuthenticated.value && props.showEnrollButton,
+  ...CachePresets.userProfile
+})
+
 // Computed
-const isEnrolledInCourse = computed(() => courseStore.isEnrolledInCourse)
+const enrolledCourseIds = computed(() => 
+  enrollments.value?.map(enrollment => enrollment.course?.id || enrollment.course) || []
+)
+
+const isEnrolledInCourse = computed(() => (courseId: string) => 
+  enrolledCourseIds.value.includes(courseId)
+)
+
+// Enrollment mutation using centralized API
+const { mutate: enrollMutation } = useApiMutation(
+  (courseId: string) => api.post(`/courses/${courseId}/enroll/`),
+  {
+    onSuccess: () => {
+      // Refresh enrollments and invalidate course cache
+      refreshEnrollments()
+      CacheInvalidation.invalidateCourses()
+    },
+    onError: (error) => {
+      handleApiError(error, { context: { action: 'enroll_in_course' } })
+    }
+  }
+)
 
 // Methods
-const loadCourses = async () => {
-  const filters = {
-    category: selectedCategory.value || undefined,
-    difficulty_level: selectedDifficulty.value || undefined,
-    ordering: sortBy.value,
-    search: searchQuery.value || undefined
-  }
-
-  updateFilters(filters)
-  
-  if (props.useMarketplace) {
-    await fetchMarketplaceCourses()
-  } else {
-    await fetchCourses()
-  }
+const onSearch = () => {
+  // Filters are reactive, so changing searchQuery will trigger a refresh
 }
 
-const onSearch = async () => {
-  await loadCourses()
+const onFilterChange = () => {
+  // Filters are reactive, so changing any filter will trigger a refresh
 }
 
-const onFilterChange = async () => {
-  await loadCourses()
-}
-
-const clearFilters = async () => {
+const clearFilters = () => {
   searchQuery.value = ''
   selectedCategory.value = ''
   selectedDifficulty.value = ''
   sortBy.value = '-created_at'
-  
-  clearCourseFilters()
-  await loadCourses()
 }
 
 const loadMore = async () => {
-  await nextPage()
+  try {
+    await nextPage()
+  } catch (error) {
+    handleApiError(error as any, { context: { action: 'load_more_courses' } })
+  }
+}
+
+const handleRetry = async () => {
+  try {
+    await refreshCourses()
+  } catch (error) {
+    handleApiError(error as any, { context: { action: 'retry_courses_load' } })
+  }
 }
 
 // Event handlers
@@ -200,12 +270,17 @@ const onCourseClick = (course: Course) => {
 }
 
 const onEnroll = async (course: Course) => {
+  if (!isAuthenticated.value) {
+    router.push('/auth/login')
+    return
+  }
+
   try {
     enrollingCourseId.value = course.id
-    await courseStore.enrollInCourse(course.id)
+    await enrollMutation(course.id)
     emit('enroll', course)
   } catch (error) {
-    console.error('Failed to enroll in course:', error)
+    // Error handling is done in the mutation
   } finally {
     enrollingCourseId.value = null
   }
@@ -225,19 +300,11 @@ const onDelete = (course: Course) => {
   emit('delete', course)
 }
 
-// Lifecycle
-onMounted(async () => {
-  await loadCourses()
-  
-  // Load enrolled courses for enrollment status
-  if (props.showEnrollButton) {
-    await courseStore.fetchEnrollments()
-  }
-})
+// Lifecycle - data is loaded automatically by composables
 
 // Watch for external changes
-watch(() => props.useMarketplace, async () => {
-  await loadCourses()
+watch(() => props.useMarketplace, () => {
+  // The endpoint computed property will change and trigger a refresh
 })
 </script>
 
@@ -328,7 +395,7 @@ watch(() => props.useMarketplace, async () => {
   border-color: #9CA3AF;
 }
 
-.loading-state, .empty-state {
+.loading-state, .empty-state, .error-state {
   text-align: center;
   padding: 60px 20px;
 }
@@ -354,21 +421,37 @@ watch(() => props.useMarketplace, async () => {
   100% { transform: rotate(360deg); }
 }
 
-.empty-state .empty-icon {
+.empty-state .empty-icon, .error-state .error-icon {
   font-size: 4rem;
   margin-bottom: 16px;
 }
 
-.empty-state h3 {
+.empty-state h3, .error-state h3 {
   font-size: 1.5rem;
   font-weight: 600;
   color: #111827;
   margin-bottom: 8px;
 }
 
-.empty-state p {
+.empty-state p, .error-state p {
   color: #6B7280;
   font-size: 1rem;
+  margin-bottom: 16px;
+}
+
+.retry-btn {
+  background: #3B82F6;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #2563EB;
 }
 
 .course-grid {

@@ -12,7 +12,7 @@ export class AdminService {
   // Dashboard statistics
   static async getDashboardStats(): Promise<DashboardStats> {
     const response = await api.get<DashboardStats>('/admin/dashboard/stats/')
-    return response.data
+    return response.data.data
   }
 
   // User management
@@ -20,17 +20,17 @@ export class AdminService {
     const response = await api.get<PaginatedResponse<User>>('/accounts/users/', {
       params: filters
     })
-    return response.data
+    return response.data.data
   }
 
   static async getUser(id: string): Promise<User> {
     const response = await api.get<User>(`/accounts/users/${id}/`)
-    return response.data
+    return response.data.data
   }
 
   static async updateUser(id: string, userData: Partial<User>): Promise<User> {
     const response = await api.patch<User>(`/accounts/users/${id}/`, userData)
-    return response.data
+    return response.data.data
   }
 
   static async deleteUser(id: string): Promise<void> {
@@ -39,18 +39,18 @@ export class AdminService {
 
   static async activateUser(id: string): Promise<User> {
     const response = await api.post<User>(`/accounts/users/${id}/activate/`)
-    return response.data
+    return response.data.data
   }
 
   static async deactivateUser(id: string): Promise<User> {
     const response = await api.post<User>(`/accounts/users/${id}/deactivate/`)
-    return response.data
+    return response.data.data
   }
 
   // Teacher approval management
   static async getTeacherApprovals(): Promise<PaginatedResponse<any>> {
     const response = await api.get<PaginatedResponse<any>>('/accounts/teacher-approvals/')
-    return response.data
+    return response.data.data
   }
 
   static async approveTeacher(id: string): Promise<void> {
@@ -64,22 +64,22 @@ export class AdminService {
   // Organization management
   static async getOrganizations(): Promise<PaginatedResponse<Organization>> {
     const response = await api.get<PaginatedResponse<Organization>>('/accounts/organizations/')
-    return response.data
+    return response.data.data
   }
 
   static async getOrganization(id: string): Promise<Organization> {
     const response = await api.get<Organization>(`/accounts/organizations/${id}/`)
-    return response.data
+    return response.data.data
   }
 
   static async updateOrganization(id: string, orgData: Partial<Organization>): Promise<Organization> {
     const response = await api.patch<Organization>(`/accounts/organizations/${id}/`, orgData)
-    return response.data
+    return response.data.data
   }
 
   static async createOrganization(orgData: Partial<Organization>): Promise<Organization> {
     const response = await api.post<Organization>('/accounts/organizations/', orgData)
-    return response.data
+    return response.data.data
   }
 
   static async deleteOrganization(id: string): Promise<void> {
@@ -91,7 +91,7 @@ export class AdminService {
     const response = await api.get<PaginatedResponse<AuditLog>>('/admin/audit-logs/', {
       params: filters
     })
-    return response.data
+    return response.data.data
   }
 
   // Analytics and reporting
@@ -99,32 +99,32 @@ export class AdminService {
     const response = await api.get('/admin/analytics/users/', {
       params: { timeframe }
     })
-    return response.data
+    return response.data.data
   }
 
   static async getCourseAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
     const response = await api.get('/admin/analytics/courses/', {
       params: { timeframe }
     })
-    return response.data
+    return response.data.data
   }
 
   static async getRevenueAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
     const response = await api.get('/admin/analytics/revenue/', {
       params: { timeframe }
     })
-    return response.data
+    return response.data.data
   }
 
   // System settings
   static async getSystemSettings(): Promise<any> {
     const response = await api.get('/admin/settings/')
-    return response.data
+    return response.data.data
   }
 
   static async updateSystemSettings(settings: any): Promise<any> {
     const response = await api.patch('/admin/settings/', settings)
-    return response.data
+    return response.data.data
   }
 
   // Bulk operations
@@ -147,7 +147,7 @@ export class AdminService {
       params: { format },
       responseType: 'blob'
     })
-    return response.data
+    return response.data.data
   }
 
   static async exportCourses(format: 'csv' | 'xlsx' = 'csv'): Promise<Blob> {
@@ -155,7 +155,7 @@ export class AdminService {
       params: { format },
       responseType: 'blob'
     })
-    return response.data
+    return response.data.data
   }
 
   static async exportEnrollments(format: 'csv' | 'xlsx' = 'csv'): Promise<Blob> {
@@ -163,29 +163,29 @@ export class AdminService {
       params: { format },
       responseType: 'blob'
     })
-    return response.data
+    return response.data.data
   }
 
   // User role management
   static async promoteToTeacher(userId: string): Promise<User> {
     const response = await api.post<User>(`/accounts/users/${userId}/promote_teacher/`)
-    return response.data
+    return response.data.data
   }
 
   static async promoteToAdmin(userId: string): Promise<User> {
     const response = await api.post<User>(`/accounts/users/${userId}/promote_admin/`)
-    return response.data
+    return response.data.data
   }
 
   static async demoteUser(userId: string): Promise<User> {
     const response = await api.post<User>(`/accounts/users/${userId}/demote/`)
-    return response.data
+    return response.data.data
   }
 
   // Organization statistics
   static async getOrganizationStats(orgId: string): Promise<any> {
     const response = await api.get(`/accounts/organizations/${orgId}/stats/`)
-    return response.data
+    return response.data.data
   }
 
   // Search and filtering utilities

@@ -1,16 +1,12 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterView, LoginView, LogoutView, PasswordResetView, PasswordResetConfirmView,
-    UserViewSet, UserProfileViewSet, TeacherApprovalViewSet, OrganizationViewSet,
-    GoogleOAuth2LoginView
+    GoogleOAuth2LoginView, TokenRefreshWithTenantView
 )
 
-router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')
-router.register(r'profiles', UserProfileViewSet, basename='userprofile')
-router.register(r'teacher-approvals', TeacherApprovalViewSet, basename='teacherapproval')
-router.register(r'organizations', OrganizationViewSet, basename='organization')
+# Note: ViewSets are registered in the centralized API router (apps/api/urls.py)
+# This file only contains non-ViewSet endpoints like authentication views
 
 urlpatterns = [
     # Authentication endpoints
@@ -21,11 +17,11 @@ urlpatterns = [
     path('auth/password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('auth/google/', GoogleOAuth2LoginView.as_view(), name='google_oauth2_login'),
     
+    # JWT Token endpoints
+    path('auth/token/refresh/', TokenRefreshWithTenantView.as_view(), name='token_refresh'),
+    
     # dj-rest-auth endpoints
     path('auth/', include('dj_rest_auth.urls')),
     path('auth/registration/', include('dj_rest_auth.registration.urls')),
     path('auth/social/', include('allauth.socialaccount.urls')),
-    
-    # Include router URLs
-    path('', include(router.urls)),
 ]

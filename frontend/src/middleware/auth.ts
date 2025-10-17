@@ -65,3 +65,19 @@ export const adminGuard = (
     next()
   }
 }
+
+export const superAdminGuard = (
+  _to: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
+  next: NavigationGuardNext
+) => {
+  const authStore = useAuthStore()
+  
+  if (!authStore.isAuthenticated) {
+    next('/auth/login')
+  } else if (!authStore.isSuperuser) {
+    next('/unauthorized')
+  } else {
+    next()
+  }
+}

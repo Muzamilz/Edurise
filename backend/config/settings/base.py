@@ -35,13 +35,16 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
+    'apps.api',  # Centralized API app
     'apps.accounts',
     'apps.courses',
     'apps.classes',
+    'apps.assignments',
     'apps.payments',
     'apps.ai',
     'apps.notifications',
     'apps.admin_tools',
+    'apps.files',  # File management app
     'apps.common',
 ]
 
@@ -58,6 +61,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.common.middleware.TenantMiddleware',  # Custom tenant middleware
+    'apps.api.middleware.APILoggingMiddleware',  # API request/response logging
+    'apps.api.middleware.APIVersioningMiddleware',  # API versioning
+    'apps.api.middleware.APIErrorHandlingMiddleware',  # Standardized error handling
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -139,12 +145,21 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'apps.api.responses.StandardPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
+    ],
+    'EXCEPTION_HANDLER': 'apps.api.exceptions.custom_exception_handler',
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FormParser',
     ],
 }
 
@@ -269,3 +284,67 @@ REST_AUTH = {
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = f'{FRONTEND_URL}/email-confirmed/'
 ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = f'{FRONTEND_URL}/email-confirmed/'
+
+# API Configuration
+API_VERSION = '1.0.0'
+API_DEFAULT_PAGE_SIZE = 20
+API_MAX_PAGE_SIZE = 100
+API_RATE_LIMIT_PER_MINUTE = 100
+
+# API CORS settings
+API_ALLOWED_ORIGINS = [
+    'http://localhost:3000',  # Frontend development
+    'http://localhost:5173',  # Vite development
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+
+# API Response settings
+API_INCLUDE_TIMESTAMP = True
+API_INCLUDE_REQUEST_ID = False
+
+# Dashboard settings
+DASHBOARD_CACHE_TIMEOUT = 300  # 5 minutes
+DASHBOARD_MAX_RECENT_ITEMS = 10
+DASHBOARD_TREND_DAYS = 30
+
+# Logging configuration for API
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'api.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'apps.api': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

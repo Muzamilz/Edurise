@@ -1,10 +1,10 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import PaymentViewSet
+from django.urls import path
+from .views import StripeWebhookView, PayPalWebhookView
 
-router = DefaultRouter()
-router.register(r'payments', PaymentViewSet, basename='payment')
+# Note: Payment ViewSets are registered in the centralized API router (apps/api/urls.py)
+# This file only contains webhook endpoints and other non-ViewSet payment functionality
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('webhooks/stripe/', StripeWebhookView.as_view(), name='stripe-webhook'),
+    path('webhooks/paypal/', PayPalWebhookView.as_view(), name='paypal-webhook'),
 ]

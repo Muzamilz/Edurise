@@ -1,16 +1,7 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import (
-    AIConversationViewSet, AIContentSummaryViewSet, 
-    AIQuizViewSet, AIUsageViewSet
-)
-
-router = DefaultRouter()
-router.register(r'conversations', AIConversationViewSet, basename='aiconversation')
-router.register(r'summaries', AIContentSummaryViewSet, basename='aisummary')
-router.register(r'quizzes', AIQuizViewSet, basename='aiquiz')
-router.register(r'usage', AIUsageViewSet, basename='aiusage')
+# Note: AI ViewSets are registered in the centralized API router (apps/api/urls.py)
+# This file is kept for potential future non-ViewSet AI endpoints
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Future AI-specific endpoints (non-ViewSet) can be added here
+    # For example: AI model management, training endpoints, etc.
 ]
