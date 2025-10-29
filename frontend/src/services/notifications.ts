@@ -2,7 +2,6 @@ import { api } from './api'
 import type { 
   Notification, 
   PaginatedResponse, 
-  APIResponse, 
   EmailDeliveryLog, 
   NotificationTemplate, 
   EmailTemplate, 
@@ -18,46 +17,46 @@ export class NotificationService {
     type?: string
     is_read?: boolean
   }): Promise<PaginatedResponse<Notification>> {
-    const response = await api.get<APIResponse<PaginatedResponse<Notification>>>('/api/v1/notifications/', {
+    const response = await api.get<PaginatedResponse<Notification>>('/notifications/', {
       params
     })
-    return (response.data.data || response.data) as PaginatedResponse<Notification>
+    return (response.data as any).data || response.data
   }
 
   static async getUnreadNotifications(): Promise<PaginatedResponse<Notification>> {
-    const response = await api.get<APIResponse<PaginatedResponse<Notification>>>('/api/v1/notifications/', {
+    const response = await api.get<PaginatedResponse<Notification>>('/notifications/', {
       params: { is_read: false }
     })
-    return (response.data.data || response.data) as PaginatedResponse<Notification>
+    return (response.data as any).data || response.data
   }
 
   static async getNotificationById(id: string): Promise<Notification> {
-    const response = await api.get<APIResponse<Notification>>(`/api/v1/notifications/${id}/`)
-    return response.data.data
+    const response = await api.get<Notification>(`/notifications/${id}/`)
+    return (response.data as any).data || response.data
   }
 
   static async markAsRead(id: string): Promise<Notification> {
-    const response = await api.post<APIResponse<Notification>>(`/api/v1/notifications/${id}/mark_read/`)
-    return response.data.data
+    const response = await api.post<Notification>(`/notifications/${id}/mark_read/`)
+    return (response.data as any).data || response.data
   }
 
   static async markAllAsRead(): Promise<{ marked_count: number }> {
-    const response = await api.post<APIResponse<{ marked_count: number }>>('/api/v1/notifications/mark_all_read/')
-    return response.data.data
+    const response = await api.post<{ marked_count: number }>('/notifications/mark_all_read/')
+    return (response.data as any).data || response.data
   }
 
   static async deleteNotification(id: string): Promise<void> {
-    await api.delete(`/api/v1/notifications/${id}/`)
+    await api.delete(`/notifications/${id}/`)
   }
 
   static async clearReadNotifications(): Promise<{ deleted_count: number }> {
-    const response = await api.delete<APIResponse<{ deleted_count: number }>>('/api/v1/notifications/clear_read/')
-    return response.data.data
+    const response = await api.delete<{ deleted_count: number }>('/notifications/clear_read/')
+    return (response.data as any).data || response.data
   }
 
   static async getUnreadCount(): Promise<{ unread_count: number }> {
-    const response = await api.get<APIResponse<{ unread_count: number }>>('/api/v1/notifications/unread_count/')
-    return response.data.data
+    const response = await api.get<{ unread_count: number }>('/notifications/unread_count/')
+    return (response.data as any).data || response.data
   }
 
   static async getNotificationStats(): Promise<{
@@ -67,13 +66,19 @@ export class NotificationService {
     notifications_by_type: Record<string, number>
     recent_notifications: Notification[]
   }> {
-    const response = await api.get<APIResponse<any>>('/api/v1/notifications/stats/')
-    return response.data.data
+    const response = await api.get<{
+      total_notifications: number
+      unread_notifications: number
+      read_notifications: number
+      notifications_by_type: Record<string, number>
+      recent_notifications: Notification[]
+    }>('/api/v1/notifications/stats/')
+    return (response.data as any).data || response.data
   }
 
   static async getNotificationsByType(): Promise<Record<string, Notification[]>> {
-    const response = await api.get<APIResponse<Record<string, Notification[]>>>('/api/v1/notifications/by_type/')
-    return response.data.data
+    const response = await api.get<Record<string, Notification[]>>('/api/v1/notifications/by_type/')
+    return (response.data as any).data || response.data
   }
 
   // Email delivery tracking
@@ -81,10 +86,10 @@ export class NotificationService {
     page?: number
     page_size?: number
   }): Promise<PaginatedResponse<EmailDeliveryLog>> {
-    const response = await api.get<APIResponse<PaginatedResponse<EmailDeliveryLog>>>('/api/v1/email-delivery-logs/', {
+    const response = await api.get<PaginatedResponse<EmailDeliveryLog>>('/api/v1/email-delivery-logs/', {
       params
     })
-    return response.data.data
+    return (response.data as any).data || response.data
   }
 
   static async getEmailDeliveryStats(): Promise<{
@@ -98,29 +103,39 @@ export class NotificationService {
     open_rate: number
     click_rate: number
   }> {
-    const response = await api.get<APIResponse<any>>('/api/v1/email-delivery-logs/delivery_stats/')
-    return response.data.data
+    const response = await api.get<{
+      total_emails: number
+      sent_emails: number
+      failed_emails: number
+      delivered_emails: number
+      opened_emails: number
+      clicked_emails: number
+      delivery_rate: number
+      open_rate: number
+      click_rate: number
+    }>('/api/v1/email-delivery-logs/delivery_stats/')
+    return (response.data as any).data || response.data
   }
 
   // Email template management
   static async getNotificationTemplates(): Promise<NotificationTemplate[]> {
-    const response = await api.get<APIResponse<NotificationTemplate[]>>('/api/v1/notification-templates/')
-    return response.data.data
+    const response = await api.get<NotificationTemplate[]>('/api/v1/notification-templates/')
+    return (response.data as any).data || response.data
   }
 
   static async getAvailableEmailTemplates(): Promise<EmailTemplate[]> {
-    const response = await api.get<APIResponse<EmailTemplate[]>>('/api/v1/notification-templates/available_templates/')
-    return response.data.data
+    const response = await api.get<EmailTemplate[]>('/api/v1/notification-templates/available_templates/')
+    return (response.data as any).data || response.data
   }
 
   static async createNotificationTemplate(template: Partial<NotificationTemplate>): Promise<NotificationTemplate> {
-    const response = await api.post<APIResponse<NotificationTemplate>>('/api/v1/notification-templates/', template)
-    return response.data.data
+    const response = await api.post<NotificationTemplate>('/api/v1/notification-templates/', template)
+    return (response.data as any).data || response.data
   }
 
   static async updateNotificationTemplate(id: string, template: Partial<NotificationTemplate>): Promise<NotificationTemplate> {
-    const response = await api.put<APIResponse<NotificationTemplate>>(`/api/v1/notification-templates/${id}/`, template)
-    return response.data.data
+    const response = await api.put<NotificationTemplate>(`/api/v1/notification-templates/${id}/`, template)
+    return (response.data as any).data || response.data
   }
 
   static async deleteNotificationTemplate(id: string): Promise<void> {
@@ -128,8 +143,8 @@ export class NotificationService {
   }
 
   static async testEmailTemplate(id: string): Promise<{ sent: boolean }> {
-    const response = await api.post<APIResponse<{ sent: boolean }>>(`/api/v1/notification-templates/${id}/test_template/`)
-    return response.data.data
+    const response = await api.post<{ sent: boolean }>(`/api/v1/notification-templates/${id}/test_template/`)
+    return (response.data as any).data || response.data
   }
 
   // Chat functionality
@@ -138,25 +153,25 @@ export class NotificationService {
     page?: number
     page_size?: number
   }): Promise<PaginatedResponse<ChatMessage>> {
-    const response = await api.get<APIResponse<PaginatedResponse<ChatMessage>>>('/api/v1/chat-messages/', {
+    const response = await api.get<PaginatedResponse<ChatMessage>>('/api/v1/chat-messages/', {
       params
     })
-    return response.data.data
+    return (response.data as any).data || response.data
   }
 
   static async sendChatMessage(roomName: string, content: string): Promise<ChatMessage> {
-    const response = await api.post<APIResponse<ChatMessage>>('/api/v1/chat-messages/', {
+    const response = await api.post<ChatMessage>('/api/v1/chat-messages/', {
       room_name: roomName,
       content
     })
-    return response.data.data
+    return (response.data as any).data || response.data
   }
 
   static async editChatMessage(id: string, content: string): Promise<ChatMessage> {
-    const response = await api.put<APIResponse<ChatMessage>>(`/api/v1/chat-messages/${id}/edit_message/`, {
+    const response = await api.put<ChatMessage>(`/api/v1/chat-messages/${id}/edit_message/`, {
       content
     })
-    return response.data.data
+    return (response.data as any).data || response.data
   }
 
   static async deleteChatMessage(id: string): Promise<void> {
@@ -164,21 +179,21 @@ export class NotificationService {
   }
 
   static async getChatRoomHistory(roomName: string): Promise<ChatMessage[]> {
-    const response = await api.get<APIResponse<ChatMessage[]>>('/api/v1/chat-messages/room_history/', {
+    const response = await api.get<ChatMessage[]>('/api/v1/chat-messages/room_history/', {
       params: { room: roomName }
     })
-    return response.data.data
+    return (response.data as any).data || response.data
   }
 
   // WebSocket connection management
   static async getWebSocketConnections(): Promise<WebSocketConnection[]> {
-    const response = await api.get<APIResponse<WebSocketConnection[]>>('/api/v1/websocket-connections/')
-    return response.data.data
+    const response = await api.get<WebSocketConnection[]>('/api/v1/websocket-connections/')
+    return (response.data as any).data || response.data
   }
 
   static async getActiveWebSocketConnections(): Promise<WebSocketConnection[]> {
-    const response = await api.get<APIResponse<WebSocketConnection[]>>('/api/v1/websocket-connections/active_connections/')
-    return response.data.data
+    const response = await api.get<WebSocketConnection[]>('/api/v1/websocket-connections/active_connections/')
+    return (response.data as any).data || response.data
   }
 
   static async getWebSocketConnectionStats(): Promise<{
@@ -189,8 +204,15 @@ export class NotificationService {
     peak_concurrent_connections: number
     recent_connections: WebSocketConnection[]
   }> {
-    const response = await api.get<APIResponse<any>>('/api/v1/websocket-connections/connection_stats/')
-    return response.data.data
+    const response = await api.get<{
+      total_connections: number
+      active_connections: number
+      connections_by_type: Record<string, number>
+      average_connection_duration: number
+      peak_concurrent_connections: number
+      recent_connections: WebSocketConnection[]
+    }>('/api/v1/websocket-connections/connection_stats/')
+    return (response.data as any).data || response.data
   }
 
   static async sendBroadcastMessage(message: string, title?: string, priority?: string): Promise<void> {
@@ -211,8 +233,16 @@ export class NotificationService {
     payment_notifications: boolean
     system_notifications: boolean
   }> {
-    const response = await api.get<APIResponse<any>>('/api/v1/notifications/preferences/')
-    return response.data.data
+    const response = await api.get<{
+      email_notifications: boolean
+      push_notifications: boolean
+      course_enrollment_notifications: boolean
+      class_reminder_notifications: boolean
+      assignment_due_notifications: boolean
+      payment_notifications: boolean
+      system_notifications: boolean
+    }>('/notifications/preferences/')
+    return (response.data as any).data || response.data
   }
 
   static async updateNotificationPreferences(preferences: {
@@ -224,8 +254,8 @@ export class NotificationService {
     payment_notifications?: boolean
     system_notifications?: boolean
   }): Promise<any> {
-    const response = await api.put<APIResponse<any>>('/api/v1/notifications/preferences/', preferences)
-    return response.data.data
+    const response = await api.put<any>('/notifications/preferences/', preferences)
+    return (response.data as any).data || response.data
   }
 
   // Real-time notifications (WebSocket) through centralized API
@@ -235,7 +265,7 @@ export class NotificationService {
 
     // Use centralized API WebSocket endpoint
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsHost = import.meta.env.VITE_WS_HOST || window.location.host
+    const wsHost = (globalThis as any)?.VITE_WS_HOST || window.location.host
     const wsUrl = `${wsProtocol}//${wsHost}/ws/notifications/?token=${token}`
     
     const ws = new WebSocket(wsUrl)
@@ -273,7 +303,7 @@ export class NotificationService {
     if (!token) return null
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsHost = import.meta.env.VITE_WS_HOST || window.location.host
+    const wsHost = (globalThis as any)?.VITE_WS_HOST || window.location.host
     const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/${roomName}/?token=${token}`
     
     const ws = new WebSocket(wsUrl)
@@ -421,12 +451,12 @@ export class NotificationService {
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: this.urlBase64ToUint8Array(
-          process.env.VITE_VAPID_PUBLIC_KEY || ''
+          (globalThis as any)?.VITE_VAPID_PUBLIC_KEY || ''
         )
       })
 
       // Send subscription to backend
-      await api.post('/notifications/push_subscription/', {
+      await api.post('/api/v1/notifications/push_subscription/', {
         subscription: subscription.toJSON()
       })
 
@@ -448,7 +478,7 @@ export class NotificationService {
           await subscription.unsubscribe()
           
           // Remove subscription from backend
-          await api.delete('/notifications/push_subscription/', {
+          await api.delete('/api/v1/notifications/push_subscription/', {
             data: { subscription: subscription.toJSON() }
           })
         }
@@ -478,7 +508,7 @@ export class NotificationService {
     return {
       title: 'Course Updated',
       message: `New content available in "${courseTitle}"`,
-      type: 'info'
+      notification_type: 'system'
     }
   }
 
@@ -487,7 +517,7 @@ export class NotificationService {
     return {
       title: 'Assignment Due Soon',
       message: `"${assignmentTitle}" is due in ${timeUntilDue} day(s)`,
-      type: 'warning'
+      notification_type: 'assignment_due'
     }
   }
 
@@ -495,7 +525,7 @@ export class NotificationService {
     return {
       title: 'Live Class Starting Soon',
       message: `"${classTitle}" starts at ${startTime.toLocaleTimeString()}`,
-      type: 'info'
+      notification_type: 'class_reminder'
     }
   }
 

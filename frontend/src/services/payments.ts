@@ -56,7 +56,7 @@ export class PaymentService {
 
   // Payment status updates and notifications - using centralized API
   static async getPaymentNotifications(): Promise<any[]> {
-    const response = await api.get('/v1/notifications/')
+    const response = await api.get('/api/v1/notifications/')
     return response.data.data.results.filter((n: any) => 
       ['payment_success', 'payment_failed', 'payment_overdue'].includes(n.type)
     )

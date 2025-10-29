@@ -6,12 +6,19 @@ from .dashboard_views import (
     AdminDashboardView, SuperAdminDashboardView
 )
 from .analytics_views import AnalyticsViewSet, ReportGenerationView, ScheduledReportViewSet, ReportDownloadView
+from .security_views import SecurityOverviewView, PlatformAnalyticsView, GlobalFinancialView, SystemHealthView
 from .additional_views import (
     PlatformAnalyticsView, TeacherAnalyticsView, TeacherEarningsView,
-    SecurityOverviewView, SystemStatusView, WishlistViewSet, CourseRecommendationsView,
-    SecurityAlertsView, SecurityEventsView, SecuritySettingsView, SecurityPoliciesView,
-    SystemLogsView, SystemConfigView, SystemMaintenanceView, GlobalFinancialAnalyticsView, 
-    OrganizationFinancialView, PaymentTransactionsView
+    WishlistViewSet, CourseRecommendationsView,
+    GlobalFinancialAnalyticsView, OrganizationFinancialView, PaymentTransactionsView
+)
+# Import placeholder views for now
+from apps.security.views import (
+    SecurityOverviewView, SecurityAlertsView, SecurityEventsView, 
+    SecuritySettingsView, SecurityPoliciesView
+)
+from apps.security.system_views import (
+    SystemStatusView, SystemLogsView, SystemConfigView, SystemMaintenanceView
 )
 
 # Import ViewSets from other apps
@@ -102,11 +109,6 @@ urlpatterns = [
     path('health/', APIHealthCheckView.as_view(), name='api-health'),
     path('docs/', APIDocumentationView.as_view(), name='api-docs'),
     
-    # File access control endpoints
-    path('files/secure-download/<uuid:file_id>/', SecureFileDownloadView.as_view(), name='secure-file-download'),
-    path('files/permissions/<uuid:file_id>/', FilePermissionsView.as_view(), name='file-permissions'),
-    path('files/permissions/bulk/', FilePermissionsView.as_view(), name='bulk-file-permissions'),
-    
     # API v1 routes - All ViewSets registered through router
     path('v1/', include(router.urls)),
     
@@ -127,9 +129,11 @@ urlpatterns = [
     # Teacher-specific endpoints
     path('v1/teacher/earnings/', TeacherEarningsView.as_view(), name='teacher-earnings'),
     
-    # Security endpoints
-    path('v1/security/overview/', SecurityOverviewView.as_view(), name='security-overview'),
-    path('v1/security/alerts/', SecurityAlertsView.as_view(), name='security-alerts'),
+    # Super Admin specific endpoints
+    path('v1/security/', SecurityOverviewView.as_view(), name='security-overview'),
+    path('v1/analytics/platform/', PlatformAnalyticsView.as_view(), name='platform-analytics-new'),
+    path('v1/financial/global/', GlobalFinancialView.as_view(), name='global-financial'),
+    path('v1/system/health/', SystemHealthView.as_view(), name='system-health'),
     path('v1/security/events/', SecurityEventsView.as_view(), name='security-events'),
     path('v1/security/settings/', SecuritySettingsView.as_view(), name='security-settings'),
     path('v1/security/policies/', SecurityPoliciesView.as_view(), name='security-policies'),
@@ -159,6 +163,9 @@ urlpatterns = [
     # Payment webhooks and additional endpoints
     path('v1/payments/', include('apps.payments.urls')),
     
+    # Security and compliance endpoints
+    path('v1/security/', include('apps.security.urls')),
+    
     # Class management with Zoom integration
     path('v1/classes/', include('apps.classes.urls')),
     
@@ -170,4 +177,7 @@ urlpatterns = [
     
     # File management
     path('v1/files/', include('apps.files.urls')),
+    
+    # Content management
+    path('v1/content/', include('apps.content.urls')),
 ]

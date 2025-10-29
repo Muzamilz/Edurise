@@ -6,93 +6,41 @@
         <p>Hear from our amazing community of learners and educators</p>
       </div>
 
-      <div class="testimonies-grid">
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "Edurise has transformed my learning experience. The interactive courses 
-            and supportive community have helped me achieve my goals faster than I ever imagined."
-          </p>
-          <div class="author">
-            <div class="avatar">EW</div>
-            <div class="info">
-              <h4>Emma Wilson</h4>
-              <span>Computer Science Student</span>
-            </div>
-          </div>
-        </div>
+      <div v-if="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading testimonials...</p>
+      </div>
 
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "As an educator, Edurise provides me with all the tools I need to create 
-            engaging content and connect with students worldwide. It's incredible!"
-          </p>
-          <div class="author">
-            <div class="avatar">JR</div>
-            <div class="info">
-              <h4>Dr. James Rodriguez</h4>
-              <span>Mathematics Instructor</span>
-            </div>
-          </div>
-        </div>
+      <div v-else-if="error" class="error">
+        <p>{{ error }}</p>
+        <button @click="loadTestimonials" class="btn btn-primary">Try Again</button>
+      </div>
 
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "The flexibility of learning at my own pace while having access to 
-            expert instructors has made all the difference in my career development."
-          </p>
-          <div class="author">
-            <div class="avatar">SC</div>
-            <div class="info">
-              <h4>Sarah Chen</h4>
-              <span>Marketing Professional</span>
-            </div>
+      <div v-else class="testimonies-grid">
+        <div 
+          v-for="testimonial in testimonials" 
+          :key="testimonial.id" 
+          class="testimony-card"
+        >
+          <div class="stars">
+            <span v-for="i in testimonial.rating" :key="i">⭐</span>
           </div>
-        </div>
-
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "Edurise's platform is intuitive and powerful. I've been able to reach 
-            students globally and share my passion for teaching like never before."
-          </p>
+          <p class="quote">{{ testimonial.content }}</p>
           <div class="author">
-            <div class="avatar">MG</div>
-            <div class="info">
-              <h4>Prof. Maria Garcia</h4>
-              <span>Language Arts Teacher</span>
+            <div class="avatar">
+              {{ getInitials(testimonial.user_name) }}
             </div>
-          </div>
-        </div>
-
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "The community support and interactive features make learning enjoyable 
-            and effective. I've completed 5 courses and earned 3 certifications!"
-          </p>
-          <div class="author">
-            <div class="avatar">AT</div>
             <div class="info">
-              <h4>Alex Thompson</h4>
-              <span>Lifelong Learner</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="testimony-card">
-          <div class="stars">⭐⭐⭐⭐⭐</div>
-          <p class="quote">
-            "Edurise has helped me transition into a new career field. The courses 
-            are comprehensive and the instructors are incredibly supportive."
-          </p>
-          <div class="author">
-            <div class="avatar">MP</div>
-            <div class="info">
-              <h4>Michael Park</h4>
-              <span>Career Changer</span>
+              <h4>{{ testimonial.user_name }}</h4>
+              <span>
+                {{ testimonial.position }}
+                <template v-if="testimonial.company">
+                  {{ testimonial.position ? ' at ' : '' }}{{ testimonial.company }}
+                </template>
+              </span>
+              <div v-if="testimonial.course_title" class="course">
+                Course: {{ testimonial.course_title }}
+              </div>
             </div>
           </div>
         </div>
@@ -111,7 +59,39 @@
 </template>
 
 <script setup lang="ts">
-// Component logic can be added here
+import { ref, onMounted } from 'vue'
+import { contentService, type Testimonial } from '@/services/content'
+
+const testimonials = ref<Testimonial[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
+
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map((word: any) => word.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 2)
+}
+
+const loadTestimonials = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    const response = await contentService.getTestimonials()
+    // Handle the API response structure: { success: true, data: [...] }
+    testimonials.value = Array.isArray(response) ? response : (response.data || (response as any).results || [])
+  } catch (err) {
+    console.error('Error loading testimonials:', err)
+    error.value = 'Failed to load testimonials. Please try again later.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadTestimonials()
+})
 </script>
 
 <style scoped>
@@ -262,6 +242,38 @@
 .btn-outline:hover {
   background: #f59e0b;
   color: white;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 3rem;
+  margin-bottom: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #dc2626;
+}
+
+.course {
+  font-size: 0.75rem;
+  color: #f59e0b;
+  margin-top: 0.25rem;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

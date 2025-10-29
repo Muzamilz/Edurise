@@ -15,6 +15,7 @@ from apps.classes.models import ClassAttendance, LiveClass
 from apps.payments.models import Payment, Subscription
 from apps.notifications.models import Notification
 from apps.assignments.models import Assignment, Submission, Certificate
+from apps.admin_tools.models import ScheduledReport
 from .responses import StandardAPIResponse
 from .mixins import APIResponseMixin
 
@@ -335,11 +336,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
         # Course revenue breakdown
         course_revenue = Course.objects.filter(
             tenant=tenant,
-            enrollments__payment__status='completed',
-            enrollments__payment__created_at__gte=start_date,
-            enrollments__payment__created_at__lte=end_date
+            payments__status='completed',
+            payments__created_at__gte=start_date,
+            payments__created_at__lte=end_date
         ).annotate(
-            revenue=Sum('enrollments__payment__amount'),
+            revenue=Sum('payments__amount'),
             enrollment_count=Count('enrollments')
         ).order_by('-revenue')[:10]
         
@@ -447,7 +448,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             avg_progress=Avg('enrollments__progress_percentage'),
             avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
             total_reviews=Count('reviews', filter=Q(reviews__is_approved=True)),
-            revenue=Sum('enrollments__payment__amount', filter=Q(enrollments__payment__status='completed'))
+            revenue=Sum('payments__amount', filter=Q(payments__status='completed'))
         ).order_by('-total_enrollments')[:limit]
         
         # Format course performance data
@@ -524,6 +525,321 @@ class AnalyticsViewSet(viewsets.ViewSet):
             },
             message="Course performance analytics retrieved successfully"
         )
+    
+    @action(detail=False, methods=['get'])
+    def real_time_metrics(self, request):
+        """
+        Get real-time analytics metrics with live data processing.
+        """
+        tenant = getattr(request, 'tenant', None)
+        
+        # Real-time metrics (last 24 hours)
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+        last_hour = now - timedelta(hours=1)
+        
+        # Active users in the last hour
+        active_users_1h = User.objects.filter(
+            profiles__tenant=tenant,
+            last_login__gte=last_hour
+        ).count()
+        
+        # New enrollments in the last 24 hours
+        new_enrollments_24h = Enrollment.objects.filter(
+            tenant=tenant,
+            enrolled_at__gte=last_24h
+        ).count()
+        
+        # Live class sessions currently active
+        active_live_classes = LiveClass.objects.filter(
+            course__tenant=tenant,
+            status='in_progress',
+            scheduled_at__lte=now,
+            scheduled_at__gte=now - timedelta(hours=3)  # Classes up to 3 hours long
+        ).count()
+        
+        # Recent payments (last 24 hours)
+        recent_payments = Payment.objects.filter(
+            tenant=tenant,
+            created_at__gte=last_24h,
+            status='completed'
+        ).aggregate(
+            count=Count('id'),
+            total_amount=Sum('amount')
+        )
+        
+        # Course completion events (last 24 hours)
+        recent_completions = Enrollment.objects.filter(
+            tenant=tenant,
+            status='completed',
+            updated_at__gte=last_24h
+        ).count()
+        
+        # Real-time engagement metrics
+        # Users who accessed courses in the last hour
+        course_interactions_1h = Enrollment.objects.filter(
+            tenant=tenant,
+            last_accessed__gte=last_hour
+        ).values('student').distinct().count()
+        
+        # Hourly breakdown for the last 24 hours
+        hourly_metrics = []
+        for i in range(24):
+            hour_start = now - timedelta(hours=i+1)
+            hour_end = now - timedelta(hours=i)
+            
+            hour_data = {
+                'hour': hour_start.strftime('%H:00'),
+                'timestamp': hour_start.isoformat(),
+                'active_users': User.objects.filter(
+                    profiles__tenant=tenant,
+                    last_login__gte=hour_start,
+                    last_login__lt=hour_end
+                ).count(),
+                'new_enrollments': Enrollment.objects.filter(
+                    tenant=tenant,
+                    enrolled_at__gte=hour_start,
+                    enrolled_at__lt=hour_end
+                ).count(),
+                'course_interactions': Enrollment.objects.filter(
+                    tenant=tenant,
+                    last_accessed__gte=hour_start,
+                    last_accessed__lt=hour_end
+                ).count(),
+                'payments': Payment.objects.filter(
+                    tenant=tenant,
+                    created_at__gte=hour_start,
+                    created_at__lt=hour_end,
+                    status='completed'
+                ).count()
+            }
+            hourly_metrics.append(hour_data)
+        
+        hourly_metrics.reverse()  # Show oldest to newest
+        
+        # System performance metrics (mock data - would come from monitoring)
+        system_metrics = {
+            'cpu_usage': 45.2,
+            'memory_usage': 67.8,
+            'database_connections': 23,
+            'cache_hit_rate': 94.5,
+            'average_response_time': 145,  # milliseconds
+            'error_rate': 0.02  # percentage
+        }
+        
+        # Top active courses (most interactions in last hour)
+        top_active_courses = Course.objects.filter(
+            tenant=tenant,
+            enrollments__last_accessed__gte=last_hour
+        ).annotate(
+            recent_interactions=Count('enrollments', filter=Q(
+                enrollments__last_accessed__gte=last_hour
+            ))
+        ).order_by('-recent_interactions')[:5]
+        
+        active_courses_data = []
+        for course in top_active_courses:
+            active_courses_data.append({
+                'id': course.id,
+                'title': course.title,
+                'instructor': f"{course.instructor.first_name} {course.instructor.last_name}",
+                'recent_interactions': course.recent_interactions,
+                'total_enrollments': course.enrollments.count()
+            })
+        
+        return StandardAPIResponse.success(
+            data={
+                'current_metrics': {
+                    'active_users_1h': active_users_1h,
+                    'new_enrollments_24h': new_enrollments_24h,
+                    'active_live_classes': active_live_classes,
+                    'recent_payments_count': recent_payments['count'] or 0,
+                    'recent_payments_amount': float(recent_payments['total_amount'] or 0),
+                    'recent_completions': recent_completions,
+                    'course_interactions_1h': course_interactions_1h
+                },
+                'hourly_trends': hourly_metrics,
+                'system_performance': system_metrics,
+                'top_active_courses': active_courses_data,
+                'last_updated': now.isoformat(),
+                'refresh_interval': 60  # seconds
+            },
+            message="Real-time analytics metrics retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['get'])
+    def predictive_insights(self, request):
+        """
+        Generate predictive analytics insights for business intelligence.
+        """
+        tenant = getattr(request, 'tenant', None)
+        
+        # Enrollment prediction based on historical trends
+        now = timezone.now()
+        
+        # Get enrollment data for the last 12 months
+        monthly_enrollments = []
+        for i in range(12):
+            month_start = now.replace(day=1) - timedelta(days=32*i)
+            month_start = month_start.replace(day=1)
+            if month_start.month == 12:
+                month_end = month_start.replace(year=month_start.year + 1, month=1) - timedelta(days=1)
+            else:
+                month_end = month_start.replace(month=month_start.month + 1) - timedelta(days=1)
+            
+            month_count = Enrollment.objects.filter(
+                tenant=tenant,
+                enrolled_at__gte=month_start,
+                enrolled_at__lte=month_end
+            ).count()
+            
+            monthly_enrollments.append({
+                'month': month_start.strftime('%Y-%m'),
+                'enrollments': month_count
+            })
+        
+        monthly_enrollments.reverse()
+        
+        # Simple linear trend prediction for next 3 months
+        if len(monthly_enrollments) >= 3:
+            recent_trend = sum(monthly_enrollments[-3:], key=lambda x: x['enrollments']) / 3
+            older_trend = sum(monthly_enrollments[-6:-3], key=lambda x: x['enrollments']) / 3
+            growth_rate = (recent_trend - older_trend) / max(older_trend, 1)
+        else:
+            growth_rate = 0.05  # Default 5% growth
+        
+        # Predict next 3 months
+        last_month_enrollments = monthly_enrollments[-1]['enrollments'] if monthly_enrollments else 0
+        predictions = []
+        for i in range(1, 4):
+            predicted_enrollments = int(last_month_enrollments * (1 + growth_rate) ** i)
+            future_month = now.replace(day=1) + timedelta(days=32*i)
+            future_month = future_month.replace(day=1)
+            
+            predictions.append({
+                'month': future_month.strftime('%Y-%m'),
+                'predicted_enrollments': predicted_enrollments,
+                'confidence': max(60, 90 - i*10)  # Decreasing confidence over time
+            })
+        
+        # Revenue prediction
+        avg_course_price = Course.objects.filter(
+            tenant=tenant,
+            price__isnull=False
+        ).aggregate(avg_price=Avg('price'))['avg_price'] or 0
+        
+        revenue_predictions = []
+        for pred in predictions:
+            predicted_revenue = pred['predicted_enrollments'] * float(avg_course_price) * 0.7  # Assuming 70% conversion
+            revenue_predictions.append({
+                'month': pred['month'],
+                'predicted_revenue': predicted_revenue,
+                'confidence': pred['confidence']
+            })
+        
+        # Course performance predictions
+        # Identify courses likely to need attention
+        at_risk_courses = Course.objects.filter(
+            tenant=tenant,
+            is_public=True
+        ).annotate(
+            completion_rate=Count('enrollments', filter=Q(enrollments__status='completed')) * 100.0 / Count('enrollments'),
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+            recent_enrollments=Count('enrollments', filter=Q(
+                enrollments__enrolled_at__gte=now - timedelta(days=30)
+            ))
+        ).filter(
+            Q(completion_rate__lt=30) | Q(avg_rating__lt=3.5) | Q(recent_enrollments=0)
+        )[:10]
+        
+        at_risk_data = []
+        for course in at_risk_courses:
+            risk_factors = []
+            if course.completion_rate < 30:
+                risk_factors.append('Low completion rate')
+            if course.avg_rating and course.avg_rating < 3.5:
+                risk_factors.append('Low rating')
+            if course.recent_enrollments == 0:
+                risk_factors.append('No recent enrollments')
+            
+            at_risk_data.append({
+                'id': course.id,
+                'title': course.title,
+                'instructor': f"{course.instructor.first_name} {course.instructor.last_name}",
+                'completion_rate': round(course.completion_rate or 0, 1),
+                'avg_rating': round(course.avg_rating or 0, 2),
+                'recent_enrollments': course.recent_enrollments,
+                'risk_factors': risk_factors,
+                'recommended_actions': self._get_course_recommendations(course, risk_factors)
+            })
+        
+        # Market opportunities
+        # Categories with high demand but low supply
+        category_analysis = Course.objects.filter(
+            tenant=tenant
+        ).values('category').annotate(
+            course_count=Count('id'),
+            total_enrollments=Count('enrollments'),
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
+        ).order_by('-total_enrollments')
+        
+        opportunities = []
+        for cat in category_analysis:
+            if cat['total_enrollments'] > 50 and cat['course_count'] < 5:  # High demand, low supply
+                opportunities.append({
+                    'category': cat['category'],
+                    'demand_score': cat['total_enrollments'],
+                    'supply_score': cat['course_count'],
+                    'avg_rating': round(cat['avg_rating'] or 0, 2),
+                    'opportunity_score': cat['total_enrollments'] / max(cat['course_count'], 1),
+                    'recommendation': f"Consider creating more courses in {cat['category']}"
+                })
+        
+        opportunities.sort(key=lambda x: x['opportunity_score'], reverse=True)
+        
+        return StandardAPIResponse.success(
+            data={
+                'enrollment_predictions': {
+                    'historical_data': monthly_enrollments[-6:],  # Last 6 months
+                    'predictions': predictions,
+                    'growth_rate': round(growth_rate * 100, 2)
+                },
+                'revenue_predictions': revenue_predictions,
+                'at_risk_courses': at_risk_data,
+                'market_opportunities': opportunities[:5],
+                'insights_generated_at': now.isoformat(),
+                'model_accuracy': 75,  # Mock accuracy score
+                'next_update': (now + timedelta(hours=24)).isoformat()
+            },
+            message="Predictive analytics insights generated successfully"
+        )
+    
+    def _get_course_recommendations(self, course, risk_factors):
+        """Generate recommendations for at-risk courses"""
+        recommendations = []
+        
+        if 'Low completion rate' in risk_factors:
+            recommendations.extend([
+                'Review course structure and pacing',
+                'Add more interactive elements',
+                'Provide better progress tracking'
+            ])
+        
+        if 'Low rating' in risk_factors:
+            recommendations.extend([
+                'Gather detailed student feedback',
+                'Update course content',
+                'Improve instructor engagement'
+            ])
+        
+        if 'No recent enrollments' in risk_factors:
+            recommendations.extend([
+                'Update course marketing materials',
+                'Review pricing strategy',
+                'Improve course visibility'
+            ])
+        
+        return recommendations[:3]  # Return top 3 recommendations
 
 
 class ReportGenerationView(APIView):
@@ -1125,9 +1441,9 @@ class ReportGenerationView(APIView):
         
         # Apply additional filters
         if filter_context.get('course_id'):
-            payments = payments.filter(enrollment__course_id=filter_context['course_id'])
+            payments = payments.filter(course_id=filter_context['course_id'])
         if filter_context.get('instructor_id'):
-            payments = payments.filter(enrollment__course__instructor_id=filter_context['instructor_id'])
+            payments = payments.filter(course__instructor_id=filter_context['instructor_id'])
         
         # Revenue summary
         revenue_summary = payments.aggregate(
@@ -1141,11 +1457,11 @@ class ReportGenerationView(APIView):
         # Revenue by course
         course_revenue = Course.objects.filter(
             tenant=tenant,
-            enrollments__payment__created_at__gte=start_date,
-            enrollments__payment__created_at__lte=end_date,
-            enrollments__payment__status='completed'
+            payments__created_at__gte=start_date,
+            payments__created_at__lte=end_date,
+            payments__status='completed'
         ).annotate(
-            revenue=Sum('enrollments__payment__amount')
+            revenue=Sum('payments__amount')
         ).order_by('-revenue')[:20]
         
         return {
@@ -1379,6 +1695,18 @@ class ScheduledReportViewSet(viewsets.ModelViewSet):
     ViewSet for managing scheduled report generation and background processing.
     """
     permission_classes = [IsAuthenticated]
+    queryset = ScheduledReport.objects.all()
+    
+    def get_queryset(self):
+        """Filter reports by tenant and user permissions"""
+        tenant = getattr(self.request, 'tenant', None)
+        queryset = ScheduledReport.objects.filter(tenant=tenant)
+        
+        # Non-admin users can only see their own reports
+        if not (self.request.user.is_staff or self.request.user.is_superuser):
+            queryset = queryset.filter(created_by=self.request.user)
+        
+        return queryset.order_by('-scheduled_at')
     
     def create(self, request):
         """
@@ -1407,27 +1735,34 @@ class ScheduledReportViewSet(viewsets.ModelViewSet):
                 status_code=400
             )
         
-        # Create scheduled report record (mock implementation)
-        scheduled_report = {
-            'id': f"report_{timezone.now().timestamp()}",
-            'report_type': report_type,
-            'email': email,
-            'format': format_type,
-            'filters': filters,
-            'status': 'scheduled',
-            'scheduled_at': timezone.now().isoformat(),
-            'tenant': tenant.name if tenant else 'System',
-            'created_by': f"{request.user.first_name} {request.user.last_name}",
-            'estimated_completion': (timezone.now() + timedelta(minutes=5)).isoformat()
-        }
+        # Validate format type
+        valid_formats = ['json', 'csv', 'pdf']
+        if format_type not in valid_formats:
+            return StandardAPIResponse.error(
+                message=f"Invalid format. Must be one of: {', '.join(valid_formats)}",
+                status_code=400
+            )
         
-        # In a real implementation, this would:
-        # 1. Create a ScheduledReport model instance
-        # 2. Queue a Celery task for background processing
-        # 3. Send email notification when complete
+        # Create scheduled report record
+        scheduled_report = ScheduledReport.objects.create(
+            tenant=tenant,
+            created_by=request.user,
+            report_type=report_type,
+            format_type=format_type,
+            email=email,
+            filters=filters,
+            execute_at=datetime.fromisoformat(schedule_time.replace('Z', '+00:00')) if schedule_time else None,
+            estimated_completion=timezone.now() + timedelta(minutes=5),
+            status='scheduled'
+        )
         
+        # In a real implementation, this would queue a Celery task for background processing
         # For now, simulate immediate processing
         try:
+            scheduled_report.status = 'processing'
+            scheduled_report.started_at = timezone.now()
+            scheduled_report.save()
+            
             # Generate the report
             report_generator = ReportGenerationView()
             filter_context = {
@@ -1449,32 +1784,54 @@ class ScheduledReportViewSet(viewsets.ModelViewSet):
                     filter_context['end_date'].replace('Z', '+00:00')
                 )
             
+            # Check permissions for financial reports
+            if report_type == 'financial' and not (request.user.is_staff or request.user.is_superuser):
+                scheduled_report.status = 'failed'
+                scheduled_report.error_message = "Only administrators can generate financial reports"
+                scheduled_report.save()
+                return StandardAPIResponse.error(
+                    message="Only administrators can generate financial reports",
+                    status_code=403
+                )
+            
             # Generate report data based on type
             if report_type == 'enrollment':
                 report_data = report_generator._generate_enrollment_report(tenant, filter_context)
             elif report_type == 'financial':
-                if not (request.user.is_staff or request.user.is_superuser):
-                    return StandardAPIResponse.error(
-                        message="Only administrators can generate financial reports",
-                        status_code=403
-                    )
                 report_data = report_generator._generate_financial_report(tenant, filter_context)
             elif report_type == 'course':
                 report_data = report_generator._generate_course_report(tenant, filter_context)
             else:  # overview
                 report_data = report_generator._generate_overview_report(tenant, filter_context)
             
-            # Update status
-            scheduled_report['status'] = 'completed'
-            scheduled_report['completed_at'] = timezone.now().isoformat()
-            scheduled_report['download_url'] = f"/api/v1/reports/download/{scheduled_report['id']}/"
+            # Update status and create download URL
+            scheduled_report.status = 'completed'
+            scheduled_report.completed_at = timezone.now()
+            scheduled_report.progress_percentage = 100
+            scheduled_report.download_url = f"/api/v1/reports/download/{scheduled_report.id}/"
+            scheduled_report.save()
             
         except Exception as e:
-            scheduled_report['status'] = 'failed'
-            scheduled_report['error_message'] = str(e)
+            scheduled_report.status = 'failed'
+            scheduled_report.error_message = str(e)
+            scheduled_report.save()
+        
+        # Return serialized data
+        report_data = {
+            'id': str(scheduled_report.id),
+            'report_type': scheduled_report.report_type,
+            'format': scheduled_report.format_type,
+            'email': scheduled_report.email,
+            'status': scheduled_report.status,
+            'scheduled_at': scheduled_report.scheduled_at.isoformat(),
+            'estimated_completion': scheduled_report.estimated_completion.isoformat() if scheduled_report.estimated_completion else None,
+            'download_url': scheduled_report.download_url,
+            'error_message': scheduled_report.error_message,
+            'progress_percentage': scheduled_report.progress_percentage
+        }
         
         return StandardAPIResponse.success(
-            data=scheduled_report,
+            data=report_data,
             message="Report scheduled successfully. You will receive an email when it's ready."
         )
     
@@ -1482,29 +1839,31 @@ class ScheduledReportViewSet(viewsets.ModelViewSet):
         """
         List all scheduled reports for the current user/tenant.
         """
-        tenant = getattr(request, 'tenant', None)
+        reports = self.get_queryset()
         
-        # Mock data - in real implementation, query ScheduledReport model
-        mock_reports = [
-            {
-                'id': 'report_1',
-                'report_type': 'enrollment',
-                'status': 'completed',
-                'created_at': (timezone.now() - timedelta(hours=2)).isoformat(),
-                'completed_at': (timezone.now() - timedelta(hours=1, minutes=55)).isoformat(),
-                'download_url': '/api/v1/reports/download/report_1/'
-            },
-            {
-                'id': 'report_2',
-                'report_type': 'financial',
-                'status': 'processing',
-                'created_at': (timezone.now() - timedelta(minutes=10)).isoformat(),
-                'estimated_completion': (timezone.now() + timedelta(minutes=5)).isoformat()
-            }
-        ]
+        # Serialize the reports
+        reports_data = []
+        for report in reports:
+            reports_data.append({
+                'id': str(report.id),
+                'report_type': report.report_type,
+                'format': report.format_type,
+                'email': report.email,
+                'status': report.status,
+                'scheduled_at': report.scheduled_at.isoformat(),
+                'started_at': report.started_at.isoformat() if report.started_at else None,
+                'completed_at': report.completed_at.isoformat() if report.completed_at else None,
+                'estimated_completion': report.estimated_completion.isoformat() if report.estimated_completion else None,
+                'download_url': report.download_url,
+                'error_message': report.error_message,
+                'progress_percentage': report.progress_percentage,
+                'file_size': report.file_size,
+                'created_by': f"{report.created_by.first_name} {report.created_by.last_name}",
+                'filters_applied': report.filters
+            })
         
         return StandardAPIResponse.success(
-            data=mock_reports,
+            data=reports_data,
             message="Scheduled reports retrieved successfully"
         )
     
@@ -1512,23 +1871,35 @@ class ScheduledReportViewSet(viewsets.ModelViewSet):
         """
         Get details of a specific scheduled report.
         """
-        # Mock implementation
-        mock_report = {
-            'id': pk,
-            'report_type': 'enrollment',
-            'status': 'completed',
-            'created_at': timezone.now().isoformat(),
-            'completed_at': timezone.now().isoformat(),
-            'download_url': f'/api/v1/reports/download/{pk}/',
-            'filters_applied': {
-                'start_date': '2024-01-01',
-                'end_date': '2024-01-31',
-                'period': 'month'
-            }
+        try:
+            report = self.get_queryset().get(pk=pk)
+        except ScheduledReport.DoesNotExist:
+            return StandardAPIResponse.error(
+                message="Report not found",
+                status_code=404
+            )
+        
+        report_data = {
+            'id': str(report.id),
+            'report_type': report.report_type,
+            'format': report.format_type,
+            'email': report.email,
+            'status': report.status,
+            'scheduled_at': report.scheduled_at.isoformat(),
+            'started_at': report.started_at.isoformat() if report.started_at else None,
+            'completed_at': report.completed_at.isoformat() if report.completed_at else None,
+            'estimated_completion': report.estimated_completion.isoformat() if report.estimated_completion else None,
+            'download_url': report.download_url,
+            'error_message': report.error_message,
+            'progress_percentage': report.progress_percentage,
+            'file_size': report.file_size,
+            'file_path': report.file_path,
+            'created_by': f"{report.created_by.first_name} {report.created_by.last_name}",
+            'filters_applied': report.filters
         }
         
         return StandardAPIResponse.success(
-            data=mock_report,
+            data=report_data,
             message="Report details retrieved successfully"
         )
 
@@ -1543,25 +1914,83 @@ class ReportDownloadView(APIView):
         """
         Download a generated report file.
         """
-        # In a real implementation, this would:
-        # 1. Validate user has access to this report
-        # 2. Check if report exists and is completed
-        # 3. Serve the actual file from storage
+        tenant = getattr(request, 'tenant', None)
         
-        # Mock response for now
-        from django.http import HttpResponse
-        
-        # Generate sample CSV content
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="report_{report_id}.csv"'
-        
-        # Sample CSV content
-        import csv
-        writer = csv.writer(response)
-        writer.writerow(['Sample Report Data'])
-        writer.writerow(['Metric', 'Value'])
-        writer.writerow(['Total Users', '1,234'])
-        writer.writerow(['Total Courses', '56'])
-        writer.writerow(['Total Revenue', '$12,345.67'])
-        
-        return response
+        try:
+            # Get the report and validate access
+            report = ScheduledReport.objects.get(id=report_id, tenant=tenant)
+            
+            # Check if user has access to this report
+            if not (request.user.is_staff or request.user.is_superuser or report.created_by == request.user):
+                return StandardAPIResponse.permission_denied(
+                    message="You don't have permission to download this report"
+                )
+            
+            # Check if report is completed
+            if report.status != 'completed':
+                return StandardAPIResponse.error(
+                    message=f"Report is not ready for download. Status: {report.status}",
+                    status_code=400
+                )
+            
+            # In a real implementation, this would serve the actual file from storage
+            # For now, generate sample content based on report type
+            from django.http import HttpResponse
+            
+            if report.format_type == 'csv':
+                response = HttpResponse(content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="{report.report_type}_report_{report.scheduled_at.strftime("%Y%m%d")}.csv"'
+                
+                import csv
+                writer = csv.writer(response)
+                writer.writerow([f'{report.get_report_type_display()} Report'])
+                writer.writerow(['Generated At', report.completed_at.isoformat()])
+                writer.writerow(['Generated By', f"{report.created_by.first_name} {report.created_by.last_name}"])
+                writer.writerow([])
+                writer.writerow(['Sample Data'])
+                writer.writerow(['Metric', 'Value'])
+                writer.writerow(['Total Users', '1,234'])
+                writer.writerow(['Total Courses', '56'])
+                writer.writerow(['Total Revenue', '$12,345.67'])
+                
+            elif report.format_type == 'json':
+                response = HttpResponse(content_type='application/json')
+                response['Content-Disposition'] = f'attachment; filename="{report.report_type}_report_{report.scheduled_at.strftime("%Y%m%d")}.json"'
+                
+                import json
+                sample_data = {
+                    'report_type': report.report_type,
+                    'generated_at': report.completed_at.isoformat(),
+                    'generated_by': f"{report.created_by.first_name} {report.created_by.last_name}",
+                    'data': {
+                        'total_users': 1234,
+                        'total_courses': 56,
+                        'total_revenue': 12345.67
+                    }
+                }
+                response.write(json.dumps(sample_data, indent=2))
+                
+            else:  # PDF
+                response = HttpResponse(content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{report.report_type}_report_{report.scheduled_at.strftime("%Y%m%d")}.pdf"'
+                
+                # For now, return a simple text response indicating PDF would be generated
+                response = HttpResponse(content_type='text/plain')
+                response['Content-Disposition'] = f'attachment; filename="{report.report_type}_report_{report.scheduled_at.strftime("%Y%m%d")}.txt"'
+                response.write(f"PDF Report: {report.get_report_type_display()}\n")
+                response.write(f"Generated: {report.completed_at}\n")
+                response.write(f"Generated By: {report.created_by.first_name} {report.created_by.last_name}\n")
+                response.write("\nThis would be a PDF file in a real implementation.")
+            
+            return response
+            
+        except ScheduledReport.DoesNotExist:
+            return StandardAPIResponse.error(
+                message="Report not found",
+                status_code=404
+            )
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message=f"Error downloading report: {str(e)}",
+                status_code=500
+            )

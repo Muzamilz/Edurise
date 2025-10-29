@@ -136,42 +136,78 @@
     <section class="social-proof-section">
       <div class="container">
         <h2>Join 10,000+ Success Stories</h2>
-        <div class="testimonials-grid">
-          <div class="testimonial-card">
+        <div v-if="loadingTestimonials" class="loading-testimonials">
+          <div class="spinner"></div>
+          <p>Loading success stories...</p>
+        </div>
+
+        <div v-else class="testimonials-grid">
+          <div 
+            v-for="testimonial in testimonials" 
+            :key="testimonial.id"
+            class="testimonial-card"
+          >
             <div class="testimonial-header">
-              <div class="testimonial-avatar">SM</div>
+              <div class="testimonial-avatar">
+                {{ getInitials(testimonial.user_name) }}
+              </div>
               <div class="testimonial-info">
-                <h4>Sarah M.</h4>
-                <span>Software Engineer at Google</span>
+                <h4>{{ testimonial.user_name }}</h4>
+                <span>
+                  {{ testimonial.position }}
+                  <template v-if="testimonial.company">
+                    {{ testimonial.position ? ' at ' : '' }}{{ testimonial.company }}
+                  </template>
+                </span>
+              </div>
+              <div class="rating">
+                <span v-for="i in testimonial.rating" :key="i">⭐</span>
               </div>
             </div>
-            <p>"Went from retail to Google in 6 months. The AI-powered learning path was incredible!"</p>
-            <div class="result">💰 Salary increased by 180%</div>
-          </div>
-          
-          <div class="testimonial-card">
-            <div class="testimonial-header">
-              <div class="testimonial-avatar">MR</div>
-              <div class="testimonial-info">
-                <h4>Mike R.</h4>
-                <span>Marketing Director at Tesla</span>
-              </div>
+            <p>"{{ testimonial.content }}"</p>
+            <div v-if="testimonial.course_title" class="course-info">
+              📚 Course: {{ testimonial.course_title }}
             </div>
-            <p>"Finally found courses that actually work. Got promoted twice in one year!"</p>
-            <div class="result">📈 Career advancement in 8 months</div>
           </div>
-          
-          <div class="testimonial-card">
-            <div class="testimonial-header">
-              <div class="testimonial-avatar">LK</div>
-              <div class="testimonial-info">
-                <h4>Lisa K.</h4>
-                <span>UX Designer at Airbnb</span>
+
+          <!-- Fallback testimonials if no data loaded -->
+          <template v-if="testimonials.length === 0">
+            <div class="testimonial-card">
+              <div class="testimonial-header">
+                <div class="testimonial-avatar">SM</div>
+                <div class="testimonial-info">
+                  <h4>Sarah M.</h4>
+                  <span>Software Engineer at Google</span>
+                </div>
               </div>
+              <p>"Went from retail to Google in 6 months. The AI-powered learning path was incredible!"</p>
+              <div class="result">💰 Salary increased by 180%</div>
             </div>
-            <p>"The personalized learning made all the difference. I'm now designing for millions of users!"</p>
-            <div class="result">🚀 Dream job achieved</div>
-          </div>
+            
+            <div class="testimonial-card">
+              <div class="testimonial-header">
+                <div class="testimonial-avatar">MR</div>
+                <div class="testimonial-info">
+                  <h4>Mike R.</h4>
+                  <span>Marketing Director at Tesla</span>
+                </div>
+              </div>
+              <p>"Finally found courses that actually work. Got promoted twice in one year!"</p>
+              <div class="result">📈 Career advancement in 8 months</div>
+            </div>
+            
+            <div class="testimonial-card">
+              <div class="testimonial-header">
+                <div class="testimonial-avatar">LK</div>
+                <div class="testimonial-info">
+                  <h4>Lisa K.</h4>
+                  <span>UX Designer at Airbnb</span>
+                </div>
+              </div>
+              <p>"The personalized learning made all the difference. I'm now designing for millions of users!"</p>
+              <div class="result">🚀 Dream job achieved</div>
+            </div>
+          </template>
         </div>
 
         <div class="company-logos">
@@ -293,6 +329,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { contentService, type Testimonial } from '@/services/content'
 
 // Interactive demo state
 const demoActive = ref(false)
@@ -300,6 +337,10 @@ const progressWidth = ref(0)
 const completedLessons = ref(0)
 const skillLevel = ref(0)
 const aiMessage = ref("Click 'Try Interactive Demo' to see your personalized learning path!")
+
+// Testimonials state
+const testimonials = ref<Testimonial[]>([])
+const loadingTestimonials = ref(true)
 
 const aiMessages = [
   "Great progress! Let's focus on advanced JavaScript concepts next.",
@@ -353,7 +394,33 @@ const startDemo = () => {
   }, 2000)
 }
 
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map((word: any) => word.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 2)
+}
+
+const loadFeaturedTestimonials = async () => {
+  try {
+    loadingTestimonials.value = true
+    const response = await contentService.getFeaturedTestimonials()
+    // Handle the API response structure: { success: true, data: [...] }
+    const testimonialsData = Array.isArray(response) ? response : (response.data || response.results || [])
+    testimonials.value = testimonialsData.slice(0, 3) // Show only first 3
+  } catch (err) {
+    console.error('Error loading testimonials:', err)
+    // Keep default testimonials if API fails
+  } finally {
+    loadingTestimonials.value = false
+  }
+}
+
 onMounted(() => {
+  // Load testimonials
+  loadFeaturedTestimonials()
+  
   // Auto-start demo after 3 seconds
   setTimeout(() => {
     if (!demoActive.value) {
@@ -888,6 +955,27 @@ onUnmounted(() => {
   margin-bottom: 3rem;
 }
 
+.loading-testimonials {
+  text-align: center;
+  padding: 3rem;
+  margin-bottom: 4rem;
+}
+
+.loading-testimonials .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .testimonials-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -936,6 +1024,18 @@ onUnmounted(() => {
   font-style: italic;
   color: #4b5563;
   margin-bottom: 1rem;
+}
+
+.rating {
+  margin-left: auto;
+  font-size: 0.875rem;
+}
+
+.course-info {
+  font-size: 0.875rem;
+  color: #f59e0b;
+  font-weight: 500;
+  margin-top: 0.5rem;
 }
 
 .result {

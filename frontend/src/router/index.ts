@@ -132,6 +132,15 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Dashboard - Edurise', requiresAuth: true }
   },
 
+  // Profile route
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('../views/ProfileView.vue'),
+    beforeEnter: authGuard,
+    meta: { title: 'Profile - Edurise', requiresAuth: true }
+  },
+
   // Course routes
   {
     path: '/courses',

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تأكيد التسجيل في الدورة</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            direction: rtl;
+            text-align: right;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3B82F6, #1E40AF);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #3B82F6;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .success-icon {
+            font-size: 48px;
+            color: #10B981;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if tenant and tenant.logo %}
+                <img src="{{ tenant.logo.url }}" alt="{{ tenant.name }}" style="max-height: 50px; margin-bottom: 20px;">
+            {% endif %}
+            <h1>{{ notification.title }}</h1>
+        </div>
+        
+        <div class="content">
+            <div class="success-icon">✅</div>
+            
+            <h2>مرحباً {{ user.first_name|default:user.email }}،</h2>
+            
+            <p>{{ notification.message }}</p>
+            
+            <p>يمكنك الآن الوصول إلى جميع مواد الدورة والبدء في رحلة التعلم الخاصة بك.</p>
+            
+            <a href="{{ site_url }}/courses/{{ notification.related_object_id }}" class="btn">
+                الذهاب إلى الدورة
+            </a>
+            
+            <p>إذا كان لديك أي أسئلة، فلا تتردد في التواصل مع فريق الدعم.</p>
+            
+            <p>مع أطيب التحيات،<br>
+            فريق {{ tenant.name|default:"إدورايز" }}</p>
+        </div>
+        
+        <div class="footer">
+            <p>تم إرسال هذا البريد الإلكتروني في {{ formatted_date }}</p>
+            <p>© {{ tenant.name|default:"إدورايز" }} - جميع الحقوق محفوظة</p>
+        </div>
+    </div>
+</body>
+</html>

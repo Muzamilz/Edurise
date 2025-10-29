@@ -77,6 +77,13 @@ class StripeService:
             return stripe.Subscription.retrieve(subscription_id)
         except stripe.error.StripeError as e:
             raise Exception(f"Stripe error: {str(e)}")
+    
+    def retrieve_payment_intent(self, payment_intent_id):
+        """Retrieve Stripe payment intent"""
+        try:
+            return stripe.PaymentIntent.retrieve(payment_intent_id)
+        except stripe.error.StripeError as e:
+            raise Exception(f"Stripe error: {str(e)}")
 
 
 class PayPalService:
@@ -85,7 +92,7 @@ class PayPalService:
     def __init__(self):
         self.client_id = settings.PAYPAL_CLIENT_ID
         self.client_secret = settings.PAYPAL_CLIENT_SECRET
-        self.base_url = getattr(settings, 'PAYPAL_BASE_URL', 'https://api.sandbox.paypal.com')
+        self.base_url = settings.PAYPAL_BASE_URL
         self.access_token = None
     
     def get_access_token(self):
@@ -146,8 +153,8 @@ class PayPalService:
             'intent': 'CAPTURE',
             'purchase_units': [purchase_unit],
             'application_context': {
-                'return_url': f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/payment/success",
-                'cancel_url': f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/payment/cancel"
+                'return_url': settings.PAYMENT_SUCCESS_URL,
+                'cancel_url': settings.PAYMENT_CANCEL_URL
             }
         }
         

@@ -6,85 +6,61 @@
         <p>Meet the passionate individuals behind Edurise</p>
       </div>
 
-      <div class="content">
-        <section class="leadership-section">
-          <h2>Leadership Team</h2>
-          <div class="team-grid">
-            <div class="team-member">
-              <div class="member-avatar">JS</div>
-              <h3>John Smith</h3>
-              <p class="role">Chief Executive Officer</p>
-              <p class="bio">
-                With over 15 years in educational technology, John leads our vision 
-                to transform learning experiences worldwide.
-              </p>
-            </div>
-            
-            <div class="team-member">
-              <div class="member-avatar">SJ</div>
-              <h3>Sarah Johnson</h3>
-              <p class="role">Chief Technology Officer</p>
-              <p class="bio">
-                Sarah brings cutting-edge technical expertise to create innovative 
-                learning platforms that scale globally.
-              </p>
-            </div>
-            
-            <div class="team-member">
-              <div class="member-avatar">MC</div>
-              <h3>Michael Chen</h3>
-              <p class="role">Chief Product Officer</p>
-              <p class="bio">
-                Michael focuses on user experience and product strategy to ensure 
-                our platform meets learners' evolving needs.
-              </p>
-            </div>
-          </div>
-        </section>
+      <div v-if="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading team members...</p>
+      </div>
 
-        <section class="departments-section">
-          <h2>Our Departments</h2>
-          <div class="departments-grid">
-            <div class="department-card">
-              <div class="dept-icon">💻</div>
-              <h3>Engineering</h3>
-              <p>Building robust, scalable technology solutions</p>
-              <span class="team-count">12 members</span>
-            </div>
-            
-            <div class="department-card">
-              <div class="dept-icon">🎨</div>
-              <h3>Design</h3>
-              <p>Creating intuitive and engaging user experiences</p>
-              <span class="team-count">6 members</span>
-            </div>
-            
-            <div class="department-card">
-              <div class="dept-icon">📚</div>
-              <h3>Education</h3>
-              <p>Developing curriculum and learning methodologies</p>
-              <span class="team-count">8 members</span>
-            </div>
-            
-            <div class="department-card">
-              <div class="dept-icon">📈</div>
-              <h3>Marketing</h3>
-              <p>Connecting with learners and educators globally</p>
-              <span class="team-count">5 members</span>
-            </div>
-            
-            <div class="department-card">
-              <div class="dept-icon">🤝</div>
-              <h3>Support</h3>
-              <p>Ensuring exceptional customer experience</p>
-              <span class="team-count">7 members</span>
-            </div>
-            
-            <div class="department-card">
-              <div class="dept-icon">⚖️</div>
-              <h3>Operations</h3>
-              <p>Managing business operations and growth</p>
-              <span class="team-count">4 members</span>
+      <div v-else-if="error" class="error">
+        <p>{{ error }}</p>
+        <button @click="loadTeamMembers" class="btn btn-primary">Try Again</button>
+      </div>
+
+      <div v-else class="content">
+        <section 
+          v-for="(members, department) in teamByDepartment" 
+          :key="department"
+          class="department-section"
+        >
+          <h2>{{ department }}</h2>
+          <div class="team-grid">
+            <div 
+              v-for="member in members" 
+              :key="member.id" 
+              class="team-member"
+            >
+              <div class="member-avatar">
+                <img 
+                  v-if="member.profile_image" 
+                  :src="member.profile_image" 
+                  :alt="member.name"
+                  class="avatar-image"
+                />
+                <span v-else class="avatar-initials">
+                  {{ getInitials(member.name) }}
+                </span>
+              </div>
+              <h3>{{ member.name }}</h3>
+              <p class="role">{{ member.role }}</p>
+              <p class="bio">{{ member.bio }}</p>
+              <div v-if="member.linkedin_url || member.twitter_url" class="social-links">
+                <a 
+                  v-if="member.linkedin_url" 
+                  :href="member.linkedin_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  LinkedIn
+                </a>
+                <a 
+                  v-if="member.twitter_url" 
+                  :href="member.twitter_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  Twitter
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -105,7 +81,53 @@
 </template>
 
 <script setup lang="ts">
-// Component logic can be added here
+import { ref, onMounted, computed } from 'vue'
+import { contentService, type TeamMember } from '@/services/content'
+
+const teamMembers = ref<TeamMember[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
+
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map((word: any) => word.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 2)
+}
+
+const teamByDepartment = computed(() => {
+  const grouped: Record<string, TeamMember[]> = {}
+  
+  teamMembers.value.forEach(member => {
+    const dept = member.department.charAt(0).toUpperCase() + member.department.slice(1)
+    if (!grouped[dept]) {
+      grouped[dept] = []
+    }
+    grouped[dept].push(member)
+  })
+  
+  return grouped
+})
+
+const loadTeamMembers = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    const response = await contentService.getTeamMembers()
+    // Handle the API response structure: { success: true, data: [...] }
+    teamMembers.value = Array.isArray(response) ? response : (response.data || response.results || [])
+  } catch (err) {
+    console.error('Error loading team members:', err)
+    error.value = 'Failed to load team members. Please try again later.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadTeamMembers()
+})
 </script>
 
 <style scoped>
@@ -143,13 +165,37 @@
   gap: 4rem;
 }
 
-.leadership-section h2,
-.departments-section h2 {
+.department-section h2 {
   font-size: 2rem;
   font-weight: 600;
   color: #f59e0b;
   text-align: center;
   margin-bottom: 2rem;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 3rem;
+  margin-bottom: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #dc2626;
 }
 
 .team-grid {
@@ -184,6 +230,40 @@
   font-weight: 700;
   font-size: 2rem;
   border: 4px solid #f59e0b;
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.social-links {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.social-link {
+  padding: 0.25rem 0.75rem;
+  background: #f59e0b;
+  color: white;
+  text-decoration: none;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.social-link:hover {
+  background: #d97706;
 }
 
 .team-member h3 {

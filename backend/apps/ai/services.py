@@ -77,6 +77,38 @@ class AIService:
             if quota.is_chat_quota_exceeded():
                 raise QuotaExceededError("Chat message quota exceeded for this month")
             
+            # Content filter for EduRise-only topics
+            if not self._is_edurise_related_query(message):
+                # Return a redirect message for non-EduRise topics
+                ai_response = "I'm the EduRise AI Assistant and I can only help with questions about the EduRise learning platform. I can assist you with information about our courses, live classes, AI features, pricing, platform usage, and technical support. What would you like to know about EduRise? 🎓"
+                
+                # Still create conversation and messages for tracking
+                conversation = self._get_conversation(conversation_id, context)
+                user_message = AIMessage.objects.create(
+                    conversation=conversation,
+                    role='user',
+                    content=message
+                )
+                ai_message = AIMessage.objects.create(
+                    conversation=conversation,
+                    role='assistant',
+                    content=ai_response,
+                    tokens_used=50,  # Minimal tokens for redirect message
+                    response_time_ms=100
+                )
+                
+                metadata = {
+                    'conversation_id': str(conversation.id),
+                    'user_message_id': str(user_message.id),
+                    'ai_message_id': str(ai_message.id),
+                    'tokens_used': 50,
+                    'response_time_ms': 100,
+                    'remaining_quota': quota.chat_messages_limit - quota.chat_messages_used,
+                    'filtered': True
+                }
+                
+                return ai_response, metadata
+            
             # Get or create conversation
             conversation = self._get_conversation(conversation_id, context)
             
@@ -442,6 +474,42 @@ class AIService:
         quota.total_cost_usd += cost
         
         quota.save()
+    
+    def _is_edurise_related_query(self, message: str) -> bool:
+        """Check if the user query is related to EduRise platform"""
+        message_lower = message.lower()
+        
+        # EduRise-related keywords
+        edurise_keywords = [
+            'edurise', 'platform', 'course', 'class', 'live class', 'virtual class',
+            'learn', 'study', 'price', 'pricing', 'cost', 'plan', 'subscription',
+            'ai tutor', 'tutor', 'teacher', 'instructor', 'professor',
+            'quiz', 'summary', 'summarize', 'certificate', 'progress',
+            'enroll', 'enrollment', 'dashboard', 'account', 'profile',
+            'mobile', 'app', 'technology', 'feature', 'support', 'help',
+            'demo', 'trial', 'free', 'sign up', 'login', 'register',
+            'video', 'streaming', 'whiteboard', 'breakout', 'recording',
+            'assignment', 'homework', 'grade', 'feedback', 'analytics'
+        ]
+        
+        # Common greetings and platform inquiry phrases
+        allowed_phrases = [
+            'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
+            'what is', 'what are', 'how do', 'how can', 'how does', 'can you',
+            'tell me about', 'explain', 'show me', 'help me', 'i want to',
+            'i need', 'where can', 'when can', 'why should', 'which plan'
+        ]
+        
+        # Check if message contains EduRise keywords
+        has_edurise_keywords = any(keyword in message_lower for keyword in edurise_keywords)
+        
+        # Check if message starts with allowed inquiry phrases
+        has_allowed_phrases = any(message_lower.startswith(phrase) for phrase in allowed_phrases)
+        
+        # Allow short messages (likely greetings) or messages with EduRise keywords
+        is_short_message = len(message.split()) <= 3
+        
+        return has_edurise_keywords or (has_allowed_phrases and is_short_message) or is_short_message
 
 
 class AIServiceFactory:

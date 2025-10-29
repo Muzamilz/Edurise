@@ -246,6 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -264,7 +265,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/enrollments/', {
+} = useApiData('/enrollments/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -296,7 +297,7 @@ const {
   }
 })
 
-const { data: coursesData } = useApiData('/api/v1/courses/', {
+const { data: coursesData } = useApiData('/courses/', {
   immediate: true,
   transform: (data) => {
     if (data.results) {
@@ -315,21 +316,21 @@ const students = computed(() => studentsData.value?.results || [])
 const teacherCourses = computed(() => coursesData.value?.results || [])
 
 const totalStudents = computed(() => {
-  const uniqueStudents = new Set(students.value.map(s => s.student_id))
+  const uniqueStudents = new Set(students.value.map((s: any) => s.student_id))
   return uniqueStudents.size
 })
 
 const activeEnrollments = computed(() => 
-  students.value.filter(s => s.status === 'active').length
+  students.value.filter((s: any) => s.status === 'active').length
 )
 
 const completedEnrollments = computed(() => 
-  students.value.filter(s => s.status === 'completed').length
+  students.value.filter((s: any) => s.status === 'completed').length
 )
 
 const averageProgress = computed(() => {
   if (students.value.length === 0) return 0
-  const totalProgress = students.value.reduce((sum, s) => sum + (s.progress_percentage || 0), 0)
+  const totalProgress = students.value.reduce((sum: number, s: any) => sum + (s.progress_percentage || 0), 0)
   return Math.round(totalProgress / students.value.length)
 })
 
@@ -339,7 +340,7 @@ const filteredStudents = computed(() => {
   // Search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(student => 
+    filtered = filtered.filter((student: any) => 
       student.name.toLowerCase().includes(query) ||
       student.email.toLowerCase().includes(query)
     )
@@ -347,16 +348,16 @@ const filteredStudents = computed(() => {
 
   // Course filter
   if (courseFilter.value) {
-    filtered = filtered.filter(student => student.course_id === courseFilter.value)
+    filtered = filtered.filter((student: any) => student.course_id === courseFilter.value)
   }
 
   // Status filter
   if (statusFilter.value) {
-    filtered = filtered.filter(student => student.status === statusFilter.value)
+    filtered = filtered.filter((student: any) => student.status === statusFilter.value)
   }
 
   // Sort
-  filtered.sort((a, b) => {
+  filtered.sort((a: any, b: any) => {
     switch (sortBy.value) {
       case 'name':
         return a.name.localeCompare(b.name)
@@ -421,7 +422,7 @@ const getEmptyStateMessage = () => {
     return `No students found matching "${searchQuery.value}"`
   }
   if (courseFilter.value) {
-    const course = teacherCourses.value.find(c => c.id === courseFilter.value)
+    const course = teacherCourses.value.find((c: any) => c.id === courseFilter.value)
     return `No students enrolled in "${course?.title || 'selected course'}"`
   }
   if (statusFilter.value) {
@@ -483,7 +484,7 @@ const sendMessage = async (student: any) => {
     // For now, just show an alert
     alert(`Message feature would open for ${student.name}`)
   } catch (error) {
-    handleApiError(error, { context: { action: 'send_message' } })
+    handleApiError(error as any, { context: { action: 'send_message' } })
   }
 }
 
@@ -499,7 +500,7 @@ const generateReport = async (student: any) => {
     })
     
     // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response.data as any]))
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `${student.name}-progress-report.pdf`)
@@ -508,7 +509,7 @@ const generateReport = async (student: any) => {
     link.remove()
     window.URL.revokeObjectURL(url)
   } catch (error) {
-    handleApiError(error, { context: { action: 'generate_student_report' } })
+    handleApiError(error as any, { context: { action: 'generate_student_report' } })
   }
 }
 

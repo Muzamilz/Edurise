@@ -183,6 +183,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const router = useRouter()
@@ -199,7 +200,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/enrollments/', {
+} = useApiData('/enrollments/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure

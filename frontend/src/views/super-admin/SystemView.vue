@@ -11,10 +11,10 @@
         <div class="card-icon">🖥️</div>
         <div class="card-content">
           <h3>Server Status</h3>
-          <p class="status" :class="systemStatus?.server_status">
-            {{ formatStatus(systemStatus?.server_status) }}
+          <p class="status" :class="(systemStatus as any)?.server_status">
+            {{ formatStatus((systemStatus as any)?.server_status) }}
           </p>
-          <span class="uptime">Uptime: {{ systemStatus?.uptime || 'N/A' }}</span>
+          <span class="uptime">Uptime: {{ (systemStatus as any)?.uptime || 'N/A' }}</span>
         </div>
       </div>
       
@@ -22,10 +22,10 @@
         <div class="card-icon">🗄️</div>
         <div class="card-content">
           <h3>Database</h3>
-          <p class="status" :class="systemStatus?.database_status">
-            {{ formatStatus(systemStatus?.database_status) }}
+          <p class="status" :class="(systemStatus as any)?.database_status">
+            {{ formatStatus((systemStatus as any)?.database_status) }}
           </p>
-          <span class="connections">{{ systemStatus?.db_connections || 0 }} connections</span>
+          <span class="connections">{{ (systemStatus as any)?.db_connections || 0 }} connections</span>
         </div>
       </div>
       
@@ -33,7 +33,7 @@
         <div class="card-icon">💾</div>
         <div class="card-content">
           <h3>Storage</h3>
-          <p class="usage">{{ systemStatus?.storage_used || 0 }}GB / {{ systemStatus?.storage_total || 0 }}GB</p>
+          <p class="usage">{{ (systemStatus as any)?.storage_used || 0 }}GB / {{ (systemStatus as any)?.storage_total || 0 }}GB</p>
           <span class="percentage">{{ calculateStoragePercentage() }}% used</span>
         </div>
       </div>
@@ -42,7 +42,7 @@
         <div class="card-icon">🧠</div>
         <div class="card-content">
           <h3>Memory</h3>
-          <p class="usage">{{ systemStatus?.memory_used || 0 }}GB / {{ systemStatus?.memory_total || 0 }}GB</p>
+          <p class="usage">{{ (systemStatus as any)?.memory_used || 0 }}GB / {{ (systemStatus as any)?.memory_total || 0 }}GB</p>
           <span class="percentage">{{ calculateMemoryPercentage() }}% used</span>
         </div>
       </div>
@@ -390,14 +390,34 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: systemStatus, loading, error, refresh } = useApiData('/system/status/')
-const { data: systemLogs } = useApiData('/system/logs/')
-const { data: systemConfig } = useApiData('/system/config/')
+const { data: systemStatus, loading, error, refresh } = useApiData('/system/health/', {
+  immediate: true,
+  transform: (data) => {
+    console.log('🔍 Raw system health data:', data)
+    return {
+      database_status: data.database_status || 'unknown',
+      cache_status: data.cache_status || 'unknown',
+      storage_status: data.storage_status || 'unknown',
+      api_status: data.api_status || 'unknown',
+      system_status: data.system_status || 'unknown',
+      active_sessions: data.active_sessions || 0,
+      recent_logins_1h: data.recent_logins_1h || 0,
+      total_users: data.total_users || 0,
+      uptime_percentage: data.uptime_percentage || 0,
+      last_check: data.last_check
+    }
+  }
+})
+
+// Mock data for logs and config (these would need separate endpoints)
+const systemLogs = ref([])
+const systemConfig = ref({})
 
 // State
 const activeTab = ref('general')
@@ -405,7 +425,7 @@ const logLevel = ref('')
 const hasConfigChanges = ref(false)
 const backupInProgress = ref(false)
 const cleanupInProgress = ref(false)
-const lastBackup = ref(null)
+const lastBackup = ref<string | null>(null)
 
 // Configuration tabs
 const configTabs = [
@@ -458,7 +478,7 @@ const { mutate: updateConfig } = useApiMutation(
       hasConfigChanges.value = false
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'update_system_config' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_system_config' } })
   }
 )
 
@@ -466,7 +486,7 @@ const { mutate: performMaintenance } = useApiMutation(
   (action) => ({ method: 'POST', url: `/system/maintenance/${action}/` }),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'system_maintenance' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'system_maintenance' } })
   }
 )
 
@@ -474,30 +494,30 @@ const { mutate: performMaintenance } = useApiMutation(
 const filteredLogs = computed(() => {
   if (!systemLogs.value) return []
   
-  return systemLogs.value.filter(log => {
+  return (systemLogs.value as any[]).filter((log: any) => {
     return !logLevel.value || log.level === logLevel.value
   })
 })
 
 // Methods
-const formatStatus = (status) => {
-  return status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'
+const formatStatus = (status: any) => {
+  return status?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Unknown'
 }
 
-const formatDateTime = (date) => {
+const formatDateTime = (date: any) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleString()
 }
 
 const calculateStoragePercentage = () => {
-  const used = systemStatus.value?.storage_used || 0
-  const total = systemStatus.value?.storage_total || 1
+  const used = (systemStatus.value as any)?.storage_used || 0
+  const total = (systemStatus.value as any)?.storage_total || 1
   return Math.round((used / total) * 100)
 }
 
 const calculateMemoryPercentage = () => {
-  const used = systemStatus.value?.memory_used || 0
-  const total = systemStatus.value?.memory_total || 1
+  const used = (systemStatus.value as any)?.memory_used || 0
+  const total = (systemStatus.value as any)?.memory_total || 1
   return Math.round((used / total) * 100)
 }
 
@@ -558,7 +578,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_system_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_system_load' } })
   }
 }
 
@@ -566,7 +586,7 @@ onMounted(() => {
   refresh()
   // Load configuration when component mounts
   if (systemConfig.value) {
-    config.value = { ...systemConfig.value }
+    config.value = { ...systemConfig.value as any }
   }
 })
 </script>

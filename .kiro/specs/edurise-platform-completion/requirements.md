@@ -1,189 +1,139 @@
-# EduRise LMS Platform Completion Requirements
+# EduRise Platform Completion Requirements
 
 ## Introduction
 
-This comprehensive specification consolidates the complete EduRise LMS platform development, combining all previous work and defining what remains to achieve a fully functional, production-ready learning management system. The platform is a multi-tenant SaaS LMS with real-time teaching capabilities, AI integration, and immersive user experiences.
+The EduRise platform is a comprehensive Learning Management System (LMS) with multi-tenant architecture, AI integration, live classes, payments, and analytics. This specification addresses critical gaps between frontend API calls and backend implementations to ensure production readiness.
 
-## Current Status Overview
+## Glossary
 
-### ✅ **COMPLETED COMPONENTS**
-- **Backend Infrastructure**: Django REST Framework with centralized API structure
-- **Multi-tenant Architecture**: Tenant isolation and subdomain routing
-- **Authentication System**: JWT-based auth with Google OAuth integration
-- **Core Models**: User, Course, Enrollment, LiveClass, Payment models implemented
-- **API Endpoints**: Comprehensive REST API with standardized responses
-- **Basic Frontend**: Vue 3 with Vite, basic view components created
-- **Admin Integration**: Admin view components connected to real APIs
-
-### 🔄 **PARTIALLY COMPLETED**
-- **Frontend Integration**: Only admin views fully integrated with real data
-- **Real-time Features**: WebSocket infrastructure exists but not fully utilized
-- **Security Monitoring**: Basic implementation with significant mock data
-- **Payment Processing**: Core functionality exists, needs enhancement
-- **AI Integration**: Basic structure in place, needs full implementation
-
-### ❌ **MISSING COMPONENTS**
-- **Student/Teacher View Integration**: Views exist but use fallback data
-- **Wishlist System**: No backend model, completely mock
-- **Comprehensive Testing**: Limited test coverage
-- **Performance Optimization**: Basic implementation needs enhancement
-- **Mobile Responsiveness**: Needs optimization
-- **Internationalization**: Not implemented
+- **EduRise_Platform**: The complete learning management system
+- **Frontend_Service**: Vue.js application making API calls
+- **Backend_API**: Django REST API providing endpoints
+- **Centralized_API**: Single API routing system through apps/api/urls.py
+- **Multi_Tenant_System**: Organization-based data isolation
+- **AI_Service**: Artificial intelligence integration for tutoring and content generation
+- **Payment_Gateway**: Stripe/PayPal integration for course purchases
+- **Live_Class_System**: Zoom-integrated virtual classroom functionality
+- **Analytics_Engine**: Data visualization and reporting system
 
 ## Requirements
 
-### Requirement 1: Complete Frontend-Backend Integration
+### Requirement 1: Core API Infrastructure Completion
 
-**User Story:** As any platform user, I want all frontend components to display real data from the backend database, so that I can interact with accurate, up-to-date information across all platform features.
-
-#### Acceptance Criteria
-
-1. WHEN accessing student views THEN the system SHALL display real enrollment, progress, and certificate data from the database
-2. WHEN accessing teacher views THEN the system SHALL show actual course statistics, student data, and earnings from backend APIs
-3. WHEN accessing super admin views THEN the system SHALL present real platform analytics and organization data
-4. WHEN performing any CRUD operations THEN the system SHALL persist changes to the backend database
-5. WHEN API calls fail THEN the system SHALL display meaningful error messages instead of fallback data
-6. WHEN data is loading THEN the system SHALL show proper loading states with skeleton loaders
-
-### Requirement 2: Real-Time Communication and Collaboration
-
-**User Story:** As a platform user, I want real-time updates for notifications, live classes, and collaborative features, so that I can participate in live activities and stay informed of important events.
+**User Story:** As a developer, I want all frontend API calls to have corresponding backend endpoints, so that the application functions without 404 errors.
 
 #### Acceptance Criteria
 
-1. WHEN notifications are generated THEN the system SHALL deliver them in real-time via WebSocket connections
-2. WHEN live classes are active THEN the system SHALL provide real-time attendance tracking and engagement metrics
-3. WHEN assignments are submitted or graded THEN the system SHALL notify relevant users immediately
-4. WHEN system events occur THEN the system SHALL update UI components without page refresh
-5. WHEN WebSocket connections fail THEN the system SHALL implement automatic reconnection with status indicators
-6. WHEN users are offline THEN the system SHALL queue notifications for delivery upon reconnection
+1. WHEN Frontend_Service makes API calls, THEN Backend_API SHALL provide corresponding endpoints
+2. WHEN API endpoints are accessed, THEN Centralized_API SHALL route requests correctly
+3. WHEN authentication is required, THEN Backend_API SHALL validate JWT tokens properly
+4. WHEN multi-tenant requests are made, THEN Backend_API SHALL enforce tenant isolation
+5. WHEN API responses are returned, THEN Backend_API SHALL follow consistent response format
 
-### Requirement 3: Enhanced User Experience and Animations
+### Requirement 2: Authentication and Authorization System
 
-**User Story:** As a platform user, I want smooth, engaging animations and intuitive interactions, so that the learning experience feels modern, immersive, and enjoyable.
-
-#### Acceptance Criteria
-
-1. WHEN navigating between pages THEN the system SHALL provide smooth transitions using Animation.js
-2. WHEN interacting with UI elements THEN the system SHALL provide visual feedback through micro-animations
-3. WHEN viewing analytics and progress THEN the system SHALL display data with Three.js 3D visualizations
-4. WHEN forms are being filled THEN the system SHALL provide real-time validation with animated feedback
-5. WHEN content is loading THEN the system SHALL show engaging skeleton loaders and progress indicators
-6. WHEN users have motion sensitivity THEN the system SHALL provide options to reduce or disable animations
-
-### Requirement 4: Complete Wishlist and Recommendation System
-
-**User Story:** As a student, I want to save courses to a wishlist and receive personalized recommendations, so that I can discover and track courses of interest for future enrollment.
+**User Story:** As a user, I want secure authentication and role-based access, so that I can access appropriate features based on my role.
 
 #### Acceptance Criteria
 
-1. WHEN browsing courses THEN the system SHALL allow adding/removing courses to/from a personal wishlist
-2. WHEN viewing wishlist THEN the system SHALL display saved courses with current pricing and availability
-3. WHEN courses in wishlist have updates THEN the system SHALL notify users of price changes or new content
-4. WHEN viewing recommendations THEN the system SHALL suggest courses based on enrollment history and preferences
-5. WHEN wishlist items are enrolled THEN the system SHALL automatically remove them from the wishlist
-6. WHEN sharing wishlist THEN the system SHALL provide options to share course collections with others
+1. WHEN users register, THEN Backend_API SHALL create user accounts with proper tenant association
+2. WHEN users login, THEN Backend_API SHALL return JWT tokens with tenant information
+3. WHEN token refresh is needed, THEN Backend_API SHALL provide new tokens without re-authentication
+4. WHEN role-based access is required, THEN Backend_API SHALL enforce permissions correctly
+5. WHEN Google OAuth is used, THEN Backend_API SHALL integrate with social authentication
 
-### Requirement 5: Advanced Security and Monitoring
+### Requirement 3: Payment and Subscription Management
 
-**User Story:** As a platform administrator, I want comprehensive security monitoring and threat detection, so that I can ensure platform security and respond to potential issues proactively.
-
-#### Acceptance Criteria
-
-1. WHEN security events occur THEN the system SHALL log and analyze failed login attempts, suspicious activities
-2. WHEN monitoring system health THEN the system SHALL track real server metrics, database performance, and uptime
-3. WHEN security threats are detected THEN the system SHALL alert administrators and implement protective measures
-4. WHEN audit logs are generated THEN the system SHALL maintain comprehensive records of user actions and system events
-5. WHEN compliance is required THEN the system SHALL support GDPR data export, deletion, and privacy controls
-6. WHEN security policies are configured THEN the system SHALL enforce password policies, session management, and access controls
-
-### Requirement 6: Performance Optimization and Scalability
-
-**User Story:** As a platform user, I want fast, responsive interactions with minimal loading times, so that I can work efficiently without delays or performance issues.
+**User Story:** As a student, I want to purchase courses and manage subscriptions, so that I can access premium content.
 
 #### Acceptance Criteria
 
-1. WHEN accessing any page THEN the system SHALL load within 2 seconds on standard internet connections
-2. WHEN handling concurrent users THEN the system SHALL support 1000+ simultaneous users without performance degradation
-3. WHEN loading large datasets THEN the system SHALL implement virtual scrolling and pagination for optimal performance
-4. WHEN caching data THEN the system SHALL implement intelligent caching strategies to reduce API calls
-5. WHEN optimizing assets THEN the system SHALL use code splitting, lazy loading, and progressive image loading
-6. WHEN monitoring performance THEN the system SHALL track Core Web Vitals and provide performance analytics
+1. WHEN course purchase is initiated, THEN Payment_Gateway SHALL process transactions securely
+2. WHEN subscription is created, THEN Backend_API SHALL track subscription status and billing cycles
+3. WHEN payment webhooks are received, THEN Backend_API SHALL update payment status automatically
+4. WHEN invoices are generated, THEN Backend_API SHALL create downloadable PDF invoices
+5. WHEN payment analytics are requested, THEN Analytics_Engine SHALL provide financial insights
 
-### Requirement 7: Mobile Responsiveness and Accessibility
+### Requirement 4: Live Class and Zoom Integration
 
-**User Story:** As a user on various devices and with different accessibility needs, I want the platform to work seamlessly across all screen sizes and assistive technologies, so that I can learn effectively regardless of my device or abilities.
-
-#### Acceptance Criteria
-
-1. WHEN accessing on mobile devices THEN the system SHALL provide touch-optimized interfaces with appropriate sizing
-2. WHEN screen orientation changes THEN the system SHALL adapt layouts smoothly without losing functionality
-3. WHEN using keyboard navigation THEN the system SHALL provide clear focus indicators and logical tab order
-4. WHEN using screen readers THEN the system SHALL provide proper ARIA labels and semantic markup
-5. WHEN viewing on different screen sizes THEN the system SHALL maintain readability and functionality
-6. WHEN accessibility needs exist THEN the system SHALL provide customization options for fonts, colors, and motion
-
-### Requirement 8: Internationalization and Localization
-
-**User Story:** As a global user, I want the platform available in my preferred language with proper cultural adaptations, so that I can use the platform comfortably in my native language.
+**User Story:** As a teacher, I want to conduct live classes with attendance tracking, so that I can deliver interactive education.
 
 #### Acceptance Criteria
 
-1. WHEN selecting language THEN the system SHALL support English, Arabic (RTL), and Somali languages
-2. WHEN using Arabic THEN the system SHALL provide proper right-to-left layout and text direction
-3. WHEN displaying dates and numbers THEN the system SHALL format them according to selected locale
-4. WHEN switching languages THEN the system SHALL maintain user context and preferences
-5. WHEN content is localized THEN the system SHALL provide culturally appropriate imagery and examples
-6. WHEN notifications are sent THEN the system SHALL deliver them in the user's preferred language
+1. WHEN live classes are scheduled, THEN Live_Class_System SHALL create Zoom meetings automatically
+2. WHEN students join classes, THEN Backend_API SHALL verify enrollment and provide meeting access
+3. WHEN attendance is tracked, THEN Backend_API SHALL record participation metrics
+4. WHEN class recordings are available, THEN Backend_API SHALL provide secure access to enrolled students
+5. WHEN engagement metrics are needed, THEN Analytics_Engine SHALL calculate participation scores
 
-### Requirement 9: Advanced AI Integration
+### Requirement 5: AI Integration and Content Generation
 
-**User Story:** As a learner and educator, I want comprehensive AI-powered tools for learning assistance, content generation, and analytics, so that I can enhance my learning and teaching effectiveness.
-
-#### Acceptance Criteria
-
-1. WHEN using AI tutor THEN the system SHALL provide contextual assistance with conversation history and learning progress
-2. WHEN generating content THEN the system SHALL create quizzes, summaries, and study materials from course content
-3. WHEN analyzing learning patterns THEN the system SHALL provide AI-driven insights on student progress and engagement
-4. WHEN creating courses THEN the system SHALL assist instructors with content suggestions and curriculum optimization
-5. WHEN managing usage THEN the system SHALL enforce quotas and provide usage analytics for AI features
-6. WHEN AI features are unavailable THEN the system SHALL gracefully degrade to manual alternatives
-
-### Requirement 10: Comprehensive Testing and Quality Assurance
-
-**User Story:** As a platform operator, I want comprehensive testing coverage and quality assurance processes, so that I can ensure platform reliability and user satisfaction.
+**User Story:** As a student, I want AI-powered tutoring and content summaries, so that I can enhance my learning experience.
 
 #### Acceptance Criteria
 
-1. WHEN code is developed THEN the system SHALL include unit tests with 80%+ coverage for critical functionality
-2. WHEN API integrations are implemented THEN the system SHALL include integration tests for all data flows
-3. WHEN user workflows are complete THEN the system SHALL include end-to-end tests for critical user journeys
-4. WHEN accessibility features are implemented THEN the system SHALL include automated accessibility testing
-5. WHEN performance optimizations are added THEN the system SHALL include performance benchmarking and monitoring
-6. WHEN bugs are discovered THEN the system SHALL have proper error tracking, logging, and debugging capabilities
+1. WHEN AI conversations are initiated, THEN AI_Service SHALL provide contextual responses
+2. WHEN content summaries are requested, THEN AI_Service SHALL generate accurate summaries
+3. WHEN quizzes are generated, THEN AI_Service SHALL create relevant questions based on content
+4. WHEN AI usage is tracked, THEN Backend_API SHALL monitor quota and billing
+5. WHEN AI errors occur, THEN Backend_API SHALL provide graceful error handling
 
-### Requirement 11: Production Deployment and Monitoring
+### Requirement 6: File Management and Security
 
-**User Story:** As a platform operator, I want robust deployment processes and comprehensive monitoring, so that I can ensure platform availability and quickly respond to issues.
-
-#### Acceptance Criteria
-
-1. WHEN deploying to production THEN the system SHALL use containerized deployment with Docker and orchestration
-2. WHEN monitoring system health THEN the system SHALL track performance metrics, error rates, and user analytics
-3. WHEN errors occur THEN the system SHALL provide real-time alerting and comprehensive error tracking
-4. WHEN scaling is needed THEN the system SHALL support horizontal scaling and load balancing
-5. WHEN backups are required THEN the system SHALL implement automated backup and disaster recovery procedures
-6. WHEN maintenance is performed THEN the system SHALL support zero-downtime deployments and rollback capabilities
-
-### Requirement 12: Advanced Course and Content Management
-
-**User Story:** As an instructor and content creator, I want advanced tools for course creation, content management, and student engagement, so that I can deliver high-quality educational experiences.
+**User Story:** As a user, I want secure file uploads and downloads with proper access control, so that course materials are protected.
 
 #### Acceptance Criteria
 
-1. WHEN creating courses THEN the system SHALL support rich media content, interactive elements, and structured curricula
-2. WHEN managing content THEN the system SHALL provide version control, content templates, and collaborative editing
-3. WHEN tracking engagement THEN the system SHALL provide detailed analytics on student interaction and progress
-4. WHEN conducting assessments THEN the system SHALL support various question types, automated grading, and feedback systems
-5. WHEN managing resources THEN the system SHALL provide file management, resource libraries, and content sharing
-6. WHEN integrating external tools THEN the system SHALL support LTI integration and third-party content providers
+1. WHEN files are uploaded, THEN Backend_API SHALL validate file types and sizes
+2. WHEN file access is requested, THEN Backend_API SHALL enforce permission-based access
+3. WHEN secure downloads are needed, THEN Backend_API SHALL generate time-limited URLs
+4. WHEN file sharing occurs, THEN Backend_API SHALL track access logs and permissions
+5. WHEN bulk operations are performed, THEN Backend_API SHALL handle multiple files efficiently
+
+### Requirement 7: Analytics and Reporting System
+
+**User Story:** As an admin, I want comprehensive analytics and reports, so that I can monitor platform performance and user engagement.
+
+#### Acceptance Criteria
+
+1. WHEN enrollment analytics are requested, THEN Analytics_Engine SHALL provide trend data
+2. WHEN user engagement metrics are needed, THEN Analytics_Engine SHALL calculate activity scores
+3. WHEN financial reports are generated, THEN Analytics_Engine SHALL provide revenue insights
+4. WHEN course performance is analyzed, THEN Analytics_Engine SHALL show completion rates
+5. WHEN scheduled reports are created, THEN Backend_API SHALL generate and deliver reports automatically
+
+### Requirement 8: Notification and Communication System
+
+**User Story:** As a user, I want real-time notifications and messaging, so that I stay informed about important updates.
+
+#### Acceptance Criteria
+
+1. WHEN notifications are sent, THEN Backend_API SHALL deliver via multiple channels (email, push, in-app)
+2. WHEN real-time updates are needed, THEN Backend_API SHALL use WebSocket connections
+3. WHEN chat messages are exchanged, THEN Backend_API SHALL provide instant messaging functionality
+4. WHEN notification preferences are set, THEN Backend_API SHALL respect user preferences
+5. WHEN broadcast messages are sent, THEN Backend_API SHALL deliver to appropriate user groups
+
+### Requirement 9: Course and Content Management
+
+**User Story:** As a teacher, I want comprehensive course management tools, so that I can create and deliver quality educational content.
+
+#### Acceptance Criteria
+
+1. WHEN courses are created, THEN Backend_API SHALL support rich content and media uploads
+2. WHEN course modules are organized, THEN Backend_API SHALL maintain proper sequencing
+3. WHEN assignments are created, THEN Backend_API SHALL support various submission types
+4. WHEN progress is tracked, THEN Backend_API SHALL calculate completion percentages accurately
+5. WHEN certificates are generated, THEN Backend_API SHALL create verifiable digital certificates
+
+### Requirement 10: Administrative and Security Features
+
+**User Story:** As a super admin, I want comprehensive platform management tools, so that I can maintain system security and performance.
+
+#### Acceptance Criteria
+
+1. WHEN security events occur, THEN Backend_API SHALL log and alert administrators
+2. WHEN system maintenance is needed, THEN Backend_API SHALL provide maintenance mode functionality
+3. WHEN audit logs are required, THEN Backend_API SHALL track all significant user actions
+4. WHEN user management is performed, THEN Backend_API SHALL support bulk operations
+5. WHEN system health is monitored, THEN Backend_API SHALL provide status and metrics endpoints

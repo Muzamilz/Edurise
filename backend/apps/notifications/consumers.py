@@ -42,6 +42,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         
         await self.accept()
         
+        # Track WebSocket connection
+        await self.track_connection()
+        
         # Send connection confirmation
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
@@ -58,6 +61,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'count': unread_count
         }))
         
+        # Update user presence
+        await self.update_user_presence(True)
+        
         logger.info(f"WebSocket connected for user {self.user.id}")
     
     async def disconnect(self, close_code):
@@ -73,6 +79,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 self.tenant_group_name,
                 self.channel_name
             )
+        
+        # Update connection tracking
+        await self.untrack_connection()
+        
+        # Update user presence
+        await self.update_user_presence(False)
         
         logger.info(f"WebSocket disconnected for user {self.user.id}")
     
@@ -219,6 +231,65 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error getting unread count: {e}")
             return 0
+    
+    @database_sync_to_async
+    def track_connection(self):
+        """Track WebSocket connection in database"""
+        try:
+            from .models import WebSocketConnection
+            from django.utils import timezone
+            
+            # Get client IP and user agent
+            headers = dict(self.scope.get('headers', []))
+            user_agent = headers.get(b'user-agent', b'').decode('utf-8')
+            
+            # Create connection record
+            WebSocketConnection.objects.create(
+                user=self.user,
+                connection_type='notifications',
+                channel_name=self.channel_name,
+                ip_address=self.scope.get('client', ['unknown'])[0],
+                user_agent=user_agent,
+                tenant_id=self.tenant,
+                is_active=True
+            )
+        except Exception as e:
+            logger.error(f"Error tracking connection: {e}")
+    
+    @database_sync_to_async
+    def untrack_connection(self):
+        """Update connection status on disconnect"""
+        try:
+            from .models import WebSocketConnection
+            from django.utils import timezone
+            
+            connection = WebSocketConnection.objects.filter(
+                user=self.user,
+                channel_name=self.channel_name,
+                is_active=True
+            ).first()
+            
+            if connection:
+                connection.is_active = False
+                connection.disconnected_at = timezone.now()
+                connection.save()
+        except Exception as e:
+            logger.error(f"Error untracking connection: {e}")
+    
+    @database_sync_to_async
+    def update_user_presence(self, is_online):
+        """Update user online presence status"""
+        try:
+            # Update user profile or create presence record
+            if hasattr(self.user, 'userprofile'):
+                profile = self.user.userprofile
+                profile.is_online = is_online
+                if is_online:
+                    from django.utils import timezone
+                    profile.last_seen = timezone.now()
+                profile.save()
+        except Exception as e:
+            logger.error(f"Error updating user presence: {e}")
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -243,6 +314,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
+        
+        # Track chat connection
+        await self.track_chat_connection()
         
         # Notify room that user joined
         await self.channel_layer.group_send(
@@ -281,6 +355,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
+        
+        # Update chat connection tracking
+        await self.untrack_chat_connection()
         
         logger.info(f"User {self.user.id} left chat room {self.room_name}")
     
@@ -377,3 +454,47 @@ class ChatConsumer(AsyncWebsocketConsumer):
             content=message,
             tenant=getattr(self.scope.get('tenant'), 'id', None) if self.scope.get('tenant') else None
         )
+    
+    @database_sync_to_async
+    def track_chat_connection(self):
+        """Track chat WebSocket connection"""
+        try:
+            from .models import WebSocketConnection
+            
+            # Get client IP and user agent
+            headers = dict(self.scope.get('headers', []))
+            user_agent = headers.get(b'user-agent', b'').decode('utf-8')
+            
+            WebSocketConnection.objects.create(
+                user=self.user,
+                connection_type='chat',
+                channel_name=self.channel_name,
+                room_name=self.room_name,
+                ip_address=self.scope.get('client', ['unknown'])[0],
+                user_agent=user_agent,
+                tenant=getattr(self.scope.get('tenant'), 'id', None) if self.scope.get('tenant') else None,
+                is_active=True
+            )
+        except Exception as e:
+            logger.error(f"Error tracking chat connection: {e}")
+    
+    @database_sync_to_async
+    def untrack_chat_connection(self):
+        """Update chat connection status on disconnect"""
+        try:
+            from .models import WebSocketConnection
+            from django.utils import timezone
+            
+            connection = WebSocketConnection.objects.filter(
+                user=self.user,
+                channel_name=self.channel_name,
+                connection_type='chat',
+                is_active=True
+            ).first()
+            
+            if connection:
+                connection.is_active = False
+                connection.disconnected_at = timezone.now()
+                connection.save()
+        except Exception as e:
+            logger.error(f"Error untracking chat connection: {e}")

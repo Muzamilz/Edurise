@@ -1,13 +1,14 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { WishlistService } from '../services/wishlist'
 import { useToast } from './useToast'
 import { useErrorHandler } from './useErrorHandler'
-import type { 
-  Wishlist, 
-  WishlistAnalytics, 
+import type {
+  Wishlist,
+  WishlistAnalytics,
   WishlistFilters,
-  PaginatedResponse 
+  PaginatedResponse
 } from '../types/api'
+import type { APIError } from '../services/api'
 
 export function useWishlist() {
   // State
@@ -20,7 +21,7 @@ export function useWishlist() {
   const pageSize = ref(20)
 
   // Services
-  const { showToast } = useToast()
+  const { success: showSuccess, warning: showWarning } = useToast()
   const { handleApiError } = useErrorHandler()
 
   // Computed
@@ -72,13 +73,13 @@ export function useWishlist() {
 
       wishlistItems.value = response.results
       totalCount.value = response.count
-      
+
       return response
     } catch (err) {
       error.value = err as Error
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'load_wishlist_items' },
-        showToast: false 
+        showToast: false
       })
       throw err
     } finally {
@@ -91,9 +92,9 @@ export function useWishlist() {
       analytics.value = await WishlistService.getWishlistAnalytics()
       return analytics.value
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'load_wishlist_analytics' },
-        showToast: false 
+        showToast: false
       })
       throw err
     }
@@ -108,22 +109,18 @@ export function useWishlist() {
   }) => {
     try {
       const item = await WishlistService.addCourseToWishlist(courseId, options)
-      
+
       // Add to local state
       wishlistItems.value.unshift(item)
       totalCount.value++
-      
-      showToast({
-        type: 'success',
-        title: 'Added to Wishlist',
-        message: `${item.course_title} has been added to your wishlist`
-      })
-      
+
+      showSuccess(`${item.course_title} has been added to your wishlist`)
+
       return item
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'add_to_wishlist', courseId },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -132,21 +129,17 @@ export function useWishlist() {
   const removeFromWishlist = async (courseId: string) => {
     try {
       await WishlistService.removeCourseFromWishlist(courseId)
-      
+
       // Remove from local state
       const removedItem = wishlistItems.value.find(item => item.course === courseId)
       wishlistItems.value = wishlistItems.value.filter(item => item.course !== courseId)
       totalCount.value--
-      
-      showToast({
-        type: 'success',
-        title: 'Removed from Wishlist',
-        message: removedItem ? `${removedItem.course_title} has been removed from your wishlist` : 'Course removed from wishlist'
-      })
+
+      showSuccess(removedItem ? `${removedItem.course_title} has been removed from your wishlist` : 'Course removed from wishlist')
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'remove_from_wishlist', courseId },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -155,24 +148,20 @@ export function useWishlist() {
   const updateWishlistItem = async (id: string, updates: Partial<Wishlist>) => {
     try {
       const updatedItem = await WishlistService.updateWishlistItem(id, updates)
-      
+
       // Update local state
       const index = wishlistItems.value.findIndex(item => item.id === id)
       if (index !== -1) {
         wishlistItems.value[index] = updatedItem
       }
-      
-      showToast({
-        type: 'success',
-        title: 'Wishlist Updated',
-        message: 'Your wishlist item has been updated'
-      })
-      
+
+      showSuccess('Your wishlist item has been updated')
+
       return updatedItem
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'update_wishlist_item', itemId: id },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -181,35 +170,27 @@ export function useWishlist() {
   const toggleWishlist = async (courseId: string) => {
     try {
       const result = await WishlistService.toggleWishlist(courseId)
-      
+
       if (result.added && result.item) {
         // Added to wishlist
         wishlistItems.value.unshift(result.item)
         totalCount.value++
-        
-        showToast({
-          type: 'success',
-          title: 'Added to Wishlist',
-          message: `${result.item.course_title} has been added to your wishlist`
-        })
+
+        showSuccess(`${result.item.course_title} has been added to your wishlist`)
       } else {
         // Removed from wishlist
         const removedItem = wishlistItems.value.find(item => item.course === courseId)
         wishlistItems.value = wishlistItems.value.filter(item => item.course !== courseId)
         totalCount.value--
-        
-        showToast({
-          type: 'success',
-          title: 'Removed from Wishlist',
-          message: removedItem ? `${removedItem.course_title} has been removed from your wishlist` : 'Course removed from wishlist'
-        })
+
+        showSuccess(removedItem ? `${removedItem.course_title} has been removed from your wishlist` : 'Course removed from wishlist')
       }
-      
+
       return result
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'toggle_wishlist', courseId },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -218,7 +199,7 @@ export function useWishlist() {
   const bulkEnroll = async (courseIds: string[]) => {
     try {
       const result = await WishlistService.bulkEnrollFromWishlist(courseIds)
-      
+
       // Remove successfully enrolled courses from wishlist
       if (result.enrolled_courses.length > 0) {
         const enrolledCourseIds = result.enrolled_courses.map(course => course.course_id)
@@ -227,29 +208,21 @@ export function useWishlist() {
         )
         totalCount.value -= result.enrolled_courses.length
       }
-      
+
       // Show results
       if (result.total_enrolled > 0) {
-        showToast({
-          type: 'success',
-          title: 'Enrollment Successful',
-          message: `Successfully enrolled in ${result.total_enrolled} course${result.total_enrolled > 1 ? 's' : ''}`
-        })
+        showSuccess(`Successfully enrolled in ${result.total_enrolled} course${result.total_enrolled > 1 ? 's' : ''}`)
       }
-      
+
       if (result.total_failed > 0) {
-        showToast({
-          type: 'warning',
-          title: 'Some Enrollments Failed',
-          message: `${result.total_failed} enrollment${result.total_failed > 1 ? 's' : ''} could not be completed`
-        })
+        showWarning(`${result.total_failed} enrollment${result.total_failed > 1 ? 's' : ''} could not be completed`)
       }
-      
+
       return result
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'bulk_enroll', courseIds },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -262,7 +235,7 @@ export function useWishlist() {
   }) => {
     try {
       const result = await WishlistService.updateNotificationPreferences(preferences)
-      
+
       // Update local state
       wishlistItems.value.forEach(item => {
         if (preferences.notify_price_change !== undefined) {
@@ -275,18 +248,14 @@ export function useWishlist() {
           item.notify_enrollment_opening = preferences.notify_enrollment_opening
         }
       })
-      
-      showToast({
-        type: 'success',
-        title: 'Preferences Updated',
-        message: `Updated notification preferences for ${result.updated_count} item${result.updated_count > 1 ? 's' : ''}`
-      })
-      
+
+      showSuccess(`Updated notification preferences for ${result.updated_count} item${result.updated_count > 1 ? 's' : ''}`)
+
       return result
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'update_notification_preferences' },
-        showToast: true 
+        showToast: true
       })
       throw err
     }
@@ -369,7 +338,7 @@ export function useWishlist() {
 const globalWishlistState = ref<string[]>([]) // Array of course IDs in wishlist
 
 export function useGlobalWishlist() {
-  const { showToast } = useToast()
+  const { success: showSuccess } = useToast()
   const { handleApiError } = useErrorHandler()
 
   const isInWishlist = (courseId: string): boolean => {
@@ -392,28 +361,20 @@ export function useGlobalWishlist() {
   const toggleGlobalWishlist = async (courseId: string) => {
     try {
       const result = await WishlistService.toggleWishlist(courseId)
-      
+
       if (result.added) {
         addToGlobalWishlist(courseId)
-        showToast({
-          type: 'success',
-          title: 'Added to Wishlist',
-          message: result.item ? `${result.item.course_title} added to wishlist` : 'Course added to wishlist'
-        })
+        showSuccess(result.item ? `${result.item.course_title} added to wishlist` : 'Course added to wishlist')
       } else {
         removeFromGlobalWishlist(courseId)
-        showToast({
-          type: 'success',
-          title: 'Removed from Wishlist',
-          message: 'Course removed from wishlist'
-        })
+        showSuccess('Course removed from wishlist')
       }
-      
+
       return result
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as APIError, {
         context: { action: 'toggle_global_wishlist', courseId },
-        showToast: true 
+        showToast: true
       })
       throw err
     }

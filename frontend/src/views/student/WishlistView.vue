@@ -245,6 +245,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useWishlist } from '@/composables/useWishlist'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { CourseService } from '@/services/courses'
 
@@ -259,7 +260,7 @@ const {
   totalValue,
   totalItems,
   availableCourses,
-  enrolledCourses,
+  // enrolledCourses,
   loadWishlistItems,
   loadAnalytics,
   removeFromWishlist,
@@ -273,10 +274,10 @@ const selectedCourses = ref<string[]>([])
 const enrolling = ref(false)
 
 // Computed properties
-const hasSelectedCourses = computed(() => selectedCourses.value.length > 0)
+// const hasSelectedCourses = computed(() => selectedCourses.value.length > 0)
 
 const selectedAvailableCourses = computed(() => {
-  return selectedCourses.value.filter(courseId => {
+  return selectedCourses.value.filter((courseId: any) => {
     const item = wishlistItems.value.find(w => w.course === courseId)
     return item && item.is_course_available && !item.is_enrolled
   })
@@ -287,7 +288,7 @@ const handleRemoveFromWishlist = async (courseId: string) => {
   try {
     await removeFromWishlist(courseId)
     // Remove from selected courses if it was selected
-    selectedCourses.value = selectedCourses.value.filter(id => id !== courseId)
+    selectedCourses.value = selectedCourses.value.filter((id: any) => id !== courseId)
   } catch (error) {
     console.error('Failed to remove from wishlist:', error)
   }
@@ -300,7 +301,7 @@ const handleEnrollInCourse = async (courseId: string) => {
     // Remove from wishlist after successful enrollment
     await handleRemoveFromWishlist(courseId)
   } catch (error) {
-    handleApiError(error, { context: { action: 'enroll_in_course' } })
+    handleApiError(error as APIError, { context: { action: 'enroll_in_course' } })
   } finally {
     enrolling.value = false
   }

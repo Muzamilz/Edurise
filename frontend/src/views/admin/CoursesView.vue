@@ -167,13 +167,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const router = useRouter()
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: courses, loading, error, refresh } = useApiData('/courses/')
+const { data: courses, loading, error, refresh } = useApiData<any[]>('/courses/')
 
 // Filters and search
 const searchQuery = ref('')
@@ -188,7 +189,7 @@ const { mutate: updateCourse } = useApiMutation(
   ({ id, ...data }) => ({ method: 'PATCH', url: `/api/v1/courses/${id}/`, data }),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'update_course' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_course' } })
   }
 )
 
@@ -196,7 +197,7 @@ const { mutate: deleteCourseApi } = useApiMutation(
   (courseId) => ({ method: 'DELETE', url: `/api/v1/courses/${courseId}/` }),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'delete_course' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'delete_course' } })
   }
 )
 
@@ -204,7 +205,7 @@ const { mutate: deleteCourseApi } = useApiMutation(
 const filteredCourses = computed(() => {
   if (!courses.value) return []
   
-  return courses.value.filter(course => {
+  return courses.value.filter((course: any) => {
     const matchesSearch = !searchQuery.value || 
       course.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -229,40 +230,40 @@ const paginatedCourses = computed(() => {
 })
 
 // Methods
-const formatStatus = (status) => {
+const formatStatus = (status: any) => {
   if (status === 'published') return 'Published'
   if (status === 'draft') return 'Draft'
   if (status === 'pending') return 'Pending'
   return status
 }
 
-const truncateText = (text, length) => {
+const truncateText = (text: string, length: number) => {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
 }
 
-const viewCourse = (course) => {
+const viewCourse = (course: any) => {
   router.push(`/courses/${course.id}`)
 }
 
-const editCourse = (course) => {
+const editCourse = (course: any) => {
   router.push(`/teacher/courses/${course.id}/edit`)
 }
 
-const approveCourse = async (course) => {
+const approveCourse = async (course: any) => {
   if (confirm(`Approve "${course.title}" for publication?`)) {
     await updateCourse({ id: course.id, status: 'approved', is_public: true })
   }
 }
 
-const toggleCourseStatus = async (course) => {
+const toggleCourseStatus = async (course: any) => {
   const action = course.is_public ? 'unpublish' : 'publish'
   if (confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${course.title}"?`)) {
     await updateCourse({ id: course.id, is_public: !course.is_public })
   }
 }
 
-const deleteCourse = async (course) => {
+const deleteCourse = async (course: any) => {
   if (confirm(`Are you sure you want to delete "${course.title}"? This action cannot be undone.`)) {
     await deleteCourseApi(course.id)
   }
@@ -272,7 +273,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_courses_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_courses_load' } })
   }
 }
 

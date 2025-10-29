@@ -80,6 +80,10 @@
             <span class="btn-icon">❤️</span>
             Wishlist
           </router-link>
+          <button @click="openAITutor" class="action-btn ai-tutor">
+            <span class="btn-icon">🤖</span>
+            AI Tutor
+          </button>
         </div>
       </div>
 
@@ -172,14 +176,32 @@
         </div>
       </div>
     </div>
+
+    <!-- AI Dashboard Modal -->
+    <div v-if="showAIDashboard" class="ai-modal-overlay" @click="showAIDashboard = false">
+      <div class="ai-modal-content" @click.stop>
+        <div class="ai-modal-header">
+          <h2>AI Learning Assistant</h2>
+          <button @click="showAIDashboard = false" class="close-btn">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="ai-modal-body">
+          <AIDashboard />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import AIDashboard from '@/components/ai/AIDashboard.vue'
 
 const { fullName } = useAuth()
 const { studentData } = useDashboardData()
@@ -264,6 +286,13 @@ const handleRetry = async () => {
       context: { action: 'retry_dashboard_load' } 
     })
   }
+}
+
+// AI Tutor functionality
+const showAIDashboard = ref(false)
+
+const openAITutor = () => {
+  showAIDashboard.value = true
 }
 </script>
 
@@ -806,6 +835,94 @@ const handleRetry = async () => {
   
   .loading-state, .error-state {
     padding: 2rem 1rem;
+  }
+}
+
+/* AI Tutor Button */
+.action-btn.ai-tutor {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.action-btn.ai-tutor:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
+
+/* AI Modal */
+.ai-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.ai-modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.ai-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+}
+
+.ai-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ai-modal-body {
+  height: calc(90vh - 80px);
+  overflow: auto;
+}
+
+@media (max-width: 768px) {
+  .ai-modal-content {
+    margin: 0;
+    border-radius: 0;
+    height: 100vh;
+    max-height: 100vh;
+  }
+  
+  .ai-modal-body {
+    height: calc(100vh - 80px);
   }
 }
 </style>

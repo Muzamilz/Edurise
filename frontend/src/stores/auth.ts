@@ -30,9 +30,44 @@ export const useAuthStore = defineStore('auth', () => {
       isLoading.value = true
       error.value = null
 
+      console.log('🔐 Attempting login with:', { email: credentials.email })
+      
       const response = await api.post<AuthResponse>('/accounts/auth/login/', credentials)
+      console.log('🔐 Raw login response:', response)
+      console.log('🔐 Response data:', response.data)
+      
       const responseData = response.data as any
-      const { user: userData, tokens } = responseData
+      
+      // Handle both old and new response formats
+      let userData, tokens
+      if (responseData.success && responseData.data) {
+        // New standardized format
+        console.log('🔐 Using new standardized format')
+        const data = responseData.data
+        userData = data.user
+        tokens = {
+          access: data.access,
+          refresh: data.refresh
+        }
+      } else if (responseData.user && (responseData.tokens || responseData.access)) {
+        // Old format (fallback)
+        console.log('🔐 Using old format')
+        userData = responseData.user
+        tokens = responseData.tokens || {
+          access: responseData.access,
+          refresh: responseData.refresh
+        }
+      } else {
+        console.error('🔐 Unexpected response format:', responseData)
+        throw new Error('Invalid response format from server')
+      }
+
+      console.log('🔐 Parsed user data:', userData)
+      console.log('🔐 Parsed tokens:', { access: tokens.access ? 'present' : 'missing', refresh: tokens.refresh ? 'present' : 'missing' })
+
+      if (!userData || !tokens.access || !tokens.refresh) {
+        throw new Error('Missing required authentication data')
+      }
 
       // Store user data and tokens
       user.value = userData
@@ -44,11 +79,16 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('refresh_token', tokens.refresh)
       localStorage.setItem('user', JSON.stringify(userData))
 
+      console.log('🔐 Login successful, loading user tenants...')
+      
       // Load user tenants
       await loadUserTenants()
 
+      console.log('🔐 Login process completed successfully')
+
     } catch (err: any) {
-      error.value = err.response?.data?.message || err.response?.data?.detail || 'Login failed'
+      console.error('🔐 Login error:', err)
+      error.value = err.response?.data?.message || err.response?.data?.detail || err.message || 'Login failed'
       throw err
     } finally {
       isLoading.value = false
@@ -62,7 +102,22 @@ export const useAuthStore = defineStore('auth', () => {
 
       const response = await api.post<AuthResponse>('/accounts/auth/register/', userData)
       const responseData = response.data as any
-      const { user: newUser, tokens } = responseData
+      
+      // Handle both old and new response formats
+      let newUser, tokens
+      if (responseData.success && responseData.data) {
+        // New standardized format
+        const data = responseData.data
+        newUser = data.user
+        tokens = {
+          access: data.access,
+          refresh: data.refresh
+        }
+      } else {
+        // Old format (fallback)
+        newUser = responseData.user
+        tokens = responseData.tokens || responseData
+      }
 
       // Store user data and tokens
       user.value = newUser
@@ -119,14 +174,27 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('No refresh token available')
       }
 
+      console.log('🔄 Refreshing access token...')
+      
       const response = await api.post<{ access: string; refresh?: string }>('/accounts/auth/token/refresh/', {
         refresh: refreshToken.value
       })
 
+      console.log('🔄 Token refresh response:', response.data)
+
       // Handle both direct response and wrapped response
       const responseData = response.data as any
-      const newAccessToken = responseData.access
-      const newRefreshToken = responseData.refresh
+      let newAccessToken, newRefreshToken
+      
+      if (responseData.success && responseData.data) {
+        // New standardized format
+        newAccessToken = responseData.data.access
+        newRefreshToken = responseData.data.refresh
+      } else {
+        // Old format
+        newAccessToken = responseData.access
+        newRefreshToken = responseData.refresh
+      }
 
       if (newAccessToken) {
         accessToken.value = newAccessToken
@@ -138,12 +206,13 @@ export const useAuthStore = defineStore('auth', () => {
           localStorage.setItem('refresh_token', newRefreshToken)
         }
 
+        console.log('🔄 Token refresh successful')
         return true
       } else {
         throw new Error('No access token in refresh response')
       }
     } catch (err) {
-      console.error('Token refresh failed:', err)
+      console.error('🔄 Token refresh failed:', err)
       // Refresh failed, logout user
       await logout()
       return false
@@ -216,15 +285,31 @@ export const useAuthStore = defineStore('auth', () => {
 
   const loadUserTenants = async (): Promise<void> => {
     try {
-      const response = await api.get<Organization[]>('/accounts/users/tenants/')
-      userTenants.value = response.data as unknown as Organization[]
+      console.log('🏢 Loading user tenants...')
+      const response = await api.get<Organization[]>('/users/tenants/')
+      console.log('🏢 Tenants response:', response.data)
+      
+      // Handle standardized response format
+      let tenantsData
+      if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+        tenantsData = (response.data as any).data || []
+      } else {
+        tenantsData = response.data || []
+      }
+      
+      userTenants.value = tenantsData as Organization[]
+      console.log('🏢 Loaded tenants:', userTenants.value)
 
       // Set current tenant if not set
       if (!currentTenant.value && userTenants.value.length > 0) {
         currentTenant.value = userTenants.value[0]
+        // Store tenant ID in localStorage for API headers
+        localStorage.setItem('tenant_id', currentTenant.value.id)
+        console.log('🏢 Set current tenant:', currentTenant.value)
       }
     } catch (err) {
-      console.warn('Failed to load user tenants:', err)
+      console.warn('🏢 Failed to load user tenants:', err)
+      // Don't throw error, just continue without tenants
     }
   }
 
@@ -292,6 +377,10 @@ export const useAuthStore = defineStore('auth', () => {
             if (tenant) {
               currentTenant.value = tenant
             }
+          }
+          // Ensure tenant_id is in localStorage for API headers
+          if (currentTenant.value) {
+            localStorage.setItem('tenant_id', currentTenant.value.id)
           }
         })
       } catch (err) {

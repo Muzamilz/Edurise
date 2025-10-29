@@ -172,6 +172,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
@@ -204,7 +205,7 @@ const { mutate: createUser } = useApiMutation(
       closeModal()
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'create_user' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'create_user' } })
   }
 )
 
@@ -215,7 +216,7 @@ const { mutate: updateUser } = useApiMutation(
       closeModal()
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'update_user' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_user' } })
   }
 )
 
@@ -223,7 +224,7 @@ const { mutate: deleteUserMutation } = useApiMutation(
   (userId) => ({ method: 'DELETE', url: `/api/v1/users/${userId}/` }),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'delete_user' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'delete_user' } })
   }
 )
 
@@ -255,11 +256,11 @@ const paginatedUsers = computed(() => {
 })
 
 // Methods
-const formatRole = (role) => {
+const formatRole = (role: any) => {
   return role.charAt(0).toUpperCase() + role.slice(1)
 }
 
-const formatDate = (date) => {
+const formatDate = (date: any) => {
   if (!date) return 'Never'
   return new Date(date).toLocaleDateString()
 }
@@ -307,7 +308,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_users_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_users_load' } })
   }
 }
 

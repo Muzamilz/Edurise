@@ -111,72 +111,54 @@
       <!-- Enrollment Trends -->
       <div class="chart-section">
         <AnalyticsChart
-          :chart-data="enrollmentChartData"
-          :config="enrollmentChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load enrollment data' : null"
-          @refresh="analytics.refreshEnrollmentTrends"
-          @export="exportEnrollmentData"
+          :data="transformedEnrollmentData"
+          :type="enrollmentChartConfig.type === 'area' ? 'line' : enrollmentChartConfig.type"
+          :options="enrollmentChartOptions"
         />
       </div>
       
       <!-- User Engagement -->
       <div class="chart-section">
         <AnalyticsChart
-          :chart-data="engagementChartData"
-          :config="engagementChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load engagement data' : null"
-          @refresh="analytics.refreshUserEngagement"
-          @export="exportEngagementData"
+          :data="transformedEngagementData"
+          :type="engagementChartConfig.type === 'area' ? 'line' : engagementChartConfig.type"
+          :options="engagementChartOptions"
         />
       </div>
       
       <!-- Financial Analytics (Admin/SuperAdmin only) -->
       <div v-if="canViewFinancials" class="chart-section">
         <AnalyticsChart
-          :chart-data="revenueChartData"
-          :config="revenueChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load financial data' : null"
-          @refresh="analytics.refreshFinancialAnalytics"
-          @export="exportFinancialData"
+          :data="transformedRevenueData"
+          :type="revenueChartConfig.type === 'area' ? 'line' : revenueChartConfig.type"
+          :options="revenueChartOptions"
         />
       </div>
       
       <!-- Course Performance -->
       <div class="chart-section">
         <AnalyticsChart
-          :chart-data="coursePerformanceChartData"
-          :config="coursePerformanceChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load course performance data' : null"
-          @refresh="analytics.refreshCoursePerformance"
-          @export="exportCourseData"
+          :data="transformedCoursePerformanceData"
+          :type="coursePerformanceChartConfig.type === 'area' ? 'line' : coursePerformanceChartConfig.type"
+          :options="coursePerformanceChartOptions"
         />
       </div>
       
       <!-- Additional Charts for Financial Data -->
-      <div v-if="canViewFinancials && paymentMethodsChartData.length" class="chart-section">
+      <div v-if="canViewFinancials && transformedPaymentMethodsData.datasets[0]?.data?.length" class="chart-section">
         <AnalyticsChart
-          :chart-data="paymentMethodsChartData"
-          :config="paymentMethodsChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load payment methods data' : null"
-          @refresh="analytics.refreshFinancialAnalytics"
-          @export="exportPaymentMethodsData"
+          :data="transformedPaymentMethodsData"
+          :type="paymentMethodsChartConfig.type === 'area' ? 'pie' : paymentMethodsChartConfig.type"
+          :options="paymentMethodsChartOptions"
         />
       </div>
       
       <!-- Top Courses by Revenue -->
-      <div v-if="canViewFinancials && topCoursesChartData.length" class="chart-section">
+      <div v-if="canViewFinancials && transformedTopCoursesData.datasets[0]?.data?.length" class="chart-section">
         <AnalyticsChart
-          :chart-data="topCoursesChartData"
-          :config="topCoursesChartConfig"
-          :loading="analytics.isLoading.value"
-          :error="analytics.hasError.value ? 'Failed to load top courses data' : null"
-          @refresh="analytics.refreshFinancialAnalytics"
-          @export="exportTopCoursesData"
+          :data="transformedTopCoursesData"
+          :type="topCoursesChartConfig.type === 'area' ? 'bar' : topCoursesChartConfig.type"
+          :options="topCoursesChartOptions"
         />
       </div>
     </div>
@@ -340,105 +322,274 @@ const canViewFinancials = computed(() =>
 )
 
 // Chart data transformations
-const enrollmentChartData = computed(() => {
-  if (!analytics.enrollmentTrends.value?.trend_data) return []
-  const transformed = AnalyticsService.transformEnrollmentTrendData(
+const enrollmentTransformed = computed(() => {
+  if (!analytics.enrollmentTrends.value?.trend_data) {
+    return AnalyticsService.transformEnrollmentTrendData([])
+  }
+  return AnalyticsService.transformEnrollmentTrendData(
     analytics.enrollmentTrends.value.trend_data
   )
-  return transformed.chartData
 })
 
-const enrollmentChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformEnrollmentTrendData([])
-  return transformed.config
-})
+const transformedEnrollmentData = computed(() => ({
+  labels: enrollmentTransformed.value.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Enrollments',
+    data: enrollmentTransformed.value.chartData.map(item => item.value),
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+    borderWidth: 2,
+    tension: 0.4
+  }]
+}))
 
-const engagementChartData = computed(() => {
-  if (!analytics.userEngagement.value?.daily_active_users) return []
-  const transformed = AnalyticsService.transformUserEngagementData(
+const enrollmentChartConfig = computed(() => enrollmentTransformed.value.config)
+
+const enrollmentChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: enrollmentChartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: enrollmentChartConfig.value.yAxisLabel
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: enrollmentChartConfig.value.xAxisLabel
+      }
+    }
+  }
+}))
+
+const engagementTransformed = computed(() => {
+  if (!analytics.userEngagement.value?.daily_active_users) {
+    return AnalyticsService.transformUserEngagementData({
+      daily_active_users: [],
+      course_engagement: {},
+      live_class_engagement: {}
+    })
+  }
+  return AnalyticsService.transformUserEngagementData(
     analytics.userEngagement.value
   )
-  return transformed.dailyActiveUsers.chartData
 })
 
-const engagementChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformUserEngagementData({
-    daily_active_users: [],
-    course_engagement: {},
-    live_class_engagement: {}
-  })
-  return transformed.dailyActiveUsers.config
-})
+const transformedEngagementData = computed(() => ({
+  labels: engagementTransformed.value.dailyActiveUsers.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Daily Active Users',
+    data: engagementTransformed.value.dailyActiveUsers.chartData.map(item => item.value),
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+    borderWidth: 2,
+    tension: 0.4
+  }]
+}))
 
-const revenueChartData = computed(() => {
-  if (!analytics.financialAnalytics.value?.revenue_trend) return []
-  const transformed = AnalyticsService.transformFinancialData(
+const engagementChartConfig = computed(() => engagementTransformed.value.dailyActiveUsers.config)
+
+const engagementChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: engagementChartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: engagementChartConfig.value.yAxisLabel
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: engagementChartConfig.value.xAxisLabel
+      }
+    }
+  }
+}))
+
+const revenueTransformed = computed(() => {
+  if (!analytics.financialAnalytics.value?.revenue_trend) {
+    return AnalyticsService.transformFinancialData({
+      revenue_trend: [],
+      revenue_overview: { currency: 'USD' },
+      payment_methods: [],
+      top_courses_by_revenue: []
+    })
+  }
+  return AnalyticsService.transformFinancialData(
     analytics.financialAnalytics.value
   )
-  return transformed.revenueTrend.chartData
 })
 
-const revenueChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformFinancialData({
-    revenue_trend: [],
-    revenue_overview: { currency: 'USD' },
-    payment_methods: [],
-    top_courses_by_revenue: []
-  })
-  return transformed.revenueTrend.config
-})
+const transformedRevenueData = computed(() => ({
+  labels: revenueTransformed.value.revenueTrend.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Revenue',
+    data: revenueTransformed.value.revenueTrend.chartData.map(item => item.value),
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+    borderWidth: 2,
+    tension: 0.4
+  }]
+}))
 
-const paymentMethodsChartData = computed(() => {
-  if (!analytics.financialAnalytics.value?.payment_methods) return []
-  const transformed = AnalyticsService.transformFinancialData(
-    analytics.financialAnalytics.value
-  )
-  return transformed.paymentMethods.chartData
-})
+const revenueChartConfig = computed(() => revenueTransformed.value.revenueTrend.config)
 
-const paymentMethodsChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformFinancialData({
-    revenue_trend: [],
-    revenue_overview: { currency: 'USD' },
-    payment_methods: [],
-    top_courses_by_revenue: []
-  })
-  return transformed.paymentMethods.config
-})
+const revenueChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: revenueChartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: revenueChartConfig.value.yAxisLabel
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: revenueChartConfig.value.xAxisLabel
+      }
+    }
+  }
+}))
 
-const topCoursesChartData = computed(() => {
-  if (!analytics.financialAnalytics.value?.top_courses_by_revenue) return []
-  const transformed = AnalyticsService.transformFinancialData(
-    analytics.financialAnalytics.value
-  )
-  return transformed.topCourses.chartData
-})
+const transformedPaymentMethodsData = computed(() => ({
+  labels: revenueTransformed.value.paymentMethods.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Payment Methods',
+    data: revenueTransformed.value.paymentMethods.chartData.map(item => item.value),
+    backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
+    borderWidth: 1
+  }]
+}))
 
-const topCoursesChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformFinancialData({
-    revenue_trend: [],
-    revenue_overview: { currency: 'USD' },
-    payment_methods: [],
-    top_courses_by_revenue: []
-  })
-  return transformed.topCourses.config
-})
+const paymentMethodsChartConfig = computed(() => revenueTransformed.value.paymentMethods.config)
 
-const coursePerformanceChartData = computed(() => {
-  if (!analytics.coursePerformance.value?.course_performance) return []
-  const transformed = AnalyticsService.transformCoursePerformanceData(
+const paymentMethodsChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: paymentMethodsChartConfig.value.showLegend ?? true,
+      position: 'right'
+    }
+  }
+}))
+
+const transformedTopCoursesData = computed(() => ({
+  labels: revenueTransformed.value.topCourses.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Revenue',
+    data: revenueTransformed.value.topCourses.chartData.map(item => item.value),
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+    borderWidth: 1
+  }]
+}))
+
+const topCoursesChartConfig = computed(() => revenueTransformed.value.topCourses.config)
+
+const topCoursesChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: topCoursesChartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: topCoursesChartConfig.value.yAxisLabel
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: topCoursesChartConfig.value.xAxisLabel
+      }
+    }
+  }
+}))
+
+const coursePerformanceTransformed = computed(() => {
+  if (!analytics.coursePerformance.value?.course_performance) {
+    return AnalyticsService.transformCoursePerformanceData({
+      course_performance: [],
+      summary: {}
+    })
+  }
+  return AnalyticsService.transformCoursePerformanceData(
     analytics.coursePerformance.value
   )
-  return transformed.completionRates.chartData
 })
 
-const coursePerformanceChartConfig = computed(() => {
-  const transformed = AnalyticsService.transformCoursePerformanceData({
-    course_performance: [],
-    summary: {}
-  })
-  return transformed.completionRates.config
-})
+const transformedCoursePerformanceData = computed(() => ({
+  labels: coursePerformanceTransformed.value.completionRates.chartData.map(item => item.label),
+  datasets: [{
+    label: 'Completion Rate',
+    data: coursePerformanceTransformed.value.completionRates.chartData.map(item => item.value),
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+    borderWidth: 2
+  }]
+}))
+
+const coursePerformanceChartConfig = computed(() => coursePerformanceTransformed.value.completionRates.config)
+
+const coursePerformanceChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: coursePerformanceChartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: coursePerformanceChartConfig.value.yAxisLabel
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: coursePerformanceChartConfig.value.xAxisLabel
+      }
+    }
+  }
+}))
 
 // KPIs calculation
 const kpis = computed(() => {
@@ -550,30 +701,30 @@ const downloadReport = async (reportId: string) => {
   }
 }
 
-// Export methods
-const exportEnrollmentData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'enrollment_trends')
-}
+// Export methods (commented out as they're not currently used)
+// const exportEnrollmentData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'enrollment_trends')
+// }
 
-const exportEngagementData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'user_engagement')
-}
+// const exportEngagementData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'user_engagement')
+// }
 
-const exportFinancialData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'financial_analytics')
-}
+// const exportFinancialData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'financial_analytics')
+// }
 
-const exportCourseData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'course_performance')
-}
+// const exportCourseData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'course_performance')
+// }
 
-const exportPaymentMethodsData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'payment_methods')
-}
+// const exportPaymentMethodsData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'payment_methods')
+// }
 
-const exportTopCoursesData = (data: any[]) => {
-  AnalyticsService.exportToCSV(data, 'top_courses_revenue')
-}
+// const exportTopCoursesData = (data: any[]) => {
+//   AnalyticsService.exportToCSV(data, 'top_courses_revenue')
+// }
 
 // Initialize
 onMounted(() => {

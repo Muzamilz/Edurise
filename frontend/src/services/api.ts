@@ -13,7 +13,7 @@ declare module 'axios' {
 }
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+const API_BASE_URL = (globalThis as any)?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
 
 // Error types for better error handling
 export interface APIError {
@@ -81,7 +81,7 @@ apiClient.interceptors.request.use(
     config.headers['X-Request-ID'] = reqId
     
     // Log request in development
-    if (import.meta.env.DEV) {
+    if ((globalThis as any)?.DEV || process.env.NODE_ENV === 'development') {
       console.log(`🚀 API Request [${reqId}]:`, {
         method: config.method?.toUpperCase(),
         url: config.url,
@@ -103,7 +103,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     // Log successful response in development
-    if (import.meta.env.DEV && response.config.metadata) {
+    if (((globalThis as any)?.DEV || process.env.NODE_ENV === 'development') && response.config.metadata) {
       const duration = Date.now() - response.config.metadata.startTime
       console.log(`✅ API Response [${response.config.metadata.requestId}]:`, {
         status: response.status,
@@ -117,7 +117,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as any
     
     // Log error in development
-    if (import.meta.env.DEV) {
+    if ((globalThis as any)?.DEV || process.env.NODE_ENV === 'development') {
       const requestId = originalRequest?.metadata?.requestId || 'unknown'
       const duration = originalRequest?.metadata?.startTime 
         ? Date.now() - originalRequest.metadata.startTime 

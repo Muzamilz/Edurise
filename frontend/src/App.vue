@@ -8,6 +8,9 @@
     
     <!-- AI Assistant Widget - Available on all pages -->
     <AIAssistantWidget />
+    
+    <!-- Toast Notifications -->
+    <NotificationToast />
   </div>
 </template>
 
@@ -18,6 +21,7 @@ import { useAuth } from '@/composables/useAuth'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import AIAssistantWidget from '@/components/landing/AIAssistantWidget.vue'
+import NotificationToast from '@/components/notifications/NotificationToast.vue'
 
 const { initializeTenant, applyBranding } = useTenant()
 const { initialize } = useAuth()

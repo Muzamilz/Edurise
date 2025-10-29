@@ -103,6 +103,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import AnalyticsChart from '@/components/analytics/AnalyticsChart.vue'
 
@@ -114,7 +115,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/analytics/teacher/', {
+} = useApiData('/analytics/teacher/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure

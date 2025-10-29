@@ -310,13 +310,53 @@
           <h3 class="text-lg font-medium text-gray-900 mb-4">Live Updates</h3>
           <div class="space-y-3">
             <div class="flex items-center text-sm">
-              <div class="w-2 h-2 rounded-full mr-3" :class="isConnected ? 'bg-green-500' : 'bg-red-500'"></div>
+              <div class="w-2 h-2 rounded-full mr-3" :class="isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
               <span class="text-gray-600">
                 {{ isConnected ? 'Connected' : 'Disconnected' }}
               </span>
             </div>
-            <div v-if="liveClass?.status === 'live'" class="text-sm text-gray-600">
-              <p>Real-time attendance tracking active</p>
+            <div v-if="lastUpdateTime" class="text-xs text-gray-500">
+              Last update: {{ lastUpdateTime.toLocaleTimeString() }}
+            </div>
+            
+            <!-- Real-time update feed -->
+            <div v-if="realtimeUpdates.length > 0" class="mt-4">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Recent Activity</h4>
+              <div class="space-y-2 max-h-48 overflow-y-auto">
+                <div 
+                  v-for="update in realtimeUpdates.slice(0, 5)" 
+                  :key="update.id"
+                  class="text-xs p-2 bg-gray-50 rounded border-l-2 border-blue-400"
+                >
+                  <p class="text-gray-700">{{ update.message }}</p>
+                  <p class="text-gray-500 mt-1">{{ update.timestamp.toLocaleTimeString() }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Class control buttons for live classes -->
+            <div v-if="liveClass?.status === 'scheduled'" class="mt-4 space-y-2">
+              <button
+                @click="startClass"
+                class="w-full px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Start Class
+              </button>
+            </div>
+            
+            <div v-if="liveClass?.status === 'live'" class="mt-4 space-y-2">
+              <button
+                @click="endClass"
+                class="w-full px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                End Class
+              </button>
+              <button
+                @click="showAnnouncementModal = true"
+                class="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Send Announcement
+              </button>
             </div>
           </div>
         </div>
@@ -379,12 +419,48 @@
         </div>
       </div>
     </div>
+
+    <!-- Announcement Modal -->
+    <div v-if="showAnnouncementModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Send Class Announcement</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+              <textarea
+                v-model="announcementMessage"
+                rows="4"
+                class="w-full border border-gray-300 rounded-md px-3 py-2"
+                placeholder="Enter your announcement message..."
+              ></textarea>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-3 mt-6">
+            <button
+              @click="showAnnouncementModal = false; announcementMessage = ''"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              @click="sendClassAnnouncement"
+              :disabled="!announcementMessage.trim()"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              Send Announcement
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useZoom } from '@/composables/useZoom'
+import { useWebSocketStore } from '@/stores/websocket'
 import type { ClassAttendance } from '@/types/api'
 
 interface Props {
@@ -402,12 +478,17 @@ const {
   fetchEngagementMetrics,
   markAttendance,
   exportAttendanceReport,
-  connectWebSocket,
-  disconnectWebSocket,
-  isConnected,
   isLoading,
   isUpdatingAttendance
 } = useZoom()
+
+const websocketStore = useWebSocketStore()
+
+// WebSocket connection for real-time updates
+const instructorWs = ref<any>(null)
+const isConnected = ref(false)
+const realtimeUpdates = ref<any[]>([])
+const lastUpdateTime = ref<Date | null>(null)
 
 // Local state
 const attendanceFilter = ref('all')
@@ -417,6 +498,8 @@ const editForm = ref({
   participation_score: 0,
   questions_asked: 0
 })
+const showAnnouncementModal = ref(false)
+const announcementMessage = ref('')
 
 // Computed properties
 const statusClasses = computed(() => {
@@ -487,14 +570,7 @@ const getStatusPercentage = (status: string) => {
   return Math.round((count / total) * 100)
 }
 
-const updateAttendanceStatus = async (attendanceRecord: ClassAttendance, newStatus: string) => {
-  try {
-    await markAttendance(props.liveClassId, attendanceRecord.student.id, newStatus)
-    await refreshData()
-  } catch (error) {
-    console.error('Failed to update attendance status:', error)
-  }
-}
+// Removed duplicate function - using enhanced version below
 
 const editAttendance = (attendanceRecord: ClassAttendance) => {
   editingAttendance.value = attendanceRecord
@@ -560,14 +636,197 @@ const refreshData = async () => {
   ])
 }
 
+// WebSocket connection management for instructor dashboard
+const connectToInstructorDashboard = () => {
+  instructorWs.value = websocketStore.connectToInstructorLiveClass(props.liveClassId)
+  
+  if (instructorWs.value) {
+    // Set up event handlers
+    instructorWs.value.onConnect(() => {
+      isConnected.value = true
+      addRealtimeUpdate('Connected to real-time dashboard updates')
+    })
+
+    instructorWs.value.onDisconnect(() => {
+      isConnected.value = false
+      addRealtimeUpdate('Disconnected from real-time updates')
+    })
+
+    instructorWs.value.onError(() => {
+      isConnected.value = false
+      addRealtimeUpdate('Connection error - attempting to reconnect')
+    })
+
+    // Subscribe to real-time events
+    instructorWs.value.subscribe('dashboard_update', (data: any) => {
+      // Update dashboard data
+      if (data.dashboard) {
+        updateDashboardData(data.dashboard)
+      }
+      lastUpdateTime.value = new Date()
+    })
+
+    instructorWs.value.subscribe('attendance_update', (data: any) => {
+      // Update attendance data
+      if (data.attendance) {
+        updateAttendanceData(data.attendance)
+        addRealtimeUpdate(`Attendance updated for ${data.attendance.length} students`)
+      }
+    })
+
+    instructorWs.value.subscribe('participant_joined', (data: any) => {
+      addRealtimeUpdate(`${data.user_name} joined the class`)
+      // Refresh attendance data
+      fetchAttendance(props.liveClassId)
+    })
+
+    instructorWs.value.subscribe('participant_left', (data: any) => {
+      addRealtimeUpdate(`${data.user_name} left the class`)
+      // Refresh attendance data
+      fetchAttendance(props.liveClassId)
+    })
+
+    instructorWs.value.subscribe('engagement_update', (data: any) => {
+      // Update engagement metrics
+      if (data.metrics) {
+        Object.assign(engagementMetrics.value || {}, data.metrics)
+        addRealtimeUpdate('Engagement metrics updated')
+      }
+    })
+
+    instructorWs.value.subscribe('question_asked', (data: any) => {
+      addRealtimeUpdate(`${data.user_name} asked a question`)
+      // Refresh engagement metrics
+      fetchEngagementMetrics(props.liveClassId)
+    })
+
+    instructorWs.value.subscribe('attendance_report', () => {
+      addRealtimeUpdate('Attendance report generated')
+    })
+
+    // Connect to WebSocket
+    instructorWs.value.connect().catch((error: any) => {
+      console.error('Failed to connect to instructor WebSocket:', error)
+      addRealtimeUpdate('Failed to connect to real-time updates')
+    })
+  }
+}
+
+const disconnectFromInstructorDashboard = () => {
+  if (instructorWs.value) {
+    websocketStore.disconnectFromInstructorLiveClass(props.liveClassId)
+    instructorWs.value = null
+    isConnected.value = false
+  }
+}
+
+const addRealtimeUpdate = (message: string) => {
+  realtimeUpdates.value.unshift({
+    id: Date.now(),
+    message,
+    timestamp: new Date()
+  })
+  
+  // Keep only last 10 updates
+  if (realtimeUpdates.value.length > 10) {
+    realtimeUpdates.value = realtimeUpdates.value.slice(0, 10)
+  }
+}
+
+const updateDashboardData = (dashboardData: any) => {
+  if (dashboardData.attendance) {
+    attendance.value = dashboardData.attendance
+  }
+  if (dashboardData.metrics) {
+    Object.assign(engagementMetrics.value || {}, dashboardData.metrics)
+  }
+}
+
+const updateAttendanceData = (attendanceData: any[]) => {
+  // Update attendance records
+  attendanceData.forEach(newRecord => {
+    const existingIndex = attendance.value.findIndex(att => att.id === newRecord.id)
+    if (existingIndex !== -1) {
+      attendance.value[existingIndex] = { ...attendance.value[existingIndex], ...newRecord }
+    } else {
+      attendance.value.push(newRecord)
+    }
+  })
+}
+
+// Enhanced methods with real-time updates
+const updateAttendanceStatus = async (attendanceRecord: ClassAttendance, newStatus: string) => {
+  try {
+    await markAttendance(props.liveClassId, attendanceRecord.student.id, newStatus)
+    
+    // Send real-time update via WebSocket
+    if (instructorWs.value?.isConnected) {
+      instructorWs.value.send('update_attendance', {
+        student_id: attendanceRecord.student.id,
+        status: newStatus,
+        timestamp: new Date().toISOString()
+      })
+    }
+    
+    addRealtimeUpdate(`Updated ${attendanceRecord.student.first_name} ${attendanceRecord.student.last_name} to ${newStatus}`)
+    await refreshData()
+  } catch (error) {
+    console.error('Failed to update attendance status:', error)
+    addRealtimeUpdate('Failed to update attendance status')
+  }
+}
+
+const startClass = async () => {
+  if (instructorWs.value?.isConnected) {
+    instructorWs.value.send('start_class', {
+      timestamp: new Date().toISOString()
+    })
+    addRealtimeUpdate('Class started')
+  }
+}
+
+const endClass = async () => {
+  if (instructorWs.value?.isConnected) {
+    instructorWs.value.send('end_class', {
+      timestamp: new Date().toISOString()
+    })
+    addRealtimeUpdate('Class ended')
+  }
+}
+
+const sendAnnouncement = async (message: string) => {
+  if (instructorWs.value?.isConnected) {
+    instructorWs.value.send('send_announcement', {
+      message,
+      timestamp: new Date().toISOString()
+    })
+    addRealtimeUpdate(`Sent announcement: ${message}`)
+  }
+}
+
+const sendClassAnnouncement = async () => {
+  if (announcementMessage.value.trim()) {
+    await sendAnnouncement(announcementMessage.value.trim())
+    showAnnouncementModal.value = false
+    announcementMessage.value = ''
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   await refreshData()
-  connectWebSocket(props.liveClassId)
+  connectToInstructorDashboard()
 })
 
 onUnmounted(() => {
-  disconnectWebSocket()
+  disconnectFromInstructorDashboard()
+})
+
+// Watch for live class status changes
+watch(() => liveClass.value?.status, (newStatus) => {
+  if (newStatus) {
+    addRealtimeUpdate(`Class status changed to: ${newStatus}`)
+  }
 })
 </script>
 

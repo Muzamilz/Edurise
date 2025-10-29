@@ -34,6 +34,14 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filter courses by tenant with optimized queries"""
+        # Superusers can see all courses across all tenants
+        if self.request.user.is_superuser:
+            return Course.objects.all().select_related(
+                'instructor', 'tenant'
+            ).prefetch_related(
+                'enrollments', 'reviews', 'modules', 'live_classes'
+            )
+        
         if hasattr(self.request, 'tenant') and self.request.tenant:
             return Course.objects.filter(tenant=self.request.tenant).select_related(
                 'instructor', 'tenant'
@@ -130,11 +138,24 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def categories(self, request):
         """Get course categories with counts"""
-        categories = Course.objects.filter(
-            tenant=request.tenant if hasattr(request, 'tenant') else None
+        # For public marketplace, show categories from all tenants
+        # Only filter by tenant if user is not accessing public marketplace
+        queryset = Course.objects.filter(is_public=True)
+        
+        # If user is authenticated and has a tenant, they might want tenant-specific data
+        if hasattr(request, 'tenant') and request.tenant and request.user.is_authenticated:
+            # For authenticated users, show their tenant's categories plus public ones
+            queryset = Course.objects.filter(
+                Q(tenant=request.tenant) | Q(is_public=True)
+            )
+        
+        categories = queryset.exclude(
+            category__isnull=True
+        ).exclude(
+            category__exact=''
         ).values('category').annotate(
             count=Count('id'),
-            avg_rating=Avg('reviews__rating')
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
         ).order_by('category')
         
         return StandardAPIResponse.success(
@@ -145,15 +166,26 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def featured(self, request):
         """Get featured courses (high rated, popular)"""
-        courses = Course.objects.filter(
-            tenant=request.tenant if hasattr(request, 'tenant') else None,
-            is_public=True
-        ).annotate(
-            avg_rating=Avg('reviews__rating'),
+        # For public marketplace, show featured courses from all tenants
+        queryset = Course.objects.filter(is_public=True)
+        
+        # If user is authenticated and has a tenant, include their tenant's courses
+        if hasattr(request, 'tenant') and request.tenant and request.user.is_authenticated:
+            queryset = Course.objects.filter(
+                Q(tenant=request.tenant) | Q(is_public=True)
+            )
+        
+        courses = queryset.annotate(
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
             enrollment_count=Count('enrollments')
         ).filter(
-            Q(avg_rating__gte=4.0) | Q(enrollment_count__gte=10)
-        ).order_by('-avg_rating', '-enrollment_count')[:10]
+            # More lenient criteria for featured courses
+            Q(avg_rating__gte=3.5) | Q(enrollment_count__gte=5) | Q(avg_rating__isnull=True)
+        ).order_by('-enrollment_count', '-avg_rating', '-created_at')[:10]
+        
+        # If no courses meet the criteria, just show the newest public courses
+        if not courses.exists():
+            courses = queryset.order_by('-created_at')[:10]
         
         serializer = self.get_serializer(courses, many=True)
         return StandardAPIResponse.success(
@@ -421,6 +453,24 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
             data=analytics,
             message='Instructor analytics retrieved successfully'
         )
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get platform-wide course statistics"""
+        from django.contrib.auth import get_user_model
+        
+        User = get_user_model()
+        
+        # Platform-wide statistics (no tenant filtering for public stats)
+        total_courses = Course.objects.count()
+        total_instructors = User.objects.filter(is_teacher=True, is_approved_teacher=True).count()
+        total_students = Enrollment.objects.values('student').distinct().count()
+        
+        return Response({
+            'total_courses': total_courses,
+            'total_instructors': total_instructors,
+            'total_students': total_students
+        })
     
     @action(detail=False, methods=['get'])
     def dashboard_stats(self, request):

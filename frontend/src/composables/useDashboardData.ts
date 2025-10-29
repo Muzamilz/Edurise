@@ -262,17 +262,30 @@ export const useDashboardData = () => {
         totalCourses: data.platform_stats?.total_courses || 0,
         totalRevenue: data.platform_stats?.total_revenue || 0
       },
-      tenantStats: data.organization_performance || [],
+      tenantStats: (data.organization_performance || []).map((org: any) => ({
+        id: org.id,
+        name: org.name,
+        subdomain: org.subdomain,
+        subscriptionPlan: org.subscription_plan,
+        userCount: org.total_users,
+        courseCount: org.total_courses,
+        revenue: org.total_revenue
+      })),
       systemMetrics: {
         serverLoad: 0, // Backend doesn't provide this yet
         memoryUsage: 0,
         diskUsage: 0,
         apiCalls: 0
       },
-      revenueByTenant: data.organization_performance || [],
+      revenueByTenant: (data.organization_performance || []).map((org: any) => ({
+        tenantId: org.id,
+        tenantName: org.name,
+        revenue: org.total_revenue,
+        growth: 0 // Backend doesn't provide growth calculation yet
+      })),
       globalActivity: [], // Backend doesn't provide this yet
-      subscriptionStats: {
-        basic: 0, // Backend doesn't provide subscription breakdown yet
+      subscriptionStats: data.subscription_breakdown || {
+        basic: 0,
         pro: 0,
         enterprise: 0
       }

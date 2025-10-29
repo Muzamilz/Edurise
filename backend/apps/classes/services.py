@@ -14,16 +14,60 @@ class ZoomService:
     """Service for Zoom API integration"""
     
     def __init__(self):
+        # Use new settings if available, fallback to legacy
+        self.account_id = getattr(settings, 'ZOOM_ACCOUNT_ID', settings.ZOOM_API_KEY)
+        self.client_id = getattr(settings, 'ZOOM_CLIENT_ID', settings.ZOOM_API_KEY)
+        self.client_secret = getattr(settings, 'ZOOM_CLIENT_SECRET', settings.ZOOM_API_SECRET)
+        
+        # Legacy support
         self.api_key = settings.ZOOM_API_KEY
         self.api_secret = settings.ZOOM_API_SECRET
         self.base_url = "https://api.zoom.us/v2"
     
     def get_access_token(self):
-        """Get Zoom access token using JWT"""
+        """Get Zoom access token using Server-to-Server OAuth"""
         if not self.api_key or not self.api_secret:
             raise ValidationError("Zoom API credentials not configured")
         
-        # JWT payload
+        # Try Server-to-Server OAuth with correct Client ID
+        try:
+            import base64
+            
+            # Use the correct Client ID and Client Secret for OAuth
+            auth_string = f"{self.client_id}:{self.client_secret}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            headers = {
+                'Authorization': f'Basic {auth_b64}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            
+            data = {
+                'grant_type': 'account_credentials',
+                'account_id': self.account_id
+            }
+            
+            response = requests.post(
+                'https://zoom.us/oauth/token',
+                headers=headers,
+                data=data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                print(f"✅ OAuth successful! Token expires in {token_data.get('expires_in', 'unknown')} seconds")
+                return token_data['access_token']
+            else:
+                print(f"OAuth failed ({response.status_code}): {response.text}")
+                if response.status_code == 400:
+                    print("💡 Check your Client ID, Client Secret, and Account ID are correct")
+                
+        except Exception as e:
+            print(f"OAuth error: {e}")
+        
+        # Fallback to JWT method
         payload = {
             'iss': self.api_key,
             'exp': int(time.time() + 3600),  # Token expires in 1 hour

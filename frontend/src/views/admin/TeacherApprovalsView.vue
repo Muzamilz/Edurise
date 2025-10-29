@@ -172,12 +172,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: applications, loading, error, refresh } = useApiData('/teacher-approvals/')
+const { data: applications, loading, error, refresh } = useApiData<any[]>('/teacher-approvals/')
 
 // Filters and search
 const statusFilter = ref('')
@@ -185,7 +186,7 @@ const searchQuery = ref('')
 
 // Modal state
 const showRejectModalFlag = ref(false)
-const selectedApplication = ref(null)
+const selectedApplication = ref<any>(null)
 const rejectionReason = ref('')
 
 // Mutations
@@ -195,7 +196,7 @@ const { mutate: approveTeacher } = useApiMutation(
     onSuccess: () => {
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'approve_teacher' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'approve_teacher' } })
   }
 )
 
@@ -210,7 +211,7 @@ const { mutate: rejectTeacher } = useApiMutation(
       closeRejectModal()
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'reject_teacher' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'reject_teacher' } })
   }
 )
 
@@ -218,7 +219,7 @@ const { mutate: rejectTeacher } = useApiMutation(
 const filteredApplications = computed(() => {
   if (!applications.value) return []
   
-  return applications.value.filter(app => {
+  return applications.value.filter((app: any) => {
     const matchesStatus = !statusFilter.value || app.status === statusFilter.value
     const matchesSearch = !searchQuery.value || 
       app.user.first_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -230,28 +231,28 @@ const filteredApplications = computed(() => {
 })
 
 const pendingCount = computed(() => 
-  applications.value?.filter(app => app.status === 'pending').length || 0
+  applications.value?.filter((app: any) => app.status === 'pending').length || 0
 )
 
 const approvedCount = computed(() => 
-  applications.value?.filter(app => app.status === 'approved').length || 0
+  applications.value?.filter((app: any) => app.status === 'approved').length || 0
 )
 
 const rejectedCount = computed(() => 
-  applications.value?.filter(app => app.status === 'rejected').length || 0
+  applications.value?.filter((app: any) => app.status === 'rejected').length || 0
 )
 
 // Methods
-const formatDate = (date) => {
+const formatDate = (date: any) => {
   if (!date) return 'Unknown'
   return new Date(date).toLocaleDateString()
 }
 
-const formatStatus = (status) => {
+const formatStatus = (status: any) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
-const showRejectModal = (application) => {
+const showRejectModal = (application: any) => {
   selectedApplication.value = application
   showRejectModalFlag.value = true
   rejectionReason.value = ''
@@ -263,7 +264,7 @@ const closeRejectModal = () => {
   rejectionReason.value = ''
 }
 
-const approveApplication = async (application) => {
+const approveApplication = async (application: any) => {
   if (confirm(`Are you sure you want to approve ${application.user.first_name} ${application.user.last_name}'s application?`)) {
     await approveTeacher(application.id)
   }
@@ -278,7 +279,7 @@ const rejectApplication = async () => {
   }
 }
 
-const downloadDocument = (document) => {
+const downloadDocument = (document: any) => {
   // Implement document download
   window.open(document.url, '_blank')
 }
@@ -287,7 +288,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_applications_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_applications_load' } })
   }
 }
 

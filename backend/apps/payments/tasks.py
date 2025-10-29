@@ -109,7 +109,7 @@ def send_renewal_failure_notification(subscription_id, error_message):
         """
         
         # Send to admin email
-        admin_email = getattr(settings, 'ADMIN_EMAIL', 'admin@edurise.com')
+        admin_email = settings.ADMIN_EMAIL
         
         send_mail(
             subject=subject,
@@ -224,6 +224,147 @@ def send_payment_confirmation(payment_id):
         )
         
         return f"Payment confirmation sent for payment {payment_id}"
+        
+    except Payment.DoesNotExist:
+        return f"Payment {payment_id} not found"
+
+
+@shared_task
+def monitor_fraud_patterns():
+    """Monitor and analyze fraud patterns"""
+    from datetime import timedelta
+    from django.db.models import Count, Avg
+    
+    # Analyze payments from last 24 hours
+    recent_payments = Payment.objects.filter(
+        created_at__gte=timezone.now() - timedelta(hours=24)
+    )
+    
+    # Check for suspicious patterns
+    suspicious_users = recent_payments.values('user').annotate(
+        payment_count=Count('id'),
+        avg_amount=Avg('amount')
+    ).filter(payment_count__gte=5)  # 5+ payments in 24 hours
+    
+    # Check for high-value transactions
+    high_value_payments = recent_payments.filter(amount__gte=1000)
+    
+    # Generate fraud report
+    if suspicious_users.exists() or high_value_payments.exists():
+        generate_fraud_report.delay(
+            list(suspicious_users),
+            list(high_value_payments.values())
+        )
+    
+    return f"Monitored {recent_payments.count()} recent payments"
+
+
+@shared_task
+def generate_fraud_report(suspicious_users, high_value_payments):
+    """Generate and send fraud monitoring report"""
+    
+    subject = "Daily Fraud Monitoring Report"
+    message = f"""
+    Daily Fraud Monitoring Report - {timezone.now().strftime('%Y-%m-%d')}
+    
+    Suspicious User Activity:
+    {len(suspicious_users)} users with 5+ payments in 24 hours
+    
+    High-Value Transactions:
+    {len(high_value_payments)} payments >= $1000
+    
+    Please review these transactions for potential fraud.
+    """
+    
+    admin_email = settings.ADMIN_EMAIL
+    
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[admin_email],
+        fail_silently=False
+    )
+    
+    return "Fraud report sent"
+
+
+@shared_task
+def retry_failed_payments():
+    """Retry failed payments that might succeed on retry"""
+    from datetime import timedelta
+    
+    # Get failed payments from last 7 days that haven't been retried recently
+    retry_candidates = Payment.objects.filter(
+        status='failed',
+        failed_at__gte=timezone.now() - timedelta(days=7),
+        payment_method__in=['stripe', 'paypal']
+    ).exclude(
+        metadata__has_key='retry_attempted'
+    )
+    
+    retried_count = 0
+    
+    for payment in retry_candidates[:10]:  # Limit to 10 retries per run
+        try:
+            from .services import PaymentService
+            
+            # Mark as retry attempted
+            payment.metadata['retry_attempted'] = timezone.now().isoformat()
+            payment.save()
+            
+            # Attempt to retry payment
+            if payment.payment_method == 'stripe' and payment.stripe_payment_intent_id:
+                from .services import StripeService
+                stripe_service = StripeService()
+                
+                # Check if payment intent can be retried
+                intent = stripe_service.retrieve_payment_intent(payment.stripe_payment_intent_id)
+                if intent and intent.status in ['requires_payment_method', 'requires_confirmation']:
+                    # Payment can potentially be retried - notify user
+                    send_payment_retry_notification.delay(payment.id)
+                    retried_count += 1
+            
+        except Exception as e:
+            # Log retry failure
+            payment.metadata['retry_error'] = str(e)
+            payment.save()
+    
+    return f"Processed {retried_count} payment retries"
+
+
+@shared_task
+def send_payment_retry_notification(payment_id):
+    """Send notification to user about payment retry opportunity"""
+    try:
+        payment = Payment.objects.get(id=payment_id)
+        
+        subject = f"Payment Retry Available - {payment.course.title if payment.course else 'Subscription'}"
+        message = f"""
+        Dear {payment.user.get_full_name() or payment.user.email},
+        
+        Your recent payment of ${payment.amount} was unsuccessful, but you may be able to retry it.
+        
+        Payment ID: {payment.id}
+        Item: {payment.course.title if payment.course else 'Subscription'}
+        
+        You can retry your payment at: {settings.FRONTEND_URL}/payment/retry/{payment.id}
+        
+        If you continue to experience issues, please contact our support team.
+        
+        Best regards,
+        Edurise Team
+        """
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[payment.user.email],
+            fail_silently=False
+        )
+        
+        return f"Retry notification sent for payment {payment_id}"
         
     except Payment.DoesNotExist:
         return f"Payment {payment_id} not found"

@@ -103,6 +103,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -113,28 +114,32 @@ const { handleApiError } = useErrorHandler()
 const statusFilter = ref('')
 
 // API data
-const { data: teacherApplicationsData, loading, error, refresh } = useApiData('/api/v1/teacher-approvals/', {
+const { data: teacherApplicationsData, loading, error, refresh } = useApiData('/teacher-approvals/', {
   immediate: true,
   transform: (data) => {
-    if (data.results) {
-      return data.results.map((app: any) => ({
+    console.log('🔍 Raw teacher approvals data:', data)
+    
+    // Handle both paginated and direct array responses
+    const results = data.results || data.data || data || []
+    
+    return results.map((app: any) => {
+      return {
         id: app.id,
         user: {
-          first_name: app.user?.first_name || app.first_name,
-          last_name: app.user?.last_name || app.last_name,
-          email: app.user?.email || app.email,
-          avatar: app.user?.avatar || app.avatar
+          first_name: app.user_first_name || 'Unknown',
+          last_name: app.user_last_name || 'User',
+          email: app.user_email || 'No email',
+          avatar: app.avatar || null
         },
         organization: {
-          name: app.organization?.name || app.organization_name
+          name: app.organization_name || 'No Organization'
         },
         status: app.status || 'pending',
-        experience: app.experience,
-        expertise_areas: app.expertise_areas,
-        submitted_at: app.submitted_at || app.created_at
-      }))
-    }
-    return []
+        experience: app.teaching_experience || 'Not provided',
+        expertise_areas: app.subject_expertise || 'Not provided',
+        submitted_at: app.applied_at || app.created_at
+      }
+    })
   },
   retryAttempts: 3,
   onError: (error) => {
@@ -143,7 +148,11 @@ const { data: teacherApplicationsData, loading, error, refresh } = useApiData('/
 })
 
 // Computed properties
-const applications = computed(() => teacherApplicationsData.value || [])
+const applications = computed(() => {
+  const apps = teacherApplicationsData.value || []
+  console.log('📋 Processed teacher applications:', apps)
+  return apps
+})
 const totalTeachers = computed(() => applications.value.filter(app => app.status === 'approved').length)
 const pendingApprovals = computed(() => applications.value.filter(app => app.status === 'pending').length)
 const approvedThisMonth = computed(() => {
@@ -160,11 +169,25 @@ const organizationsCount = computed(() => {
 })
 
 // Mutations
-const { mutate: updateApplication } = useApiMutation(
-  ({ id, ...data }) => api.patch(`/api/v1/teacher-approvals/${id}/`, data),
+const { mutate: approveApplicationMutation } = useApiMutation(
+  (id: string) => api.post(`/teacher-approvals/${id}/approve/`),
   {
-    onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'update_teacher_application' } })
+    onSuccess: () => {
+      console.log('✅ Teacher application approved successfully')
+      refresh()
+    },
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'approve_teacher_application' } })
+  }
+)
+
+const { mutate: rejectApplicationMutation } = useApiMutation(
+  ({ id, notes }: { id: string; notes: string }) => api.post(`/teacher-approvals/${id}/reject/`, { notes }),
+  {
+    onSuccess: () => {
+      console.log('❌ Teacher application rejected successfully')
+      refresh()
+    },
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'reject_teacher_application' } })
   }
 )
 
@@ -179,14 +202,22 @@ const formatStatus = (status) => {
 
 const approveApplication = async (application) => {
   if (confirm(`Approve ${application.user.first_name} ${application.user.last_name}'s application?`)) {
-    await updateApplication({ id: application.id, status: 'approved' })
+    try {
+      await approveApplicationMutation(application.id)
+    } catch (error) {
+      console.error('Failed to approve application:', error)
+    }
   }
 }
 
 const rejectApplication = async (application) => {
   const reason = prompt(`Reject ${application.user.first_name} ${application.user.last_name}'s application? Please provide a reason:`)
   if (reason) {
-    await updateApplication({ id: application.id, status: 'rejected', rejection_reason: reason })
+    try {
+      await rejectApplicationMutation({ id: application.id, notes: reason })
+    } catch (error) {
+      console.error('Failed to reject application:', error)
+    }
   }
 }
 

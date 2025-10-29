@@ -144,42 +144,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import AnalyticsChart from '@/components/analytics/AnalyticsChart.vue'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: analyticsData, loading, error, refresh } = useApiData('/api/v1/analytics/platform-overview/', {
+const { data: analyticsData, loading, error, refresh } = useApiData('/analytics/platform/', {
   immediate: true,
   transform: (data) => {
-    // Transform the response to ensure consistent data structure
+    console.log('🔍 Raw analytics data:', data)
+    // Transform the response to match the backend structure
     return {
-      totalUsers: data.total_users || 0,
-      totalOrganizations: data.total_organizations || 0,
-      totalCourses: data.total_courses || 0,
-      totalRevenue: data.total_revenue || 0,
-      userGrowth: data.user_growth || 0,
-      orgGrowth: data.org_growth || 0,
-      courseGrowth: data.course_growth || 0,
-      revenueGrowth: data.revenue_growth || 0,
-      avgResponseTime: data.avg_response_time || 0,
-      uptime: data.uptime || 99.9,
-      dailyActiveUsers: data.daily_active_users || 0,
-      avgSessionDuration: data.avg_session_duration || 0,
-      userGrowthTrend: data.user_growth_trend || [],
-      revenueTrend: data.revenue_trend || [],
-      topOrganizations: (data.top_organizations || []).map((org: any) => ({
-        id: org.id,
-        name: org.name,
-        subdomain: org.subdomain,
-        userCount: org.user_count || 0,
-        courseCount: org.course_count || 0,
-        revenue: org.revenue || 0,
-        growth: org.growth || 0
-      }))
+      totalUsers: data.user_metrics?.total_users || 0,
+      totalOrganizations: data.organization_metrics?.total_organizations || 0,
+      totalCourses: data.course_metrics?.total_courses || 0,
+      totalRevenue: data.revenue_metrics?.total_revenue || 0,
+      userGrowth: data.user_metrics?.growth_rate || 0,
+      orgGrowth: data.organization_metrics?.activation_rate || 0,
+      courseGrowth: data.course_metrics?.growth_rate || 0,
+      revenueGrowth: 0, // Will be calculated from monthly data
+      avgResponseTime: 85, // Placeholder
+      uptime: 99.9, // Placeholder
+      dailyActiveUsers: data.user_metrics?.active_users_7d || 0,
+      avgSessionDuration: 0, // Placeholder
+      userGrowthTrend: [], // Placeholder
+      revenueTrend: [], // Placeholder
+      topOrganizations: [] // Placeholder - would need separate endpoint
     }
   },
   retryAttempts: 3,
@@ -205,10 +199,10 @@ const analytics = computed(() => analyticsData.value || {
 })
 
 const userGrowthData = computed(() => ({
-  labels: analyticsData.value?.userGrowthTrend?.map(item => item.month) || [],
+  labels: (analyticsData.value as any)?.userGrowthTrend?.map((item: any) => item.month) || [],
   datasets: [{
     label: 'New Users',
-    data: analyticsData.value?.userGrowthTrend?.map(item => item.count) || [],
+    data: (analyticsData.value as any)?.userGrowthTrend?.map((item: any) => item.count) || [],
     borderColor: '#7c3aed',
     backgroundColor: 'rgba(124, 58, 237, 0.1)',
     tension: 0.4
@@ -216,10 +210,10 @@ const userGrowthData = computed(() => ({
 }))
 
 const revenueData = computed(() => ({
-  labels: analyticsData.value?.revenueTrend?.map(item => item.month) || [],
+  labels: (analyticsData.value as any)?.revenueTrend?.map((item: any) => item.month) || [],
   datasets: [{
     label: 'Revenue',
-    data: analyticsData.value?.revenueTrend?.map(item => item.amount) || [],
+    data: (analyticsData.value as any)?.revenueTrend?.map((item: any) => item.amount) || [],
     backgroundColor: '#10b981',
     borderColor: '#059669',
     borderWidth: 1

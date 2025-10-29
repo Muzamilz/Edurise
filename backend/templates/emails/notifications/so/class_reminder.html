@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xusuusin Fasalka</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #F59E0B;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .reminder-icon {
+            font-size: 48px;
+            color: #F59E0B;
+            margin-bottom: 20px;
+        }
+        .urgent {
+            background-color: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if tenant and tenant.logo %}
+                <img src="{{ tenant.logo.url }}" alt="{{ tenant.name }}" style="max-height: 50px; margin-bottom: 20px;">
+            {% endif %}
+            <h1>{{ notification.title }}</h1>
+        </div>
+        
+        <div class="content">
+            <div class="reminder-icon">⏰</div>
+            
+            <h2>Salaan {{ user.first_name|default:user.email }},</h2>
+            
+            <div class="urgent">
+                <strong>Xusuusin muhiim ah:</strong> {{ notification.message }}
+            </div>
+            
+            <p>Hubi inaad haysato:</p>
+            <ul>
+                <li>Isgaarsiinta internet oo xooggan</li>
+                <li>Kamarad iyo mikrofoon oo shaqeeya</li>
+                <li>Meel aamusan oo wax lagu barto</li>
+            </ul>
+            
+            <a href="{{ site_url }}/classes/{{ notification.related_object_id }}" class="btn">
+                Ku Biir Fasalka
+            </a>
+            
+            <p>Waxaan rajaynaynaa inaan ku arko fasalka!</p>
+            
+            <p>Salaan diiran,<br>
+            Kooxda {{ tenant.name|default:"Edurise" }}</p>
+        </div>
+        
+        <div class="footer">
+            <p>Emailkan waxaa la diray {{ formatted_date }}</p>
+            <p>© {{ tenant.name|default:"Edurise" }} - Dhammaan xuquuqda way dhowran yihiin</p>
+        </div>
+    </div>
+</body>
+</html>

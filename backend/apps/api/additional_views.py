@@ -127,9 +127,9 @@ class PlatformAnalyticsView(APIView):
         # Top organizations
         top_organizations = Organization.objects.annotate(
             user_count=Count('profiles__user', distinct=True),
-            course_count=Count('courses', distinct=True),
-            revenue=Sum('courses__enrollments__payment__amount', 
-                       filter=Q(courses__enrollments__payment__status='completed'))
+            course_count=Count('tenant_courses', distinct=True),
+            revenue=Sum('tenant_courses__payments__amount', 
+                       filter=Q(tenant_courses__payments__status='completed'))
         ).order_by('-revenue')[:5]
         
         top_orgs_data = []
@@ -199,7 +199,7 @@ class TeacherAnalyticsView(APIView):
         ).values('student').distinct().count()
         
         total_revenue = Payment.objects.filter(
-            enrollment__course__instructor=request.user,
+            course__instructor=request.user,
             status='completed'
         ).aggregate(total=Sum('amount'))['total'] or 0
         
@@ -236,7 +236,7 @@ class TeacherAnalyticsView(APIView):
             ).count()
             
             month_revenue = Payment.objects.filter(
-                enrollment__course__instructor=request.user,
+                course__instructor=request.user,
                 status='completed',
                 created_at__gte=month_start,
                 created_at__lt=month_end
@@ -276,7 +276,7 @@ class TeacherEarningsView(APIView):
         
         # Calculate earnings (assuming 70% goes to teacher, 30% platform fee)
         total_earnings = Payment.objects.filter(
-            enrollment__course__instructor=request.user,
+            course__instructor=request.user,
             status='completed'
         ).aggregate(total=Sum('amount'))['total'] or 0
         
@@ -295,7 +295,7 @@ class TeacherEarningsView(APIView):
             month_end = now - timedelta(days=30 * i)
             
             month_total = Payment.objects.filter(
-                enrollment__course__instructor=request.user,
+                course__instructor=request.user,
                 status='completed',
                 created_at__gte=month_start,
                 created_at__lt=month_end
@@ -313,8 +313,8 @@ class TeacherEarningsView(APIView):
         top_courses = Course.objects.filter(
             instructor=request.user
         ).annotate(
-            revenue=Sum('enrollments__payment__amount',
-                       filter=Q(enrollments__payment__status='completed'))
+            revenue=Sum('payments__amount',
+                       filter=Q(payments__status='completed'))
         ).order_by('-revenue')[:5]
         
         top_courses_data = []
@@ -342,75 +342,10 @@ class TeacherEarningsView(APIView):
         )
 
 
-class SecurityOverviewView(APIView):
-    """
-    Security overview for admin/super-admin.
-    Endpoint: /security/overview/
-    """
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied(
-                message="Only administrators can access security overview"
-            )
-        
-        # Mock security data - in real implementation would come from security monitoring
-        now = timezone.now()
-        last_24h = now - timedelta(hours=24)
-        
-        # Failed login attempts (mock data)
-        failed_logins_24h = 3
-        
-        # Active sessions (mock data)
-        active_sessions = User.objects.filter(
-            last_login__gte=now - timedelta(hours=1)
-        ).count()
-        
-        # Security score calculation (mock)
-        security_score = 92
-        
-        return StandardAPIResponse.success(
-            data={
-                'active_threats': 0,
-                'failed_logins_24h': failed_logins_24h,
-                'active_sessions': active_sessions,
-                'security_score': security_score,
-                'active_alerts': 1,
-                'failed_logins_today': failed_logins_24h,
-                'active_users': active_sessions
-            },
-            message="Security overview retrieved successfully"
-        )
 
 
-class SystemStatusView(APIView):
-    """
-    System status for admin/super-admin.
-    Endpoint: /system/status/
-    """
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied(
-                message="Only administrators can access system status"
-            )
-        
-        # Mock system status data
-        return StandardAPIResponse.success(
-            data={
-                'server_status': 'healthy',
-                'database_status': 'healthy',
-                'storage_used': 75,
-                'storage_total': 100,
-                'memory_used': 4.2,
-                'memory_total': 8.0,
-                'uptime': '15 days, 6 hours',
-                'db_connections': 25
-            },
-            message="System status retrieved successfully"
-        )
+
+
 
 
 class WishlistViewSet(viewsets.ViewSet):
@@ -461,182 +396,209 @@ class WishlistViewSet(viewsets.ViewSet):
 
 class CourseRecommendationsView(APIView):
     """
-    Course recommendations for students.
+    Advanced course recommendations with predictive analytics.
     Endpoint: /courses/recommendations/
     """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        # Mock recommendations based on user's enrolled courses
-        user_courses = Enrollment.objects.filter(
-            student=request.user
-        ).values_list('course__category', flat=True)
+        """
+        Get personalized course recommendations using multiple algorithms:
+        1. Collaborative filtering (users with similar enrollments)
+        2. Content-based filtering (similar categories/topics)
+        3. Popularity-based recommendations
+        4. Learning path recommendations
+        """
+        tenant = getattr(request, 'tenant', None)
+        limit = int(request.query_params.get('limit', 6))
         
-        # Get courses in similar categories
-        recommended_courses = Course.objects.filter(
-            category__in=user_courses,
+        # Get user's enrollment history and preferences
+        user_enrollments = Enrollment.objects.filter(
+            student=request.user,
+            tenant=tenant
+        ).select_related('course')
+        
+        enrolled_course_ids = user_enrollments.values_list('course_id', flat=True)
+        user_categories = user_enrollments.values_list('course__category', flat=True).distinct()
+        completed_courses = user_enrollments.filter(status='completed')
+        
+        # Algorithm 1: Collaborative Filtering
+        # Find users with similar enrollment patterns
+        similar_users = User.objects.filter(
+            enrollments__course__in=enrolled_course_ids,
+            enrollments__tenant=tenant
+        ).exclude(id=request.user.id).annotate(
+            common_courses=Count('enrollments__course', filter=Q(
+                enrollments__course__in=enrolled_course_ids
+            ))
+        ).filter(common_courses__gte=2)[:10]
+        
+        collaborative_courses = Course.objects.filter(
+            enrollments__student__in=similar_users,
+            tenant=tenant,
             is_public=True
         ).exclude(
-            enrollments__student=request.user
-        )[:6]
+            id__in=enrolled_course_ids
+        ).annotate(
+            recommendation_score=Count('enrollments__student', filter=Q(
+                enrollments__student__in=similar_users
+            ))
+        ).order_by('-recommendation_score')[:limit//2]
         
-        recommendations = []
-        for course in recommended_courses:
-            recommendations.append({
+        # Algorithm 2: Content-Based Filtering
+        # Courses in similar categories with high ratings
+        content_based_courses = Course.objects.filter(
+            category__in=user_categories,
+            tenant=tenant,
+            is_public=True
+        ).exclude(
+            id__in=enrolled_course_ids
+        ).annotate(
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+            enrollment_count=Count('enrollments')
+        ).filter(
+            avg_rating__gte=4.0
+        ).order_by('-avg_rating', '-enrollment_count')[:limit//3]
+        
+        # Algorithm 3: Popularity-Based (trending courses)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        trending_courses = Course.objects.filter(
+            tenant=tenant,
+            is_public=True
+        ).exclude(
+            id__in=enrolled_course_ids
+        ).annotate(
+            recent_enrollments=Count('enrollments', filter=Q(
+                enrollments__enrolled_at__gte=thirty_days_ago
+            )),
+            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
+        ).filter(
+            recent_enrollments__gte=5
+        ).order_by('-recent_enrollments', '-avg_rating')[:limit//3]
+        
+        # Algorithm 4: Learning Path Recommendations
+        # Courses that are logical next steps based on completed courses
+        learning_path_courses = []
+        if completed_courses.exists():
+            # Find courses that students typically take after completing similar courses
+            next_step_courses = Course.objects.filter(
+                enrollments__student__in=User.objects.filter(
+                    enrollments__course__in=completed_courses.values_list('course_id', flat=True),
+                    enrollments__status='completed'
+                ),
+                tenant=tenant,
+                is_public=True
+            ).exclude(
+                id__in=enrolled_course_ids
+            ).annotate(
+                progression_score=Count('enrollments')
+            ).order_by('-progression_score')[:limit//4]
+            
+            learning_path_courses = list(next_step_courses)
+        
+        # Combine and deduplicate recommendations
+        all_recommendations = []
+        seen_course_ids = set()
+        
+        # Add collaborative filtering results
+        for course in collaborative_courses:
+            if course.id not in seen_course_ids:
+                all_recommendations.append({
+                    'course': course,
+                    'reason': 'Students with similar interests also enrolled',
+                    'algorithm': 'collaborative',
+                    'score': getattr(course, 'recommendation_score', 0)
+                })
+                seen_course_ids.add(course.id)
+        
+        # Add content-based results
+        for course in content_based_courses:
+            if course.id not in seen_course_ids:
+                all_recommendations.append({
+                    'course': course,
+                    'reason': f'Popular in {course.category}',
+                    'algorithm': 'content_based',
+                    'score': getattr(course, 'avg_rating', 0) * 20
+                })
+                seen_course_ids.add(course.id)
+        
+        # Add trending results
+        for course in trending_courses:
+            if course.id not in seen_course_ids:
+                all_recommendations.append({
+                    'course': course,
+                    'reason': 'Trending this month',
+                    'algorithm': 'popularity',
+                    'score': getattr(course, 'recent_enrollments', 0)
+                })
+                seen_course_ids.add(course.id)
+        
+        # Add learning path results
+        for course in learning_path_courses:
+            if course.id not in seen_course_ids:
+                all_recommendations.append({
+                    'course': course,
+                    'reason': 'Recommended next step in your learning journey',
+                    'algorithm': 'learning_path',
+                    'score': getattr(course, 'progression_score', 0)
+                })
+                seen_course_ids.add(course.id)
+        
+        # Sort by score and limit results
+        all_recommendations.sort(key=lambda x: x['score'], reverse=True)
+        final_recommendations = all_recommendations[:limit]
+        
+        # Format response
+        recommendations_data = []
+        for rec in final_recommendations:
+            course = rec['course']
+            
+            # Calculate actual rating
+            avg_rating = course.reviews.filter(is_approved=True).aggregate(
+                avg=Avg('rating')
+            )['avg'] or 0
+            
+            # Get enrollment count
+            enrollment_count = course.enrollments.count()
+            
+            recommendations_data.append({
                 'id': course.id,
                 'title': course.title,
+                'description': course.description[:200] + '...' if len(course.description) > 200 else course.description,
                 'instructor': f"{course.instructor.first_name} {course.instructor.last_name}",
                 'price': float(course.price or 0),
-                'thumbnail': None,
-                'rating': 4.5,  # Mock rating
+                'thumbnail': course.thumbnail.url if course.thumbnail else None,
+                'rating': round(avg_rating, 2),
+                'enrollment_count': enrollment_count,
                 'category': course.category,
-                'reason': 'Based on your interests'
+                'duration_weeks': course.duration_weeks,
+                'difficulty_level': course.difficulty_level,
+                'reason': rec['reason'],
+                'algorithm': rec['algorithm'],
+                'confidence_score': min(100, rec['score'] * 5),  # Normalize to 0-100
+                'created_at': course.created_at.isoformat()
             })
         
+        # Add recommendation metadata
+        metadata = {
+            'total_recommendations': len(recommendations_data),
+            'algorithms_used': list(set(rec['algorithm'] for rec in final_recommendations)),
+            'user_enrollment_count': user_enrollments.count(),
+            'user_completed_courses': completed_courses.count(),
+            'user_categories': list(user_categories),
+            'generated_at': timezone.now().isoformat()
+        }
+        
         return StandardAPIResponse.success(
-            data={'results': recommendations},
-            message="Course recommendations retrieved successfully"
+            data={
+                'recommendations': recommendations_data,
+                'metadata': metadata
+            },
+            message="Personalized course recommendations retrieved successfully"
         )
 
 
 # Additional endpoint views for missing functionality
-class SecurityAlertsView(APIView):
-    """Security alerts endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock security alerts
-        return StandardAPIResponse.success(
-            data={'results': []},
-            message="Security alerts retrieved successfully"
-        )
-
-
-class SecurityEventsView(APIView):
-    """Security events endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock security events
-        return StandardAPIResponse.success(
-            data={'results': []},
-            message="Security events retrieved successfully"
-        )
-
-
-class SecuritySettingsView(APIView):
-    """Security settings endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock security settings
-        return StandardAPIResponse.success(
-            data={
-                'password_policy': {'enabled': True, 'min_length': 8},
-                'session_management': {'enabled': True, 'timeout_minutes': 30},
-                'two_factor': {'enabled': False},
-                'login_restrictions': {'enabled': False}
-            },
-            message="Security settings retrieved successfully"
-        )
-
-
-class SecurityPoliciesView(APIView):
-    """Security policies endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock security policies
-        return StandardAPIResponse.success(
-            data={'results': []},
-            message="Security policies retrieved successfully"
-        )
-
-
-class SystemLogsView(APIView):
-    """System logs endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock system logs
-        return StandardAPIResponse.success(
-            data={'results': []},
-            message="System logs retrieved successfully"
-        )
-
-
-class SystemConfigView(APIView):
-    """System configuration endpoint"""
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock system config
-        return StandardAPIResponse.success(
-            data={
-                'general': {'platform_name': 'Edurise', 'maintenance_mode': False},
-                'email': {'smtp_host': 'smtp.example.com'},
-                'storage': {'provider': 'local'},
-                'payment': {'provider': 'stripe', 'currency': 'USD'}
-            },
-            message="System configuration retrieved successfully"
-        )
-    
-    def patch(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return StandardAPIResponse.permission_denied()
-        
-        # Mock config update
-        return StandardAPIResponse.success(
-            data=request.data,
-            message="System configuration updated successfully"
-        )
-
-
-class SystemMaintenanceView(APIView):
-    """System maintenance actions"""
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, action):
-        if not request.user.is_superuser:
-            return StandardAPIResponse.permission_denied(
-                message="Only super administrators can perform maintenance actions"
-            )
-        
-        # Mock maintenance actions
-        valid_actions = ['restart', 'backup', 'cleanup', 'update']
-        
-        if action not in valid_actions:
-            return StandardAPIResponse.error(
-                message=f"Invalid action. Valid actions: {', '.join(valid_actions)}",
-                status_code=400
-            )
-        
-        return StandardAPIResponse.success(
-            data={
-                'action': action,
-                'status': 'completed',
-                'timestamp': timezone.now().isoformat()
-            },
-            message=f"Maintenance action '{action}' completed successfully"
-        )
 
 
 class GlobalFinancialAnalyticsView(APIView):
@@ -677,8 +639,8 @@ class GlobalFinancialAnalyticsView(APIView):
         
         # Revenue by organization
         org_revenue = Organization.objects.annotate(
-            revenue=Sum('courses__enrollments__payment__amount',
-                       filter=Q(courses__enrollments__payment__status='completed'))
+            revenue=Sum('tenant_courses__payments__amount',
+                       filter=Q(tenant_courses__payments__status='completed'))
         ).order_by('-revenue')[:10]
         
         org_revenue_data = []
@@ -715,10 +677,10 @@ class OrganizationFinancialView(APIView):
         
         # Get organizations with financial metrics
         organizations = Organization.objects.annotate(
-            total_revenue=Sum('courses__enrollments__payment__amount',
-                             filter=Q(courses__enrollments__payment__status='completed')),
-            total_courses=Count('courses', distinct=True),
-            total_students=Count('courses__enrollments__student', distinct=True),
+            total_revenue=Sum('tenant_courses__payments__amount',
+                             filter=Q(tenant_courses__payments__status='completed')),
+            total_courses=Count('tenant_courses', distinct=True),
+            total_students=Count('tenant_courses__enrollments__student', distinct=True),
             avg_course_price=Avg('courses__price')
         ).order_by('-total_revenue')
         
@@ -730,13 +692,13 @@ class OrganizationFinancialView(APIView):
             previous_30_days = now - timedelta(days=60)
             
             recent_revenue = Payment.objects.filter(
-                enrollment__course__organization=org,
+                course__tenant=org,
                 status='completed',
                 created_at__gte=last_30_days
             ).aggregate(total=Sum('amount'))['total'] or 0
             
             previous_revenue = Payment.objects.filter(
-                enrollment__course__organization=org,
+                course__tenant=org,
                 status='completed',
                 created_at__gte=previous_30_days,
                 created_at__lt=last_30_days
@@ -772,9 +734,9 @@ class PaymentTransactionsView(APIView):
         
         # Get recent transactions
         transactions = Payment.objects.select_related(
-            'enrollment__student',
-            'enrollment__course',
-            'enrollment__course__organization'
+            'user',
+            'course',
+            'course__organization'
         ).order_by('-created_at')[:50]
         
         transaction_data = []
@@ -786,14 +748,14 @@ class PaymentTransactionsView(APIView):
                 'status': payment.status,
                 'method': payment.payment_method,
                 'student': {
-                    'id': payment.enrollment.student.id,
-                    'name': f"{payment.enrollment.student.first_name} {payment.enrollment.student.last_name}",
-                    'email': payment.enrollment.student.email
+                    'id': payment.user.id,
+                    'name': f"{payment.user.first_name} {payment.user.last_name}",
+                    'email': payment.user.email
                 },
                 'course': {
-                    'id': payment.enrollment.course.id,
-                    'title': payment.enrollment.course.title,
-                    'organization': payment.enrollment.course.organization.name
+                    'id': payment.course.id if payment.course else None,
+                    'title': payment.course.title if payment.course else 'N/A',
+                    'organization': payment.course.organization.name if payment.course else 'N/A'
                 },
                 'created_at': payment.created_at.isoformat(),
                 'processed_at': payment.updated_at.isoformat() if payment.status == 'completed' else None

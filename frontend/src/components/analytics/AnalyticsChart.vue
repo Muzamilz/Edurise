@@ -53,7 +53,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
-let chartInstance: any = null
+// let chartInstance: any = null // Unused for now
 
 // Simple chart drawing functions
 const drawLineChart = (ctx: CanvasRenderingContext2D, data: ChartData, width: number, height: number) => {
@@ -154,7 +154,7 @@ const drawBarChart = (ctx: CanvasRenderingContext2D, data: ChartData, width: num
     const barWidth = chartWidth / data.labels.length * 0.8
     const barSpacing = chartWidth / data.labels.length * 0.2
 
-    ctx.fillStyle = dataset.backgroundColor || '#10b981'
+    ctx.fillStyle = Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor[0] || '#10b981' : dataset.backgroundColor || '#10b981'
 
     dataset.data.forEach((value, index) => {
       const barHeight = (value / maxValue) * chartHeight

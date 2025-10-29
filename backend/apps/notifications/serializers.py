@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Notification, EmailDeliveryLog, NotificationTemplate, ChatMessage, WebSocketConnection
+from .i18n_service import NotificationI18nService
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -69,15 +70,16 @@ class NotificationPreferencesSerializer(serializers.Serializer):
     
     def update(self, instance, validated_data):
         """Update user notification preferences"""
-        # This would update user profile or separate preferences model
-        # For now, we'll store in user profile's notification_preferences JSON field
-        if hasattr(instance, 'userprofile'):
-            profile = instance.userprofile
-            if not profile.notification_preferences:
-                profile.notification_preferences = {}
-            
-            profile.notification_preferences.update(validated_data)
-            profile.save()
+        # Update preferences in user profile
+        if hasattr(instance, 'profiles'):
+            profiles = instance.profiles.all()
+            if profiles.exists():
+                profile = profiles.first()
+                if not profile.notification_preferences:
+                    profile.notification_preferences = {}
+                
+                profile.notification_preferences.update(validated_data)
+                profile.save()
         
         return instance
 
@@ -201,3 +203,28 @@ class WebSocketStatsSerializer(serializers.Serializer):
     average_connection_duration = serializers.FloatField()
     peak_concurrent_connections = serializers.IntegerField()
     recent_connections = WebSocketConnectionSerializer(many=True)
+
+
+class NotificationLanguageSerializer(serializers.Serializer):
+    """Serializer for supported notification languages"""
+    
+    code = serializers.CharField()
+    name = serializers.CharField()
+    is_rtl = serializers.BooleanField()
+
+
+class LocalizedNotificationPreferencesSerializer(serializers.Serializer):
+    """Serializer for localized notification preference labels"""
+    
+    language = serializers.CharField()
+    labels = serializers.DictField()
+    
+    def to_representation(self, instance):
+        """Get localized preference labels"""
+        language = instance.get('language', 'en')
+        labels = NotificationI18nService.get_notification_preferences_labels(language)
+        
+        return {
+            'language': language,
+            'labels': labels
+        }

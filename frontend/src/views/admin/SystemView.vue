@@ -163,7 +163,7 @@ const filteredLogs = computed(() => {
   return systemLogs.value.filter(log => log.level === logLevel.value)
 })
 
-const formatTimestamp = (timestamp) => {
+const formatTimestamp = (timestamp: any) => {
   return timestamp.toLocaleString()
 }
 

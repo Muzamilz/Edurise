@@ -148,12 +148,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
-const router = useRouter()
+// const router = useRouter() // Unused for now
 const { handleApiError } = useErrorHandler()
 
 // Reactive state
@@ -164,24 +165,38 @@ const currentPage = ref(1)
 const itemsPerPage = 20
 
 // API data
-const { data: usersData, loading, error, refresh } = useApiData('/api/v1/users/', {
+const { data: usersData, loading, error, refresh } = useApiData<any[]>('/users/', {
   immediate: true,
   transform: (data) => {
-    if (data.results) {
-      return data.results.map((user: any) => ({
+    console.log('🔍 Raw users data:', data)
+    
+    // Handle both paginated and direct array responses
+    const results = data.results || data.data || data || []
+    
+    return results.map((user: any) => {
+      // Determine user role based on flags
+      let role = 'student'
+      if (user.is_superuser) role = 'superuser'
+      else if (user.is_staff) role = 'admin'
+      else if (user.is_teacher) role = 'teacher'
+      
+      return {
         id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        first_name: user.first_name || 'Unknown',
+        last_name: user.last_name || 'User',
         email: user.email,
-        role: user.role || 'student',
-        organization: user.organization || null,
+        role: role,
+        organization: user.organization_name || 'No Organization',
         is_active: user.is_active !== false,
         date_joined: user.date_joined,
         last_login: user.last_login,
-        avatar: user.avatar
-      }))
-    }
-    return []
+        avatar: user.avatar || null,
+        is_teacher: user.is_teacher,
+        is_approved_teacher: user.is_approved_teacher,
+        is_staff: user.is_staff,
+        is_superuser: user.is_superuser
+      }
+    })
   },
   retryAttempts: 3,
   onError: (error) => {
@@ -189,16 +204,18 @@ const { data: usersData, loading, error, refresh } = useApiData('/api/v1/users/'
   }
 })
 
-const { data: organizationsData } = useApiData('/api/v1/organizations/', {
+const { data: organizationsData } = useApiData<any[]>('/organizations/', {
   immediate: true,
   transform: (data) => {
-    if (data.results) {
-      return data.results.map((org: any) => ({
-        id: org.id,
-        name: org.name
-      }))
-    }
-    return []
+    console.log('🔍 Raw organizations data:', data)
+    
+    // Handle both paginated and direct array responses
+    const results = data.results || data.data || data || []
+    
+    return results.map((org: any) => ({
+      id: org.id,
+      name: org.name || 'Unknown Organization'
+    }))
   }
 })
 
@@ -207,21 +224,21 @@ const users = computed(() => usersData.value || [])
 const organizations = computed(() => organizationsData.value || [])
 
 const totalUsers = computed(() => users.value.length)
-const totalStudents = computed(() => users.value.filter(u => u.role === 'student').length)
-const totalTeachers = computed(() => users.value.filter(u => u.role === 'teacher').length)
-const totalAdmins = computed(() => users.value.filter(u => u.role === 'admin').length)
+const totalStudents = computed(() => users.value.filter((u: any) => u.role === 'student').length)
+const totalTeachers = computed(() => users.value.filter((u: any) => u.role === 'teacher').length)
+const totalAdmins = computed(() => users.value.filter((u: any) => u.role === 'admin').length)
 
 // Mutations
 const { mutate: updateUser } = useApiMutation(
-  ({ id, ...data }) => api.patch(`/api/v1/users/${id}/`, data),
+  ({ id, ...data }) => api.patch(`/users/${id}/`, data),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'update_user' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_user' } })
   }
 )
 
 const filteredUsers = computed(() => {
-  return users.value.filter(user => {
+  return users.value.filter((user: any) => {
     const matchesSearch = !searchQuery.value || 
       user.first_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -242,25 +259,25 @@ const paginatedUsers = computed(() => {
   return filteredUsers.value.slice(start, end)
 })
 
-const formatNumber = (num) => {
+const formatNumber = (num: number) => {
   return new Intl.NumberFormat().format(num)
 }
 
-const formatRole = (role) => {
+const formatRole = (role: string) => {
   return role.charAt(0).toUpperCase() + role.slice(1)
 }
 
-const formatDate = (date) => {
+const formatDate = (date: string) => {
   if (!date) return 'Never'
   return new Date(date).toLocaleDateString()
 }
 
-const viewUser = (user) => {
+const viewUser = (user: any) => {
   // Navigate to user detail view
   console.log('View user:', user)
 }
 
-const toggleUserStatus = async (user) => {
+const toggleUserStatus = async (user: any) => {
   const action = user.is_active ? 'suspend' : 'activate'
   if (confirm(`Are you sure you want to ${action} ${user.first_name} ${user.last_name}?`)) {
     await updateUser({ id: user.id, is_active: !user.is_active })

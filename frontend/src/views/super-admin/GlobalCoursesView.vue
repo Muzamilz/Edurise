@@ -248,13 +248,48 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: courses, loading, error, refresh } = useApiData('/courses/')
-const { data: organizations } = useApiData('/organizations/')
+const { data: courses, loading, error, refresh } = useApiData<any[]>('/courses/', {
+  immediate: true,
+  transform: (data) => {
+    console.log('🔍 Raw courses data:', data)
+    
+    // Handle both paginated and direct array responses
+    const results = data.results || data.data || data || []
+    
+    return results.map((course: any) => ({
+      id: course.id,
+      title: course.title || 'Untitled Course',
+      instructor_name: course.instructor_name || 'Unknown Instructor',
+      organization_name: course.organization_name || 'Unknown Organization',
+      price: course.price || 0,
+      is_public: course.is_public !== false,
+      created_at: course.created_at,
+      enrollment_count: course.enrollment_count || 0,
+      average_rating: course.average_rating || 0,
+      status: course.is_public ? 'published' : 'draft'
+    }))
+  }
+})
+
+const { data: organizations } = useApiData<any[]>('/organizations/', {
+  immediate: true,
+  transform: (data) => {
+    console.log('🔍 Raw organizations data:', data)
+    
+    const results = data.results || data.data || data || []
+    
+    return results.map((org: any) => ({
+      id: org.id,
+      name: org.name || 'Unknown Organization'
+    }))
+  }
+})
 
 // Filters and search
 const searchQuery = ref('')
@@ -266,7 +301,7 @@ const currentPage = ref(1)
 const itemsPerPage = 12
 
 // Moderation state
-const moderatingCourse = ref(null)
+const moderatingCourse = ref<any>(null)
 const moderationAction = ref('approve')
 const moderationReason = ref('')
 
@@ -302,7 +337,7 @@ const { mutate: moderateCourseAction } = useApiMutation(
 const filteredCourses = computed(() => {
   if (!courses.value) return []
   
-  return courses.value.filter(course => {
+  return courses.value.filter((course: any) => {
     const matchesSearch = !searchQuery.value || 
       course.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -327,24 +362,24 @@ const paginatedCourses = computed(() => {
 })
 
 // Methods
-const formatStatus = (status) => {
+const formatStatus = (status: string) => {
   return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
-const formatDate = (date) => {
+const formatDate = (date: string) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleDateString()
 }
 
-const calculateRevenue = (course) => {
+const calculateRevenue = (course: any) => {
   return ((course.enrollment_count || 0) * (course.price || 0)).toFixed(2)
 }
 
-const viewCourse = (course) => {
+const viewCourse = (course: any) => {
   window.open(`/courses/${course.id}`, '_blank')
 }
 
-const moderateCourse = (course) => {
+const moderateCourse = (course: any) => {
   moderatingCourse.value = course
   moderationAction.value = 'approve'
   moderationReason.value = ''
@@ -366,7 +401,7 @@ const submitModeration = async () => {
   })
 }
 
-const toggleCourseStatus = async (course) => {
+const toggleCourseStatus = async (course: any) => {
   const newStatus = course.status === 'published' ? 'suspended' : 'published'
   const reason = `Status changed to ${newStatus} by super admin`
   
@@ -381,7 +416,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_courses_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_courses_load' } })
   }
 }
 

@@ -1,6 +1,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { NotificationService } from '@/services/notifications'
 import { useToast } from '@/composables/useToast'
+import { notificationSoundService } from '@/utils/notificationSound'
+import { showNotificationToast } from '@/utils/toast'
 import type { Notification } from '@/types/api'
 
 export const useNotifications = () => {
@@ -179,15 +181,45 @@ export const useNotifications = () => {
     notifications.value.unshift(notification)
     unreadCount.value += 1
     
-    // Show toast notification
-    toast.info(`${notification.title}: ${notification.message}`, 5000)
+    // Play notification sound based on priority
+    if (notification.priority === 'urgent') {
+      notificationSoundService.playUrgentNotification()
+    } else {
+      notificationSoundService.playNotificationBeep()
+    }
+    
+    // Show toast notification with enhanced styling
+    showNotificationToast(notification)
+    
+    // Show browser notification if permission granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(notification.title, {
+        body: notification.message,
+        icon: '/favicon.ico',
+        tag: notification.id,
+        requireInteraction: notification.priority === 'urgent'
+      })
+    }
   }
   
+  // Request notification permissions
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission()
+        return permission === 'granted'
+      }
+      return Notification.permission === 'granted'
+    }
+    return false
+  }
+
   // Lifecycle
   onMounted(() => {
     fetchNotifications()
     fetchUnreadCount()
     connectWebSocket()
+    requestNotificationPermission()
   })
   
   onUnmounted(() => {
@@ -216,6 +248,7 @@ export const useNotifications = () => {
     getNotificationStats,
     connectWebSocket,
     disconnectWebSocket,
+    requestNotificationPermission,
     
     // Refresh method
     refresh: () => {
@@ -250,9 +283,18 @@ export const useNotificationPreferences = () => {
       preferences.value = response
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to fetch preferences'
-      toast.error('Failed to load notification preferences')
-      throw err
+      // Set default preferences if API fails
+      preferences.value = {
+        email_notifications: true,
+        push_notifications: true,
+        course_enrollment_notifications: true,
+        class_reminder_notifications: true,
+        assignment_due_notifications: true,
+        payment_notifications: true,
+        system_notifications: true,
+      }
+      console.warn('Failed to load notification preferences, using defaults:', err)
+      return preferences.value
     } finally {
       loading.value = false
     }

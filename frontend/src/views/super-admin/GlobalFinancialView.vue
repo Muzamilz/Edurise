@@ -292,14 +292,38 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: financialData, loading, error, refresh } = useApiData('/analytics/financial/global/')
-const { data: organizations } = useApiData('/organizations/financial/')
-const { data: transactions } = useApiData('/payments/transactions/')
+const { data: financialData, loading, error, refresh } = useApiData('/financial/global/', {
+  immediate: true,
+  transform: (data) => {
+    console.log('🔍 Raw financial data:', data)
+    return {
+      totalRevenue: data.total_revenue || 0,
+      currentMonthRevenue: data.current_month_revenue || 0,
+      lastMonthRevenue: data.last_month_revenue || 0,
+      growthRate: data.growth_rate || 0,
+      totalTransactions: data.total_transactions || 0,
+      averageTransaction: data.average_transaction || 0,
+      revenueByOrganization: data.revenue_by_organization || []
+    }
+  }
+})
+
+const { data: organizations } = useApiData('/organizations/', {
+  immediate: true,
+  transform: (data) => {
+    const results = data.results || data.data || data || []
+    return results.map((org: any) => ({
+      id: org.id,
+      name: org.name || 'Unknown Organization'
+    }))
+  }
+})
 
 // Chart and filters
 const chartPeriod = ref('30d')
@@ -328,9 +352,31 @@ const { mutate: processPayoutMutation } = useApiMutation(
       closePayoutModal()
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'process_payout' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'process_payout' } })
   }
 )
+
+// Mock transactions data (until payments endpoint is properly integrated)
+const transactions = ref([
+  {
+    id: 'txn_001',
+    user: { name: 'John Doe', email: 'john@example.com' },
+    course: { title: 'Web Development Bootcamp' },
+    amount: 199,
+    status: 'completed',
+    payment_method: 'stripe',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'txn_002', 
+    user: { name: 'Jane Smith', email: 'jane@example.com' },
+    course: { title: 'Python for Data Science' },
+    amount: 149,
+    status: 'completed',
+    payment_method: 'paypal',
+    created_at: new Date(Date.now() - 86400000).toISOString()
+  }
+])
 
 // Computed properties
 const sortedOrganizations = computed(() => {
@@ -369,27 +415,27 @@ const filteredTransactions = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredTransactions.value.length / itemsPerPage))
 
 // Methods
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: any) => {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount)
 }
 
-const formatNumber = (num) => {
+const formatNumber = (num: any) => {
   return new Intl.NumberFormat('en-US').format(num)
 }
 
-const formatDate = (date) => {
+const formatDate = (date: any) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleDateString()
 }
 
-const formatPayoutStatus = (status) => {
+const formatPayoutStatus = (status: any) => {
   return status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Pending'
 }
 
-const formatTransactionStatus = (status) => {
+const formatTransactionStatus = (status: any) => {
   return status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'
 }
 
@@ -458,7 +504,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_financial_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_financial_load' } })
   }
 }
 

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Application Update</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #28a745;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎓 Teacher Application Update</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ user.first_name|default:user.email }},</h2>
+        
+        <div class="success">
+            <strong>Congratulations!</strong><br>
+            Your teacher application has been approved.
+        </div>
+        
+        <p>{{ notification.message }}</p>
+        
+        <p><strong>What you can do now:</strong></p>
+        <ul>
+            <li>Create and publish your first course</li>
+            <li>Set up your instructor profile</li>
+            <li>Access teacher resources and training materials</li>
+            <li>Start building your student community</li>
+        </ul>
+        
+        <a href="{{ site_url }}/teacher/dashboard" class="button">Access Teacher Dashboard</a>
+        
+        <p>We're excited to have you as part of our teaching community! If you need any help getting started, our support team is here to assist you.</p>
+        
+        <p>Best regards,<br>
+        {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %} Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>© {% now "Y" %} {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %}. All rights reserved.</p>
+    </div>
+</body>
+</html>

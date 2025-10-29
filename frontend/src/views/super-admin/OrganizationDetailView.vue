@@ -111,7 +111,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useApiData } from '@/composables/useApiData'
+// import { useApiData } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -140,7 +141,7 @@ const loadOrganization = async () => {
     
   } catch (err) {
     error.value = err
-    handleApiError(err, { context: { action: 'load_organization_detail' } })
+    handleApiError(err as APIError, { context: { action: 'load_organization_detail' } })
   } finally {
     loading.value = false
   }
@@ -158,7 +159,7 @@ const toggleOrganizationStatus = async () => {
     organization.value.is_active = newStatus
     
   } catch (err) {
-    handleApiError(err, { context: { action: 'toggle_organization_status' } })
+    handleApiError(err as APIError, { context: { action: 'toggle_organization_status' } })
   } finally {
     actionLoading.value = false
   }

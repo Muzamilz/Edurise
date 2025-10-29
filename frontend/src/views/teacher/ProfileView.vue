@@ -177,8 +177,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import type { APIError } from '@/services/api'
 import { useApiData } from '@/composables/useApiData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
@@ -188,25 +189,25 @@ const { handleApiError } = useErrorHandler()
 
 // Reactive state
 const saving = ref(false)
-const avatarInput = ref(null)
+const avatarInput = ref<HTMLInputElement | null>(null)
 
 // API data
 const { 
   data: profileData, 
   loading, 
-  error, 
+  // error, // Unused
   refresh 
-} = useApiData('/user-profiles/me/', {
+} = useApiData<any>('/user-profiles/me/', {
   immediate: true
 })
 
 // Profile computed
 const profile = computed(() => ({
-  name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Teacher',
-  email: user?.email || '',
+  name: `${user.value?.first_name || ''} ${user.value?.last_name || ''}`.trim() || 'Teacher',
+  email: user.value?.email || '',
   avatar: profileData.value?.avatar,
-  isVerified: user?.is_verified || false,
-  isApproved: user?.is_approved_teacher || false,
+  isVerified: user.value?.is_verified || false,
+  isApproved: user.value?.is_approved_teacher || false,
   totalStudents: profileData.value?.total_students || 0,
   totalCourses: profileData.value?.total_courses || 0,
   averageRating: profileData.value?.average_rating || 0
@@ -252,7 +253,7 @@ const handleAvatarUpload = async (event: Event) => {
 
     await refresh()
   } catch (error) {
-    handleApiError(error, { context: { action: 'upload_avatar' } })
+    handleApiError(error as APIError, { context: { action: 'upload_avatar' } })
   }
 }
 
@@ -277,7 +278,7 @@ const saveProfile = async () => {
       bio: form.bio,
       experience: form.experience,
       expertise: form.expertise,
-      education: form.education.filter(edu => edu.institution || edu.degree),
+      education: form.education.filter((edu: any) => edu.institution || edu.degree),
       social_links: {
         website: form.website,
         linkedin: form.linkedin,
@@ -292,7 +293,7 @@ const saveProfile = async () => {
     // Show success message
     alert('Profile updated successfully!')
   } catch (error) {
-    handleApiError(error, { context: { action: 'save_profile' } })
+    handleApiError(error as APIError, { context: { action: 'save_profile' } })
   } finally {
     saving.value = false
   }
@@ -304,21 +305,21 @@ const resetForm = () => {
 
 const loadFormData = () => {
   if (profileData.value) {
-    form.firstName = user?.first_name || ''
-    form.lastName = user?.last_name || ''
-    form.email = user?.email || ''
-    form.phone = profileData.value.phone || ''
-    form.title = profileData.value.title || ''
-    form.bio = profileData.value.bio || ''
-    form.experience = profileData.value.experience || ''
-    form.expertise = profileData.value.expertise || ''
-    form.education = profileData.value.education?.length > 0 
-      ? profileData.value.education 
+    form.firstName = user.value?.first_name || ''
+    form.lastName = user.value?.last_name || ''
+    form.email = user.value?.email || ''
+    form.phone = (profileData.value as any).phone || ''
+    form.title = (profileData.value as any).title || ''
+    form.bio = (profileData.value as any).bio || ''
+    form.experience = (profileData.value as any).experience || ''
+    form.expertise = (profileData.value as any).expertise || ''
+    form.education = (profileData.value as any).education?.length > 0 
+      ? (profileData.value as any).education 
       : [{ institution: '', degree: '', year: '' }]
-    form.website = profileData.value.social_links?.website || ''
-    form.linkedin = profileData.value.social_links?.linkedin || ''
-    form.twitter = profileData.value.social_links?.twitter || ''
-    form.github = profileData.value.social_links?.github || ''
+    form.website = (profileData.value as any).social_links?.website || ''
+    form.linkedin = (profileData.value as any).social_links?.linkedin || ''
+    form.twitter = (profileData.value as any).social_links?.twitter || ''
+    form.github = (profileData.value as any).social_links?.github || ''
   }
 }
 

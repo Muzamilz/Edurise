@@ -27,34 +27,64 @@
           </button>
         </div>
 
-        <div class="faq-list">
+        <div v-if="loading" class="loading">
+          <div class="spinner"></div>
+          <p>Loading FAQs...</p>
+        </div>
+
+        <div v-else-if="error" class="error">
+          <p>{{ error }}</p>
+          <button @click="loadFAQs" class="btn btn-primary">Try Again</button>
+        </div>
+
+        <div v-else class="faq-list">
           <div 
             v-for="(faq, index) in filteredFAQs" 
-            :key="index"
+            :key="faq.id"
             class="faq-item"
           >
             <button 
-              @click="toggleFAQ(index)"
+              @click="toggleFAQ(faq, index)"
               class="faq-question"
               :class="{ active: openFAQs.includes(index) }"
             >
               <span>{{ faq.question }}</span>
-              <svg 
-                class="faq-icon" 
-                :class="{ rotate: openFAQs.includes(index) }"
-                width="20" 
-                height="20" 
-                viewBox="0 0 20 20" 
-                fill="currentColor"
-              >
-                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
-              </svg>
+              <div class="faq-meta">
+                <span class="view-count">{{ faq.view_count }} views</span>
+                <svg 
+                  class="faq-icon" 
+                  :class="{ rotate: openFAQs.includes(index) }"
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 20 20" 
+                  fill="currentColor"
+                >
+                  <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                </svg>
+              </div>
             </button>
             <div 
               v-if="openFAQs.includes(index)"
               class="faq-answer"
             >
               <p>{{ faq.answer }}</p>
+              <div class="faq-feedback">
+                <span>Was this helpful?</span>
+                <div class="feedback-buttons">
+                  <button 
+                    @click="submitFeedback(faq, true)"
+                    class="feedback-btn helpful"
+                  >
+                    👍 Yes ({{ faq.helpful_count }})
+                  </button>
+                  <button 
+                    @click="submitFeedback(faq, false)"
+                    class="feedback-btn not-helpful"
+                  >
+                    👎 No ({{ faq.not_helpful_count }})
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -72,77 +102,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { contentService, type FAQ } from '@/services/content'
 
 const searchQuery = ref('')
 const selectedCategory = ref('All')
 const openFAQs = ref<number[]>([])
+const faqs = ref<FAQ[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
 
-const categories = ['All', 'General', 'Courses', 'Payment', 'Technical', 'Account']
-
-const faqs = [
-  {
-    category: 'General',
-    question: 'What is Edurise?',
-    answer: 'Edurise is a comprehensive learning management system that connects educators and learners worldwide through interactive online courses, live classes, and AI-powered learning assistance.'
-  },
-  {
-    category: 'General',
-    question: 'How do I get started?',
-    answer: 'Simply create a free account, browse our course catalog, and enroll in courses that match your learning goals. You can start learning immediately after enrollment.'
-  },
-  {
-    category: 'Courses',
-    question: 'How many courses can I take?',
-    answer: 'With our subscription plans, you can access unlimited courses. Free users can access a limited selection of courses and materials.'
-  },
-  {
-    category: 'Courses',
-    question: 'Do I get certificates?',
-    answer: 'Yes! You receive a certificate of completion for each course you successfully finish. These certificates can be shared on LinkedIn and added to your resume.'
-  },
-  {
-    category: 'Payment',
-    question: 'What payment methods do you accept?',
-    answer: 'We accept all major credit cards, PayPal, bank transfers, and various digital wallets. We also offer installment payment options for premium plans.'
-  },
-  {
-    category: 'Payment',
-    question: 'Can I get a refund?',
-    answer: 'Yes, we offer a 30-day money-back guarantee for all courses and subscriptions. If you\'re not satisfied, contact our support team for a full refund.'
-  },
-  {
-    category: 'Technical',
-    question: 'What devices can I use?',
-    answer: 'Edurise works on all devices including computers, tablets, and smartphones. We have dedicated mobile apps for iOS and Android for learning on the go.'
-  },
-  {
-    category: 'Technical',
-    question: 'Do I need special software?',
-    answer: 'No special software is required. Edurise runs in your web browser. For the best experience, we recommend using the latest version of Chrome, Firefox, Safari, or Edge.'
-  },
-  {
-    category: 'Account',
-    question: 'How do I reset my password?',
-    answer: 'Click on "Forgot Password" on the login page, enter your email address, and we\'ll send you instructions to reset your password.'
-  },
-  {
-    category: 'Account',
-    question: 'Can I change my email address?',
-    answer: 'Yes, you can update your email address in your account settings. You\'ll need to verify the new email address before the change takes effect.'
-  }
-]
+const categories = computed(() => {
+  const uniqueCategories = new Set(['All'])
+  faqs.value.forEach(faq => {
+    uniqueCategories.add(faq.category.charAt(0).toUpperCase() + faq.category.slice(1))
+  })
+  return Array.from(uniqueCategories)
+})
 
 const filteredFAQs = computed(() => {
-  let filtered = faqs
+  let filtered = faqs.value
 
   if (selectedCategory.value !== 'All') {
-    filtered = filtered.filter(faq => faq.category === selectedCategory.value)
+    filtered = filtered.filter((faq: any) => 
+      faq.category.toLowerCase() === selectedCategory.value.toLowerCase()
+    )
   }
 
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(faq => 
+    filtered = filtered.filter((faq: any) => 
       faq.question.toLowerCase().includes(query) || 
       faq.answer.toLowerCase().includes(query)
     )
@@ -151,14 +140,55 @@ const filteredFAQs = computed(() => {
   return filtered
 })
 
-const toggleFAQ = (index: number) => {
+const loadFAQs = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    const response = await contentService.getFAQs()
+    // Handle the API response structure: { success: true, data: [...] }
+    faqs.value = Array.isArray(response) ? response : (response.data || response.results || [])
+  } catch (err) {
+    console.error('Error loading FAQs:', err)
+    error.value = 'Failed to load FAQs. Please try again later.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const toggleFAQ = async (_faq: FAQ, index: number) => {
   const faqIndex = openFAQs.value.indexOf(index)
   if (faqIndex > -1) {
     openFAQs.value.splice(faqIndex, 1)
   } else {
     openFAQs.value.push(index)
+    // Track view when FAQ is opened
+    try {
+      // This will increment the view count
+      await contentService.getFAQs()
+    } catch (err) {
+      console.error('Error tracking FAQ view:', err)
+    }
   }
 }
+
+const submitFeedback = async (faq: FAQ, helpful: boolean) => {
+  try {
+    await contentService.submitFAQFeedback(faq.id, helpful)
+    // Reload FAQs to get updated counts
+    await loadFAQs()
+  } catch (err) {
+    console.error('Error submitting feedback:', err)
+  }
+}
+
+// Watch for search query changes and reset open FAQs
+watch([searchQuery, selectedCategory], () => {
+  openFAQs.value = []
+})
+
+onMounted(() => {
+  loadFAQs()
+})
 </script>
 
 <style scoped>
@@ -247,6 +277,45 @@ const toggleFAQ = (index: number) => {
   overflow: hidden;
 }
 
+.loading, .error {
+  text-align: center;
+  padding: 3rem;
+  margin-bottom: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #dc2626;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
 .faq-question {
   width: 100%;
   padding: 1.5rem;
@@ -261,6 +330,18 @@ const toggleFAQ = (index: number) => {
   font-weight: 600;
   color: #1f2937;
   transition: background-color 0.3s ease;
+}
+
+.faq-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-count {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 400;
 }
 
 .faq-question:hover {
@@ -289,7 +370,45 @@ const toggleFAQ = (index: number) => {
 .faq-answer p {
   color: #6b7280;
   line-height: 1.6;
-  margin: 0;
+  margin: 0 0 1rem 0;
+}
+
+.faq-feedback {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+}
+
+.feedback-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.feedback-btn {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.feedback-btn:hover {
+  background: #f3f4f6;
+}
+
+.feedback-btn.helpful:hover {
+  background: #dcfce7;
+  border-color: #16a34a;
+}
+
+.feedback-btn.not-helpful:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
 }
 
 @keyframes slideDown {

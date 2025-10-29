@@ -52,10 +52,15 @@ export const useToast = () => {
     toasts.value = []
   }
   
+  const showToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
+    return addToast(message, type, duration)
+  }
+  
   return {
     toasts,
     addToast,
     removeToast,
+    showToast,
     success,
     error,
     warning,

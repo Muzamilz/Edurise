@@ -2,7 +2,7 @@ import { ref, computed, onMounted, watch, type Ref } from 'vue'
 import { api, type APIError } from '@/services/api'
 import { apiCache, type CacheOptions, ApiCache } from '@/utils/apiCache'
 import { getFallbackData, hasFallbackData } from '@/services/fallbackData'
-import { useToast } from '@/composables/useToast'
+import { showToast } from '@/utils/toast'
 
 // Generic data fetching composable with loading, error, and data states
 export interface UseApiDataOptions<T> extends CacheOptions {
@@ -40,12 +40,11 @@ export const useApiData = <T>(
     persist,
     retryAttempts = 3,
     retryDelay = 1000,
-    enableOptimisticUpdates = false,
+    // enableOptimisticUpdates = false, // Unused
     onError,
     onSuccess
   } = options
 
-  const { showToast } = useToast()
   const data = ref<T | null>(null)
   const loading = ref(false)
   const error = ref<APIError | null>(null)
@@ -91,58 +90,58 @@ export const useApiData = <T>(
       try {
         const response = await api.get(getEndpoint())
         const responseData = response.data.data || response.data
-        
+
         const transformedData = transform ? transform(responseData) : responseData
         data.value = transformedData
-        
+
         // Cache the data
         setCachedData(transformedData)
-        
+
         // Reset retry count on success
         retryCount.value = 0
-        
+
         // Call success callback
         onSuccess?.(transformedData)
-        
+
       } catch (err) {
         const apiError = err as APIError
-        
+
         // Retry logic for network errors and 5xx errors
         if (attempt < retryAttempts && shouldRetry(apiError)) {
           retryCount.value = attempt
           console.log(`🔄 Retrying API call (${attempt}/${retryAttempts}) for ${getEndpoint()}`)
-          
+
           // Exponential backoff delay
           const delay = retryDelay * Math.pow(2, attempt - 1)
           await new Promise(resolve => setTimeout(resolve, delay))
-          
+
           return attemptFetch(attempt + 1)
         }
-        
+
         // If it's a 404 and we have fallback data, use that instead of showing error
         if (apiError.status === 404 && hasFallbackData(getEndpoint())) {
           const fallbackData = getFallbackData(getEndpoint())
           const transformedData = transform ? transform(fallbackData) : fallbackData
           data.value = transformedData
-          
+
           // Cache the fallback data
           setCachedData(transformedData)
-          
+
           console.log(`📋 Using fallback data for ${getEndpoint()}`)
           showToast('Using offline data - some features may be limited', 'warning')
-          
+
           onSuccess?.(transformedData)
         } else {
           error.value = apiError
           console.error(`API Error for ${getEndpoint()}:`, err)
-          
+
           // Call error callback
           onError?.(apiError)
-          
+
           // Show user-friendly error message
           if (apiError.status === 0) {
             showToast('Network connection error. Please check your internet connection.', 'error')
-          } else if (apiError.status >= 500) {
+          } else if (apiError.status && apiError.status >= 500) {
             showToast('Server error. Please try again later.', 'error')
           } else if (apiError.status === 401) {
             showToast('Authentication required. Please log in again.', 'error')
@@ -167,7 +166,7 @@ export const useApiData = <T>(
   // Helper function to determine if we should retry
   const shouldRetry = (error: APIError): boolean => {
     // Retry on network errors (status 0) or server errors (5xx)
-    return error.status === 0 || (error.status >= 500 && error.status < 600)
+    return error.status === 0 || (error.status && error.status >= 500 && error.status < 600) || false
   }
 
   const refresh = async () => {
@@ -190,7 +189,7 @@ export const useApiData = <T>(
 
   // Re-fetch when dependencies change
   if (dependencies.length > 0) {
-    watch(dependencies, fetch, { deep: true })
+    watch(dependencies, () => fetch(), { deep: true })
   }
 
   return {
@@ -255,7 +254,8 @@ export const usePaginatedData = <T>(
   const apiData = useApiData<T[]>(() => endpoint.value, {
     ...apiOptions,
     transform,
-    dependencies: [currentPage, ...(apiOptions.dependencies || [])]
+    dependencies: [currentPage, ...(apiOptions.dependencies || [])],
+    onSuccess: apiOptions.onSuccess as ((data: T[]) => void) | undefined
   })
 
   const hasNextPage = computed(() => currentPage.value < totalPages.value)
@@ -311,10 +311,9 @@ export interface UseApiMutationReturn<TData, TVariables> {
 }
 
 export const useApiMutation = <TData = any, TVariables = any>(
-  mutationFn: (variables: TVariables) => Promise<any>,
+  mutationFn: (variables: TVariables) => Promise<any> | { method: string; url: string; data?: any },
   options: UseApiMutationOptions<TData, TVariables> = {}
 ): UseApiMutationReturn<TData, TVariables> => {
-  const { showToast } = useToast()
   const loading = ref(false)
   const error = ref<APIError | null>(null)
   const data = ref<TData | null>(null)
@@ -336,7 +335,29 @@ export const useApiMutation = <TData = any, TVariables = any>(
         data.value = options.optimisticUpdate(variables)
       }
 
-      const response = await mutationFn(variables)
+      const mutationResult = mutationFn(variables)
+      let response: any
+
+      // Handle both Promise and config object returns
+      if (mutationResult && typeof mutationResult === 'object' && 'method' in mutationResult) {
+        // It's a config object, execute the API call
+        const config = mutationResult as { method: string; url: string; data?: any }
+        if (config.method === 'GET') {
+          response = await api.get(config.url)
+        } else if (config.method === 'POST') {
+          response = await api.post(config.url, config.data)
+        } else if (config.method === 'PUT') {
+          response = await api.put(config.url, config.data)
+        } else if (config.method === 'PATCH') {
+          response = await api.patch(config.url, config.data)
+        } else if (config.method === 'DELETE') {
+          response = await api.delete(config.url)
+        }
+      } else {
+        // It's a Promise
+        response = await mutationResult
+      }
+
       const responseData = response.data?.data || response.data
       data.value = responseData
 
@@ -368,7 +389,7 @@ export const useApiMutation = <TData = any, TVariables = any>(
       // Show user-friendly error message
       if (apiError.status === 0) {
         showToast('Network error. Please check your connection and try again.', 'error')
-      } else if (apiError.status >= 500) {
+      } else if (apiError.status && apiError.status >= 500) {
         showToast('Server error. Please try again later.', 'error')
       } else if (apiError.status === 401) {
         showToast('Authentication required. Please log in again.', 'error')

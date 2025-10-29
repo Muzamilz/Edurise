@@ -16,7 +16,7 @@ export class ConnectionTester {
 
     // Test basic API connection
     await this.testEndpoint('API Health Check', async () => {
-      const response = await api.get('/api/v1/courses/')
+      const response = await api.get('/courses/')
       return response.status === 200
     })
 

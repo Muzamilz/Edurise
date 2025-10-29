@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Sent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #17a2b8;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #17a2b8;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📄 Invoice Available</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ user.first_name|default:user.email }},</h2>
+        
+        <div class="info">
+            <strong>New Invoice Available</strong><br>
+            Your invoice is ready for download.
+        </div>
+        
+        <p>{{ notification.message }}</p>
+        
+        <p><strong>Invoice Details:</strong></p>
+        <ul>
+            <li>Invoice Date: {% now "F j, Y" %}</li>
+            <li>Payment Method: As per your account settings</li>
+            <li>Questions? Contact our billing department</li>
+        </ul>
+        
+        <a href="{{ site_url }}/invoices" class="button">View Invoice</a>
+        
+        <p>Please keep this invoice for your records. If you have any questions about this invoice, please contact our billing department.</p>
+        
+        <p>Best regards,<br>
+        {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %} Billing Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>© {% now "Y" %} {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %}. All rights reserved.</p>
+    </div>
+</body>
+</html>

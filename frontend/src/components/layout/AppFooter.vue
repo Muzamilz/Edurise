@@ -163,16 +163,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+// Removed unused import
 import { useTenant } from '@/composables/useTenant'
 
 const route = useRoute()
-const authStore = useAuthStore()
+// Removed unused authStore
 const { branding } = useTenant()
 
 // Computed
-const isAuthenticated = computed(() => authStore.isAuthenticated)
-const isTeacher = computed(() => authStore.isTeacher)
+// const isAuthenticated = computed(() => authStore.isAuthenticated) // Unused
+// const isTeacher = computed(() => authStore.isTeacher) // Unused
 const currentYear = computed(() => new Date().getFullYear())
 
 const isAuthPage = computed(() => {

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #dc3545;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #dc3545;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+        .alert {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💳 Payment Failed</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ user.first_name|default:user.email }},</h2>
+        
+        <div class="alert">
+            <strong>Payment Processing Failed</strong><br>
+            We were unable to process your payment.
+        </div>
+        
+        <p>{{ notification.message }}</p>
+        
+        <p><strong>What you can do:</strong></p>
+        <ul>
+            <li>Check that your payment method has sufficient funds</li>
+            <li>Verify your billing information is correct</li>
+            <li>Try a different payment method</li>
+            <li>Contact your bank if the issue persists</li>
+        </ul>
+        
+        <a href="{{ site_url }}/payments/retry" class="button">Retry Payment</a>
+        
+        <p>If you continue to experience issues, please contact our support team for assistance.</p>
+        
+        <p>Best regards,<br>
+        {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %} Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>© {% now "Y" %} {% if tenant %}{{ tenant.name }}{% else %}EduRise{% endif %}. All rights reserved.</p>
+    </div>
+</body>
+</html>

@@ -6,18 +6,24 @@ class CourseSerializer(serializers.ModelSerializer):
     """Serializer for Course model"""
     
     instructor_name = serializers.CharField(source='instructor.get_full_name', read_only=True)
+    organization_name = serializers.CharField(source='tenant.name', read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_enrollments = serializers.ReadOnlyField()
+    enrollment_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Course
         fields = [
             'id', 'title', 'description', 'instructor', 'instructor_name',
-            'category', 'tags', 'thumbnail', 'price', 'is_public',
+            'organization_name', 'category', 'tags', 'thumbnail', 'price', 'is_public',
             'max_students', 'duration_weeks', 'difficulty_level',
-            'average_rating', 'total_enrollments', 'created_at', 'updated_at'
+            'average_rating', 'total_enrollments', 'enrollment_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'instructor', 'created_at', 'updated_at']
+    
+    def get_enrollment_count(self, obj):
+        """Get the enrollment count for the course"""
+        return obj.enrollments.count() if hasattr(obj, 'enrollments') else 0
     
     def create(self, validated_data):
         # Set instructor to current user

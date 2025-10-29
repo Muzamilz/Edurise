@@ -171,7 +171,7 @@ export class AssignmentService {
   }
 
   static async generateCertificate(courseId: string, studentId: string): Promise<Certificate> {
-    const response = await api.post<Certificate>('/api/v1/certificates/', {
+    const response = await api.post<Certificate>('/certificates/', {
       course: courseId,
       student: studentId
     })

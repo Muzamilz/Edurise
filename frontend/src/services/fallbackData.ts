@@ -331,13 +331,13 @@ export const getFallbackData = (endpoint: string) => {
   // Normalize endpoint (remove query parameters and trailing slashes)
   const normalizedEndpoint = endpoint.split('?')[0].replace(/\/$/, '') + '/'
   
-  return fallbackData[normalizedEndpoint] || null
+  return (fallbackData as any)[normalizedEndpoint] || null
 }
 
 // Check if endpoint has fallback data available
 export const hasFallbackData = (endpoint: string): boolean => {
   const normalizedEndpoint = endpoint.split('?')[0].replace(/\/$/, '') + '/'
-  return normalizedEndpoint in fallbackData
+  return normalizedEndpoint in (fallbackData as any)
 }
 
 export default fallbackData

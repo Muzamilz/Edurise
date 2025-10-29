@@ -126,7 +126,7 @@
             <div class="org-header">
               <div class="org-logo">
                 <img v-if="org.logo" :src="org.logo" :alt="org.name" />
-                <div v-else class="org-placeholder">{{ org.name.charAt(0) }}</div>
+                <div v-else class="org-placeholder">{{ (org.name || 'U').charAt(0) }}</div>
               </div>
               <div class="org-info">
                 <h3>{{ org.name }}</h3>
@@ -414,12 +414,12 @@ const cdnBandwidth = computed(() => 45) // Default CDN bandwidth
 const organizations = computed(() => 
   dashboardData.value?.tenantStats?.slice(0, 3).map(org => ({
     id: org.id,
-    name: org.name,
-    subdomain: org.subdomain,
-    subscription_plan: org.subscriptionPlan,
-    user_count: org.userCount,
-    course_count: org.courseCount,
-    revenue: org.revenue,
+    name: org.name || 'Unknown Organization',
+    subdomain: org.subdomain || 'unknown',
+    subscription_plan: org.subscriptionPlan || 'basic',
+    user_count: org.userCount || 0,
+    course_count: org.courseCount || 0,
+    revenue: org.revenue || 0,
     logo: null // Backend doesn't provide logo yet
   })) || []
 )
@@ -512,6 +512,7 @@ const switchToOrg = async (orgId: string) => {
 
 // Utility functions
 const formatPlan = (plan: string) => {
+  if (!plan) return 'Basic' // Default plan if undefined
   return plan.charAt(0).toUpperCase() + plan.slice(1)
 }
 

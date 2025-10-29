@@ -73,51 +73,99 @@
           <div class="contact-info-section">
             <h2>Get in Touch</h2>
             
-            <div class="contact-methods">
+            <div v-if="loadingContact" class="loading">
+              <div class="spinner"></div>
+              <p>Loading contact information...</p>
+            </div>
+
+            <div v-else-if="contactError" class="error">
+              <p>{{ contactError }}</p>
+              <button @click="loadContactInfo" class="btn btn-primary">Try Again</button>
+            </div>
+
+            <div v-else-if="contactInfo" class="contact-methods">
               <div class="contact-method">
                 <div class="method-icon">📧</div>
                 <div class="method-info">
                   <h3>Email</h3>
-                  <p>support@edurise.com</p>
+                  <p>{{ contactInfo.email }}</p>
                   <span>We'll respond within 24 hours</span>
                 </div>
               </div>
               
-              <div class="contact-method">
+              <div v-if="contactInfo.phone" class="contact-method">
                 <div class="method-icon">📞</div>
                 <div class="method-info">
                   <h3>Phone</h3>
-                  <p>+1 (555) 123-4567</p>
-                  <span>Mon-Fri, 9AM-6PM EST</span>
+                  <p>{{ contactInfo.phone }}</p>
+                  <span>{{ contactInfo.business_hours || 'Mon-Fri, 9AM-6PM EST' }}</span>
                 </div>
               </div>
               
-              <div class="contact-method">
+              <div v-if="contactInfo.support_url" class="contact-method">
                 <div class="method-icon">💬</div>
                 <div class="method-info">
                   <h3>Live Chat</h3>
                   <p>Available 24/7</p>
-                  <span>Click the chat icon below</span>
+                  <a :href="contactInfo.support_url" target="_blank" class="support-link">
+                    Start Chat
+                  </a>
                 </div>
               </div>
               
-              <div class="contact-method">
+              <div v-if="contactInfo.address" class="contact-method">
                 <div class="method-icon">📍</div>
                 <div class="method-info">
                   <h3>Office</h3>
-                  <p>123 Learning Street<br>Education City, EC 12345</p>
-                  <span>Visit us during business hours</span>
+                  <p v-html="contactInfo.address.replace(/\n/g, '<br>')"></p>
+                  <span>{{ contactInfo.business_hours || 'Visit us during business hours' }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="social-links">
+            <div v-if="contactInfo" class="social-links">
               <h3>Follow Us</h3>
               <div class="social-icons">
-                <a href="#" class="social-link">📘 Facebook</a>
-                <a href="#" class="social-link">🐦 Twitter</a>
-                <a href="#" class="social-link">💼 LinkedIn</a>
-                <a href="#" class="social-link">📸 Instagram</a>
+                <a 
+                  v-if="contactInfo.facebook_url" 
+                  :href="contactInfo.facebook_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  📘 Facebook
+                </a>
+                <a 
+                  v-if="contactInfo.twitter_url" 
+                  :href="contactInfo.twitter_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  🐦 Twitter
+                </a>
+                <a 
+                  v-if="contactInfo.linkedin_url" 
+                  :href="contactInfo.linkedin_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  💼 LinkedIn
+                </a>
+                <a 
+                  v-if="contactInfo.instagram_url" 
+                  :href="contactInfo.instagram_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  📸 Instagram
+                </a>
+                <a 
+                  v-if="contactInfo.youtube_url" 
+                  :href="contactInfo.youtube_url" 
+                  target="_blank"
+                  class="social-link"
+                >
+                  📺 YouTube
+                </a>
               </div>
             </div>
           </div>
@@ -136,7 +184,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { contentService, type ContactInfo } from '@/services/content'
 
 const form = ref({
   name: '',
@@ -146,6 +195,9 @@ const form = ref({
 })
 
 const isSubmitting = ref(false)
+const contactInfo = ref<ContactInfo | null>(null)
+const loadingContact = ref(true)
+const contactError = ref<string | null>(null)
 
 const submitForm = async () => {
   isSubmitting.value = true
@@ -162,6 +214,23 @@ const submitForm = async () => {
     isSubmitting.value = false
   }, 1000)
 }
+
+const loadContactInfo = async () => {
+  try {
+    loadingContact.value = true
+    contactError.value = null
+    contactInfo.value = await contentService.getContactInfo()
+  } catch (err) {
+    console.error('Error loading contact info:', err)
+    contactError.value = 'Failed to load contact information. Please try again later.'
+  } finally {
+    loadingContact.value = false
+  }
+}
+
+onMounted(() => {
+  loadContactInfo()
+})
 </script>
 
 <style scoped>
@@ -262,6 +331,54 @@ const submitForm = async () => {
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #dc2626;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.support-link {
+  color: #f59e0b;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.support-link:hover {
+  text-decoration: underline;
 }
 
 .contact-methods {

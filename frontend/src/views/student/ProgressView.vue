@@ -129,12 +129,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: progressData, loading, error, refresh } = useApiData('/api/v1/course-progress/', {
+const { data: progressData, loading, error, refresh } = useApiData('/course-progress/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -207,7 +208,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_progress_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_progress_load' } })
   }
 }
 

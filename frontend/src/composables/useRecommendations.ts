@@ -23,7 +23,7 @@ export function useRecommendations() {
   const context = ref<string>('')
 
   // Services
-  const { showToast } = useToast()
+  const { success: showSuccess, info } = useToast()
   const { handleApiError } = useErrorHandler()
 
   // Computed
@@ -84,7 +84,7 @@ export function useRecommendations() {
       return response
     } catch (err) {
       error.value = err as Error
-      handleApiError(err, { 
+      handleApiError(err as any, { 
         context: { action: 'load_recommendations' },
         showToast: false 
       })
@@ -100,7 +100,7 @@ export function useRecommendations() {
       similarCourses.value = response.similar_courses
       return response
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as any, { 
         context: { action: 'load_similar_courses', courseId },
         showToast: false 
       })
@@ -117,7 +117,7 @@ export function useRecommendations() {
       trendingCourses.value = response.trending_courses
       return response
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as any, { 
         context: { action: 'load_trending_courses' },
         showToast: false 
       })
@@ -131,7 +131,7 @@ export function useRecommendations() {
       analytics.value = response
       return response
     } catch (err) {
-      handleApiError(err, { 
+      handleApiError(err as any, { 
         context: { action: 'load_recommendation_analytics' },
         showToast: false 
       })
@@ -161,11 +161,7 @@ export function useRecommendations() {
         position: recommendation.position_in_list
       })
       
-      showToast({
-        type: 'success',
-        title: 'Added to Wishlist',
-        message: `${recommendation.course.title} has been added to your wishlist`
-      })
+      showSuccess(`${recommendation.course.title} has been added to your wishlist`)
     } catch (err) {
       console.error('Failed to track wishlist add:', err)
     }
@@ -180,11 +176,7 @@ export function useRecommendations() {
         position: recommendation.position_in_list
       })
       
-      showToast({
-        type: 'success',
-        title: 'Enrollment Successful',
-        message: `Successfully enrolled in ${recommendation.course.title}`
-      })
+      showSuccess(`Successfully enrolled in ${recommendation.course.title}`)
     } catch (err) {
       console.error('Failed to track enrollment:', err)
     }
@@ -204,11 +196,7 @@ export function useRecommendations() {
         rec => rec.course.id !== recommendation.course.id
       )
       
-      showToast({
-        type: 'info',
-        title: 'Recommendation Dismissed',
-        message: 'We\'ll use this feedback to improve your recommendations'
-      })
+      info('We\'ll use this feedback to improve your recommendations')
     } catch (err) {
       console.error('Failed to track dismiss:', err)
     }

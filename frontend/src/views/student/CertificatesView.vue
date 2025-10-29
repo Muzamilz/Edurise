@@ -157,6 +157,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import type { APIError } from '@/services/api'
 import { useApiData } from '@/composables/useApiData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
@@ -173,7 +174,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/certificates/', {
+} = useApiData('/certificates/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -258,7 +259,7 @@ const downloadCertificate = async (certificate: any) => {
     link.remove()
     window.URL.revokeObjectURL(url)
   } catch (error) {
-    handleApiError(error, { context: { action: 'download_certificate' } })
+    handleApiError(error as APIError, { context: { action: 'download_certificate' } })
   }
 }
 

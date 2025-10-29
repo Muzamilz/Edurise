@@ -8,6 +8,7 @@ from django.http import HttpResponse, Http404
 from django.core.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.db import models
 
 from apps.api.responses import StandardAPIResponse
 # Tenant filtering is handled in get_queryset methods
@@ -332,6 +333,184 @@ class FileUploadViewSet(viewsets.ModelViewSet):
             message="Course files retrieved successfully"
         )
     
+    @action(detail=False, methods=['post'])
+    def bulk_delete(self, request):
+        """Bulk delete multiple files"""
+        file_ids = request.data.get('file_ids', [])
+        
+        if not file_ids:
+            return StandardAPIResponse.validation_error(
+                errors={'file_ids': ['This field is required']},
+                message="File IDs are required for bulk delete"
+            )
+        
+        try:
+            # Get files that user can delete
+            files_to_delete = []
+            for file_id in file_ids:
+                try:
+                    file_upload = FileUpload.objects.get(
+                        id=file_id,
+                        tenant=request.user.tenant
+                    )
+                    
+                    # Check delete permissions
+                    if file_upload.uploaded_by == request.user or request.user.is_staff:
+                        files_to_delete.append(file_upload)
+                    
+                except FileUpload.DoesNotExist:
+                    continue
+            
+            # Perform bulk delete
+            deleted_count = 0
+            for file_upload in files_to_delete:
+                file_upload.delete_file()
+                deleted_count += 1
+            
+            return StandardAPIResponse.success(
+                data={'deleted_count': deleted_count},
+                message=f"Successfully deleted {deleted_count} files"
+            )
+        
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message="Bulk delete failed",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def analytics(self, request):
+        """Get file usage analytics for current user"""
+        try:
+            # Get user's files
+            user_files = FileUpload.objects.filter(
+                uploaded_by=request.user,
+                tenant=request.user.tenant
+            )
+            
+            # Calculate analytics
+            total_files = user_files.count()
+            total_size_mb = sum(f.file_size_mb for f in user_files)
+            total_downloads = sum(f.download_count for f in user_files)
+            
+            # Files by category
+            category_stats = {}
+            for file_upload in user_files:
+                category = file_upload.category.display_name
+                if category not in category_stats:
+                    category_stats[category] = {'count': 0, 'size_mb': 0}
+                category_stats[category]['count'] += 1
+                category_stats[category]['size_mb'] += file_upload.file_size_mb
+            
+            # Most downloaded files
+            popular_files = user_files.filter(
+                download_count__gt=0
+            ).order_by('-download_count')[:5]
+            
+            popular_files_data = [
+                {
+                    'id': str(f.id),
+                    'filename': f.original_filename,
+                    'downloads': f.download_count,
+                    'last_accessed': f.last_accessed
+                }
+                for f in popular_files
+            ]
+            
+            analytics_data = {
+                'summary': {
+                    'total_files': total_files,
+                    'total_size_mb': round(total_size_mb, 2),
+                    'total_downloads': total_downloads,
+                    'average_file_size_mb': round(total_size_mb / total_files, 2) if total_files > 0 else 0
+                },
+                'by_category': category_stats,
+                'popular_files': popular_files_data
+            }
+            
+            return StandardAPIResponse.success(
+                data=analytics_data,
+                message="File analytics retrieved successfully"
+            )
+        
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message="Analytics retrieval failed",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """Advanced file search with filters"""
+        query = request.query_params.get('q', '')
+        category = request.query_params.get('category')
+        file_type = request.query_params.get('file_type')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        
+        # Start with user's accessible files
+        queryset = self.get_queryset()
+        
+        # Apply search filters
+        if query:
+            queryset = queryset.filter(
+                models.Q(original_filename__icontains=query) |
+                models.Q(title__icontains=query) |
+                models.Q(description__icontains=query) |
+                models.Q(tags__icontains=query)
+            )
+        
+        if category:
+            queryset = queryset.filter(category__name=category)
+        
+        if file_type:
+            if file_type == 'image':
+                queryset = queryset.filter(file_type__startswith='image/')
+            elif file_type == 'video':
+                queryset = queryset.filter(file_type__startswith='video/')
+            elif file_type == 'document':
+                queryset = queryset.filter(
+                    file_type__in=[
+                        'application/pdf',
+                        'application/msword',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'text/plain'
+                    ]
+                )
+        
+        if date_from:
+            try:
+                from datetime import datetime
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__gte=date_from_obj)
+            except ValueError:
+                pass
+        
+        if date_to:
+            try:
+                from datetime import datetime
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__lte=date_to_obj)
+            except ValueError:
+                pass
+        
+        # Order by relevance (most recent first)
+        queryset = queryset.order_by('-created_at')
+        
+        # Paginate results
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = FileUploadListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = FileUploadListSerializer(queryset, many=True)
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message="File search completed successfully"
+        )
+    
     @action(detail=True, methods=['post'])
     def share(self, request, pk=None):
         """Share file with specific users"""
@@ -424,6 +603,21 @@ class FileUploadViewSet(viewsets.ModelViewSet):
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """Get file permissions for current user"""
+        from .access_control_service import FileAccessControlService
+        
+        file_upload = get_object_or_404(self.get_queryset(), pk=pk)
+        
+        access_service = FileAccessControlService()
+        permissions = access_service.get_user_file_permissions(request.user, file_upload)
+        
+        return StandardAPIResponse.success(
+            data=permissions,
+            message="File permissions retrieved successfully"
+        )
     
     @action(detail=True, methods=['get'])
     def shared_users(self, request, pk=None):
@@ -732,7 +926,11 @@ class FilePermissionsView(APIView):
             )
         
         try:
-            file_uploads = FileUpload.objects.filter(id__in=file_ids)
+            # Filter files by tenant for security
+            file_uploads = FileUpload.objects.filter(
+                id__in=file_ids,
+                tenant=request.user.tenant
+            )
             
             access_service = FileAccessControlService()
             results = access_service.bulk_check_access(list(file_uploads), request.user)

@@ -68,12 +68,9 @@
     <!-- Chart Container -->
     <div class="chart-container">
       <AnalyticsChart
-        :chart-data="filteredChartData"
-        :config="chartConfig"
-        :loading="loading"
-        :error="error"
-        @refresh="handleRefresh"
-        @export="handleExport"
+        :data="transformedChartData"
+        :type="chartConfig.type === 'area' ? 'line' : chartConfig.type"
+        :options="chartOptions"
       />
     </div>
     
@@ -225,7 +222,7 @@ const filteredChartData = computed(() => {
   
   // Apply category filter
   if (selectedCategory.value && props.showCategoryFilter) {
-    data = data.filter(item => 
+    data = data.filter((item: any) => 
       item.metadata?.category === selectedCategory.value
     )
   }
@@ -235,7 +232,7 @@ const filteredChartData = computed(() => {
     const startDate = new Date(dateRange.value.start)
     const endDate = new Date(dateRange.value.end)
     
-    data = data.filter(item => {
+    data = data.filter((item: any) => {
       if (!item.date) return true
       const itemDate = new Date(item.date)
       return itemDate >= startDate && itemDate <= endDate
@@ -244,7 +241,7 @@ const filteredChartData = computed(() => {
   
   // Apply value range filter
   if ((valueRange.value.min !== null || valueRange.value.max !== null) && props.showValueRange) {
-    data = data.filter(item => {
+    data = data.filter((item: any) => {
       if (valueRange.value.min !== null && item.value < valueRange.value.min) return false
       if (valueRange.value.max !== null && item.value > valueRange.value.max) return false
       return true
@@ -256,19 +253,57 @@ const filteredChartData = computed(() => {
 
 const maxValue = computed(() => {
   if (!filteredChartData.value.length) return 0
-  return Math.max(...filteredChartData.value.map(item => item.value))
+  return Math.max(...filteredChartData.value.map((item: any) => item.value))
 })
 
 const minValue = computed(() => {
   if (!filteredChartData.value.length) return 0
-  return Math.min(...filteredChartData.value.map(item => item.value))
+  return Math.min(...filteredChartData.value.map((item: any) => item.value))
 })
 
 const averageValue = computed(() => {
   if (!filteredChartData.value.length) return 0
-  const sum = filteredChartData.value.reduce((acc, item) => acc + item.value, 0)
+  const sum = filteredChartData.value.reduce((acc: number, item: any) => acc + item.value, 0)
   return sum / filteredChartData.value.length
 })
+
+const transformedChartData = computed(() => ({
+  labels: filteredChartData.value.map((item: any) => item.label),
+  datasets: [{
+    label: chartConfig.value.title || 'Data',
+    data: filteredChartData.value.map((item: any) => item.value),
+    backgroundColor: chartConfig.value.colors?.[0] || '#3B82F6',
+    borderColor: chartConfig.value.colors?.[0] || '#3B82F6',
+    borderWidth: 2,
+    tension: 0.4
+  }]
+}))
+
+const chartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: chartConfig.value.showLegend ?? true,
+      position: 'top'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: chartConfig.value.yAxisLabel || ''
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: chartConfig.value.xAxisLabel || ''
+      }
+    }
+  }
+}))
 
 // Methods
 const updatePeriod = () => {
@@ -288,13 +323,7 @@ const refreshData = () => {
   emit('refresh')
 }
 
-const handleRefresh = () => {
-  refreshData()
-}
-
-const handleExport = (data: ChartDataPoint[]) => {
-  emit('export', data)
-}
+// Removed unused functions
 
 const applyDateFilter = () => {
   emit('filterChange', {

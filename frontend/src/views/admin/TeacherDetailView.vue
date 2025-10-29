@@ -100,6 +100,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const route = useRoute()
@@ -111,7 +112,7 @@ const showRejectModal = ref(false)
 const rejectionReason = ref('')
 
 // Data fetching
-const { data: teacher, loading, error, refresh } = useApiData(`/api/v1/teacher-approvals/${teacherId}/`)
+const { data: teacher, loading, error, refresh } = useApiData<any>(`/api/v1/teacher-approvals/${teacherId}/`)
 
 // Mutations
 const { mutate: approveTeacherMutation } = useApiMutation(
@@ -120,7 +121,7 @@ const { mutate: approveTeacherMutation } = useApiMutation(
     onSuccess: () => {
       router.push('/admin/teachers/pending')
     },
-    onError: (error) => handleApiError(error, { context: { action: 'approve_teacher' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'approve_teacher' } })
   }
 )
 
@@ -134,12 +135,12 @@ const { mutate: rejectTeacherMutation } = useApiMutation(
     onSuccess: () => {
       router.push('/admin/teachers/pending')
     },
-    onError: (error) => handleApiError(error, { context: { action: 'reject_teacher' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'reject_teacher' } })
   }
 )
 
 // Methods
-const formatStatus = (status) => {
+const formatStatus = (status: any) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
@@ -163,7 +164,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_teacher_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_teacher_load' } })
   }
 }
 

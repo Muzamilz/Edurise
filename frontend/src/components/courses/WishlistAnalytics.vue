@@ -158,13 +158,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useWishlist } from '@/composables/useWishlist'
-import type { WishlistAnalytics } from '@/types/api'
+// import type { WishlistAnalytics } from '@/types/api'
 
 interface Emits {
   (e: 'add-to-wishlist', courseId: string): void
 }
 
-const emit = defineEmits<Emits>()
+defineEmits<Emits>() // Used via $emit in template
 
 const { analytics, loadAnalytics } = useWishlist()
 const loading = ref(false)

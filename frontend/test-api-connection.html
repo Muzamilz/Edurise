@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .loading { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>EduRise API Connection Test</h1>
+    <button onclick="testAllEndpoints()">Test All Endpoints</button>
+    <div id="results"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+        
+        async function testEndpoint(name, url) {
+            const resultsDiv = document.getElementById('results');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result loading';
+            testDiv.innerHTML = `<h3>${name}</h3><p>Testing ${url}...</p>`;
+            resultsDiv.appendChild(testDiv);
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    testDiv.className = 'test-result success';
+                    testDiv.innerHTML = `
+                        <h3>${name} ✅</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Data Count:</strong> ${Array.isArray(data.data) ? data.data.length : 'N/A'}</p>
+                        <details>
+                            <summary>Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    testDiv.className = 'test-result error';
+                    testDiv.innerHTML = `
+                        <h3>${name} ❌</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Error:</strong> ${data.message || 'Unknown error'}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                testDiv.className = 'test-result error';
+                testDiv.innerHTML = `
+                    <h3>${name} ❌</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+        }
+        
+        async function testAllEndpoints() {
+            document.getElementById('results').innerHTML = '';
+            
+            const endpoints = [
+                { name: 'Health Check', url: 'http://localhost:8000/api/health/' },
+                { name: 'Contact Info', url: `${API_BASE_URL}/content/contact-info/active/` },
+                { name: 'Testimonials', url: `${API_BASE_URL}/content/testimonials/` },
+                { name: 'Featured Testimonials', url: `${API_BASE_URL}/content/testimonials/featured/` },
+                { name: 'Team Members', url: `${API_BASE_URL}/content/team-members/` },
+                { name: 'Team by Department', url: `${API_BASE_URL}/content/team-members/by_department/` },
+                { name: 'Announcements', url: `${API_BASE_URL}/content/announcements/` },
+                { name: 'Featured Announcements', url: `${API_BASE_URL}/content/announcements/featured/` },
+                { name: 'FAQs', url: `${API_BASE_URL}/content/faqs/` },
+                { name: 'Featured FAQs', url: `${API_BASE_URL}/content/faqs/featured/` },
+                { name: 'Marketplace Courses', url: `${API_BASE_URL}/courses/marketplace/` },
+                { name: 'Featured Courses', url: `${API_BASE_URL}/courses/featured/` }
+            ];
+            
+            for (const endpoint of endpoints) {
+                await testEndpoint(endpoint.name, endpoint.url);
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.onload = () => testAllEndpoints();
+    </script>
+</body>
+</html>

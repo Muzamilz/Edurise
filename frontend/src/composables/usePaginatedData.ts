@@ -260,7 +260,7 @@ export const useUsers = (options?: UsePaginatedDataOptions) => {
 }
 
 export const useNotifications = (options?: UsePaginatedDataOptions) => {
-  return usePaginatedData('/notifications/', {
+  return usePaginatedData('/api/v1/notifications/', {
     cacheKey: 'notifications',
     ...options
   })

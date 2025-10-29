@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xaqiijinta Diiwaan Gelinta Koorsada</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3B82F6, #1E40AF);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #3B82F6;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .success-icon {
+            font-size: 48px;
+            color: #10B981;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if tenant and tenant.logo %}
+                <img src="{{ tenant.logo.url }}" alt="{{ tenant.name }}" style="max-height: 50px; margin-bottom: 20px;">
+            {% endif %}
+            <h1>{{ notification.title }}</h1>
+        </div>
+        
+        <div class="content">
+            <div class="success-icon">✅</div>
+            
+            <h2>Salaan {{ user.first_name|default:user.email }},</h2>
+            
+            <p>{{ notification.message }}</p>
+            
+            <p>Hadda waxaad heli kartaa dhammaan agabka koorsada oo bilaabi kartaa safarka barashada.</p>
+            
+            <a href="{{ site_url }}/courses/{{ notification.related_object_id }}" class="btn">
+                Tag Koorsada
+            </a>
+            
+            <p>Haddii aad qabto su'aalo, fadlan la xiriir kooxda taageerada.</p>
+            
+            <p>Salaan diiran,<br>
+            Kooxda {{ tenant.name|default:"Edurise" }}</p>
+        </div>
+        
+        <div class="footer">
+            <p>Emailkan waxaa la diray {{ formatted_date }}</p>
+            <p>© {{ tenant.name|default:"Edurise" }} - Dhammaan xuquuqda way dhowran yihiin</p>
+        </div>
+    </div>
+</body>
+</html>

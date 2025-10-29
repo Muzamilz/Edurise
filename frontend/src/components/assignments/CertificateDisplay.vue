@@ -402,15 +402,30 @@ const handleVerification = async () => {
       certificate: result.valid && result.certificate && result.student_name ? {
         id: result.certificate.id,
         student: {
+          id: (result.certificate as any).student_id || '',
+          email: '',
           first_name: result.student_name.split(' ')[0],
-          last_name: result.student_name.split(' ').slice(1).join(' ')
+          last_name: result.student_name.split(' ').slice(1).join(' '),
+          is_teacher: false,
+          is_approved_teacher: false,
+          is_staff: false,
+          is_superuser: false,
+          date_joined: '',
+          last_login: ''
         },
         course: {
-          title: result.course_title || 'Unknown Course'
+          id: (result.certificate as any).course_id || '',
+          title: result.course_title || 'Unknown Course',
+          description: '',
+          instructor: {} as any,
+          price: 0,
+          created_at: '',
+          updated_at: ''
         },
-        completion_date: result.completion_date,
-        final_grade: result.final_grade
-      } : undefined
+        issued_at: result.completion_date || '',
+        certificate_url: (result.certificate as any).certificate_url || '',
+        verification_code: (result.certificate as any).verification_code || ''
+      } as unknown as Certificate : undefined
     }
     
     showVerificationModal.value = false

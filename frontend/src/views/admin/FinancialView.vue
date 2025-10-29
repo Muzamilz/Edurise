@@ -134,11 +134,11 @@ const recentTransactions = ref([
   }
 ])
 
-const formatNumber = (num) => {
+const formatNumber = (num: any) => {
   return new Intl.NumberFormat().format(num)
 }
 
-const formatDate = (date) => {
+const formatDate = (date: any) => {
   return new Date(date).toLocaleDateString()
 }
 

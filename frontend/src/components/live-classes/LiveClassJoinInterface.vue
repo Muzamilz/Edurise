@@ -28,6 +28,9 @@
           <div v-if="timeUntilClass" class="text-sm text-blue-100 mt-2">
             {{ timeUntilClass }}
           </div>
+          <div v-if="liveClass?.status === 'live' && participantCount > 0" class="text-sm text-blue-100 mt-1">
+            {{ participantCount }} participants online
+          </div>
         </div>
       </div>
     </div>
@@ -203,10 +206,34 @@
         </div>
       </div>
 
+      <!-- Real-time Announcements -->
+      <div v-if="classAnnouncements.length > 0" class="mt-6">
+        <h4 class="text-sm font-medium text-gray-900 mb-3">Class Announcements</h4>
+        <div class="space-y-2 max-h-32 overflow-y-auto">
+          <div 
+            v-for="announcement in classAnnouncements.slice(0, 3)" 
+            :key="announcement.id"
+            class="p-3 bg-blue-50 border border-blue-200 rounded-lg"
+          >
+            <p class="text-sm text-blue-800">{{ announcement.message }}</p>
+            <p class="text-xs text-blue-600 mt-1">{{ formatTime(announcement.timestamp) }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recording Status -->
+      <div v-if="recordingStatus" class="mt-4 flex items-center justify-center text-sm">
+        <div class="flex items-center px-3 py-1 rounded-full" :class="recordingStatus === 'started' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'">
+          <div v-if="recordingStatus === 'started'" class="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+          <div v-else class="w-2 h-2 bg-gray-500 rounded-full mr-2"></div>
+          {{ recordingStatus === 'started' ? 'Recording in progress' : 'Recording stopped' }}
+        </div>
+      </div>
+
       <!-- Connection Status -->
-      <div v-if="isConnected" class="mt-6 flex items-center justify-center text-sm text-green-600">
-        <div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-        Connected to live updates
+      <div class="mt-6 flex items-center justify-center text-sm" :class="isConnected ? 'text-green-600' : 'text-red-600'">
+        <div class="w-2 h-2 rounded-full mr-2" :class="isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
+        {{ isConnected ? 'Connected to live updates' : 'Disconnected from live updates' }}
       </div>
     </div>
 
@@ -244,8 +271,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useZoom } from '@/composables/useZoom'
+import { useWebSocketStore } from '@/stores/websocket'
+// Removed unused import
 // import type { LiveClass } from '@/types/api'
 
 interface Props {
@@ -258,11 +287,18 @@ const {
   currentLiveClass: liveClass,
   fetchLiveClass,
   joinZoomMeeting,
-  connectWebSocket,
-  disconnectWebSocket,
-  isConnected,
   // error
 } = useZoom()
+
+const websocketStore = useWebSocketStore()
+// Removed unused notificationStore
+
+// WebSocket connection for real-time updates
+const liveClassWs = ref<any>(null)
+const isConnected = ref(false)
+const participantCount = ref(0)
+const classAnnouncements = ref<any[]>([])
+const recordingStatus = ref<string | null>(null)
 
 // Local state
 const isJoining = ref(false)
@@ -340,27 +376,11 @@ const formatMeetingId = (meetingId: string) => {
   return meetingId.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')
 }
 
-const joinClass = async () => {
-  if (!liveClass.value?.join_url) return
-  
-  isJoining.value = true
-  
-  try {
-    joinZoomMeeting(liveClass.value.join_url)
-    
-    showNotification('success', 'Joining Class', 'Opening Zoom meeting...')
-    
-    // Mark attendance as present when joining
-    // This would typically be handled by Zoom webhooks
-    setTimeout(() => {
-      isJoining.value = false
-    }, 2000)
-  } catch (err) {
-    console.error('Error joining class:', err)
-    showNotification('error', 'Join Failed', 'Failed to join the class. Please try again.')
-    isJoining.value = false
-  }
+const formatTime = (timestamp: string) => {
+  return new Date(timestamp).toLocaleTimeString()
 }
+
+// Removed duplicate function - using enhanced version below
 
 const testZoomConnection = async () => {
   if (!liveClass.value?.join_url) return
@@ -439,14 +459,127 @@ const showNotification = (type: 'success' | 'error' | 'info', title: string, mes
   }, 5000)
 }
 
+// WebSocket connection management
+const connectToLiveClass = () => {
+  liveClassWs.value = websocketStore.connectToLiveClass(props.liveClassId)
+  
+  if (liveClassWs.value) {
+    // Set up event handlers
+    liveClassWs.value.onConnect(() => {
+      isConnected.value = true
+      showNotification('success', 'Connected', 'Connected to live class updates')
+    })
+
+    liveClassWs.value.onDisconnect(() => {
+      isConnected.value = false
+    })
+
+    liveClassWs.value.onError(() => {
+      isConnected.value = false
+      showNotification('error', 'Connection Error', 'Lost connection to live updates')
+    })
+
+    // Subscribe to real-time events
+    liveClassWs.value.subscribe('class_status_update', (data: any) => {
+      if (liveClass.value) {
+        liveClass.value.status = data.status
+        showNotification('info', 'Class Status Update', `Class is now ${data.status}`)
+      }
+    })
+
+    liveClassWs.value.subscribe('participant_joined', (data: any) => {
+      participantCount.value++
+      if (data.user_name) {
+        showNotification('info', 'Participant Joined', `${data.user_name} joined the class`)
+      }
+    })
+
+    liveClassWs.value.subscribe('participant_left', (data: any) => {
+      participantCount.value = Math.max(0, participantCount.value - 1)
+      if (data.user_name) {
+        showNotification('info', 'Participant Left', `${data.user_name} left the class`)
+      }
+    })
+
+    liveClassWs.value.subscribe('class_announcement', (data: any) => {
+      classAnnouncements.value.unshift({
+        id: Date.now(),
+        message: data.message,
+        timestamp: data.timestamp || new Date().toISOString()
+      })
+      showNotification('info', 'Class Announcement', data.message)
+    })
+
+    liveClassWs.value.subscribe('recording_status', (data: any) => {
+      recordingStatus.value = data.status
+      const statusText = data.status === 'started' ? 'Recording started' : 'Recording stopped'
+      showNotification('info', 'Recording Update', statusText)
+    })
+
+    // Connect to WebSocket
+    liveClassWs.value.connect().catch((error: any) => {
+      console.error('Failed to connect to live class WebSocket:', error)
+      showNotification('error', 'Connection Failed', 'Failed to connect to live updates')
+    })
+  }
+}
+
+const disconnectFromLiveClass = () => {
+  if (liveClassWs.value) {
+    websocketStore.disconnectFromLiveClass(props.liveClassId)
+    liveClassWs.value = null
+    isConnected.value = false
+  }
+}
+
+// Enhanced join class with real-time attendance tracking
+const joinClass = async () => {
+  if (!liveClass.value?.join_url) return
+  
+  isJoining.value = true
+  
+  try {
+    // Send join event to WebSocket
+    if (liveClassWs.value?.isConnected) {
+      liveClassWs.value.send('join_class', {
+        timestamp: new Date().toISOString()
+      })
+    }
+
+    joinZoomMeeting(liveClass.value.join_url)
+    
+    showNotification('success', 'Joining Class', 'Opening Zoom meeting...')
+    
+    setTimeout(() => {
+      isJoining.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Error joining class:', err)
+    showNotification('error', 'Join Failed', 'Failed to join the class. Please try again.')
+    isJoining.value = false
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   await fetchLiveClass(props.liveClassId)
-  connectWebSocket(props.liveClassId)
+  connectToLiveClass()
 })
 
 onUnmounted(() => {
-  disconnectWebSocket()
+  disconnectFromLiveClass()
+})
+
+// Watch for class status changes to update UI
+watch(() => liveClass.value?.status, (newStatus, oldStatus) => {
+  if (newStatus && oldStatus && newStatus !== oldStatus) {
+    // Handle status transitions
+    if (newStatus === 'live' && oldStatus === 'scheduled') {
+      showNotification('success', 'Class Started', 'The class is now live! You can join now.')
+    } else if (newStatus === 'completed' && oldStatus === 'live') {
+      showNotification('info', 'Class Ended', 'The class has ended. Check for recordings.')
+    }
+  }
 })
 </script>
 

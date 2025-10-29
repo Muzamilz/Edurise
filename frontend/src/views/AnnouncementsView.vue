@@ -6,95 +6,60 @@
         <p>Stay updated with the latest news and updates from Edurise</p>
       </div>
 
-      <div class="announcements-list">
-        <article class="announcement-card featured">
-          <div class="announcement-badge">Featured</div>
-          <div class="announcement-date">December 15, 2024</div>
-          <h2>New AI-Powered Learning Assistant Now Available</h2>
-          <p>
-            We're excited to introduce our new AI learning assistant that provides 
-            personalized study recommendations and instant help with course materials.
-          </p>
-          <router-link to="/announcements/ai-assistant" class="read-more">Read More →</router-link>
-        </article>
+      <div v-if="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading announcements...</p>
+      </div>
 
-        <article class="announcement-card">
-          <div class="announcement-date">December 10, 2024</div>
-          <h2>Winter Course Catalog Released</h2>
-          <p>
-            Explore our expanded winter course catalog featuring over 200 new courses 
-            across technology, business, arts, and sciences.
-          </p>
-          <router-link to="/announcements/winter-catalog" class="read-more">Read More →</router-link>
-        </article>
+      <div v-else-if="error" class="error">
+        <p>{{ error }}</p>
+        <button @click="loadAnnouncements" class="btn btn-primary">Try Again</button>
+      </div>
 
-        <article class="announcement-card">
-          <div class="announcement-date">December 5, 2024</div>
-          <h2>Platform Maintenance Scheduled</h2>
-          <p>
-            Scheduled maintenance on December 20th from 2:00 AM to 4:00 AM EST to 
-            improve platform performance and add new features.
-          </p>
-          <router-link to="/announcements/maintenance" class="read-more">Read More →</router-link>
-        </article>
-
-        <article class="announcement-card">
-          <div class="announcement-date">November 28, 2024</div>
-          <h2>Black Friday Course Sale - Up to 70% Off</h2>
-          <p>
-            Don't miss our biggest sale of the year! Get access to premium courses 
-            at incredible discounts. Sale ends December 1st.
-          </p>
-          <router-link to="/announcements/black-friday" class="read-more">Read More →</router-link>
-        </article>
-
-        <article class="announcement-card">
-          <div class="announcement-date">November 20, 2024</div>
-          <h2>New Mobile App Features</h2>
-          <p>
-            Our mobile app now supports offline course downloads, push notifications 
-            for live classes, and improved video streaming quality.
-          </p>
-          <router-link to="/announcements/mobile-update" class="read-more">Read More →</router-link>
-        </article>
-
-        <article class="announcement-card">
-          <div class="announcement-date">November 15, 2024</div>
-          <h2>Teacher Certification Program Launch</h2>
-          <p>
-            Introducing our new teacher certification program to help educators 
-            enhance their skills and earn recognized credentials.
-          </p>
-          <router-link to="/announcements/teacher-certification" class="read-more">Read More →</router-link>
-        </article>
-
-        <article class="announcement-card">
-          <div class="announcement-date">November 8, 2024</div>
-          <h2>Student Success Stories Contest</h2>
-          <p>
-            Share your learning journey and win amazing prizes! Submit your success 
-            story and inspire other learners in our community.
-          </p>
-          <router-link to="/announcements/success-contest" class="read-more">Read More →</router-link>
-        </article>
-
-        <article class="announcement-card">
-          <div class="announcement-date">November 1, 2024</div>
-          <h2>Enhanced Live Class Experience</h2>
-          <p>
-            We've upgraded our live class technology with better video quality, 
-            interactive whiteboards, and breakout room capabilities.
-          </p>
-          <router-link to="/announcements/live-class-upgrade" class="read-more">Read More →</router-link>
+      <div v-else class="announcements-list">
+        <article 
+          v-for="announcement in announcements" 
+          :key="announcement.id"
+          :class="['announcement-card', { featured: announcement.featured }]"
+        >
+          <div v-if="announcement.featured" class="announcement-badge">Featured</div>
+          <div class="announcement-meta">
+            <div class="announcement-date">{{ formatDate(announcement.publish_at) }}</div>
+            <div class="announcement-category">{{ announcement.category }}</div>
+            <div v-if="announcement.priority !== 'normal'" class="announcement-priority" :class="announcement.priority">
+              {{ announcement.priority }}
+            </div>
+          </div>
+          <h2>{{ announcement.title }}</h2>
+          <p>{{ announcement.content }}</p>
+          <div class="announcement-footer">
+            <span class="author">By {{ announcement.author_name }}</span>
+            <div v-if="announcement.tags" class="tags">
+              <span 
+                v-for="tag in announcement.tags.split(',')" 
+                :key="tag.trim()" 
+                class="tag"
+              >
+                {{ tag.trim() }}
+              </span>
+            </div>
+          </div>
         </article>
       </div>
 
       <div class="newsletter-signup">
         <h2>Stay Informed</h2>
         <p>Subscribe to our newsletter to receive the latest announcements directly in your inbox</p>
-        <form class="newsletter-form">
-          <input type="email" placeholder="Enter your email address" required>
-          <button type="submit" class="btn btn-primary">Subscribe</button>
+        <form class="newsletter-form" @submit.prevent="subscribeNewsletter">
+          <input 
+            v-model="email" 
+            type="email" 
+            placeholder="Enter your email address" 
+            required
+          >
+          <button type="submit" class="btn btn-primary" :disabled="subscribing">
+            {{ subscribing ? 'Subscribing...' : 'Subscribe' }}
+          </button>
         </form>
       </div>
     </div>
@@ -102,7 +67,58 @@
 </template>
 
 <script setup lang="ts">
-// Component logic can be added here
+import { ref, onMounted } from 'vue'
+import { contentService, type Announcement } from '@/services/content'
+
+const announcements = ref<Announcement[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
+const email = ref('')
+const subscribing = ref(false)
+
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+}
+
+const loadAnnouncements = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    const response = await contentService.getAnnouncements()
+    // Handle the API response structure: { success: true, data: [...] }
+    announcements.value = Array.isArray(response) ? response : (response.data || (response as any).results || [])
+  } catch (err) {
+    console.error('Error loading announcements:', err)
+    error.value = 'Failed to load announcements. Please try again later.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const subscribeNewsletter = async () => {
+  try {
+    subscribing.value = true
+    // This would typically call a newsletter subscription API
+    // For now, just simulate the action
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    alert('Successfully subscribed to newsletter!')
+    email.value = ''
+  } catch (err) {
+    console.error('Error subscribing to newsletter:', err)
+    alert('Failed to subscribe. Please try again.')
+  } finally {
+    subscribing.value = false
+  }
+}
+
+onMounted(() => {
+  loadAnnouncements()
+})
 </script>
 
 <style scoped>
@@ -172,10 +188,98 @@
   text-transform: uppercase;
 }
 
+.loading, .error {
+  text-align: center;
+  padding: 3rem;
+  margin-bottom: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #dc2626;
+}
+
+.announcement-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
 .announcement-date {
   font-size: 0.875rem;
   color: #6b7280;
-  margin-bottom: 1rem;
+}
+
+.announcement-category {
+  font-size: 0.75rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  text-transform: capitalize;
+}
+
+.announcement-priority {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.announcement-priority.high {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.announcement-priority.urgent {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.announcement-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.author {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 0.75rem;
+  background: #f59e0b;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
 }
 
 .announcement-card h2 {

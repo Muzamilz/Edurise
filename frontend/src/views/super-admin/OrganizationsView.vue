@@ -191,13 +191,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { api } from '@/services/api'
 
 const router = useRouter()
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: organizationsData, loading, error, refresh } = useApiData('/api/v1/organizations/', {
+const { data: organizationsData, loading, refresh } = useApiData('/organizations/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -249,21 +251,21 @@ const totalRevenue = ref(245000)
 
 // Mutations
 const { mutate: createOrg } = useApiMutation(
-  (orgData) => api.post('/api/v1/organizations/', orgData),
+  (orgData: any) => api.post('/organizations/', orgData),
   {
     onSuccess: () => {
       closeCreateModal()
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'create_organization' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'create_organization' } })
   }
 )
 
 const { mutate: updateOrg } = useApiMutation(
-  ({ id, ...data }) => api.patch(`/api/v1/organizations/${id}/`, data),
+  ({ id, ...data }: any) => api.patch(`/organizations/${id}/`, data),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'update_organization' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_organization' } })
   }
 )
 
@@ -313,7 +315,7 @@ const viewOrganization = (org) => {
 
 const switchToOrg = async (org) => {
   try {
-    const response = await api.post('/api/v1/users/switch_tenant/', { tenant_id: org.id })
+    const response = await api.post('/users/switch_tenant/', { tenant_id: org.id })
     
     if (response.data) {
       // Update tokens and redirect
@@ -322,7 +324,7 @@ const switchToOrg = async (org) => {
       window.location.href = '/dashboard'
     }
   } catch (error) {
-    handleApiError(error, { context: { action: 'switch_organization' } })
+    handleApiError(error as APIError, { context: { action: 'switch_organization' } })
   }
 }
 

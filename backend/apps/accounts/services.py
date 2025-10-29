@@ -75,7 +75,7 @@ class JWTAuthService:
     
     @staticmethod
     def generate_tokens(user, tenant=None):
-        """Generate JWT access and refresh tokens"""
+        """Generate JWT access and refresh tokens with enhanced tenant support"""
         refresh = RefreshToken.for_user(user)
         
         # Add tenant information to token if available
@@ -83,16 +83,64 @@ class JWTAuthService:
             refresh['tenant_id'] = str(tenant.id)
             refresh['tenant_subdomain'] = tenant.subdomain
             refresh['tenant_name'] = tenant.name
+            
+            # Add user role within this tenant
+            try:
+                profile = UserProfile.objects.get(user=user, tenant=tenant)
+                refresh['tenant_role'] = profile.role
+            except UserProfile.DoesNotExist:
+                refresh['tenant_role'] = 'student'
+        else:
+            refresh['tenant_id'] = None
+            refresh['tenant_subdomain'] = None
+            refresh['tenant_name'] = None
+            refresh['tenant_role'] = None
         
         # Add user information
         refresh['user_id'] = str(user.id)
         refresh['email'] = user.email
+        refresh['first_name'] = user.first_name
+        refresh['last_name'] = user.last_name
         refresh['is_teacher'] = user.is_teacher
         refresh['is_approved_teacher'] = user.is_approved_teacher
+        refresh['is_staff'] = user.is_staff
+        refresh['is_superuser'] = user.is_superuser
+        
+        # Add access token with same claims
+        access_token = refresh.access_token
+        if tenant:
+            access_token['tenant_id'] = str(tenant.id)
+            access_token['tenant_subdomain'] = tenant.subdomain
+            access_token['tenant_name'] = tenant.name
+            access_token['tenant_role'] = refresh['tenant_role']
+        
+        access_token['email'] = user.email
+        access_token['first_name'] = user.first_name
+        access_token['last_name'] = user.last_name
+        access_token['is_teacher'] = user.is_teacher
+        access_token['is_approved_teacher'] = user.is_approved_teacher
+        access_token['is_staff'] = user.is_staff
+        access_token['is_superuser'] = user.is_superuser
         
         return {
             'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            'access': str(access_token),
+            'user': {
+                'id': str(user.id),
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_teacher': user.is_teacher,
+                'is_approved_teacher': user.is_approved_teacher,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+            },
+            'tenant': {
+                'id': str(tenant.id) if tenant else None,
+                'name': tenant.name if tenant else None,
+                'subdomain': tenant.subdomain if tenant else None,
+                'role': refresh['tenant_role'] if tenant else None,
+            } if tenant else None
         }
     
     @staticmethod

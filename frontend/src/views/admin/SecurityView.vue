@@ -367,14 +367,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
 
 // Data fetching
-const { data: securityData, loading, error, refresh } = useApiData('/security/overview/')
-const { data: securityEvents } = useApiData('/security/events/')
-const { data: securitySettings } = useApiData('/security/settings/')
+const { data: securityData, loading, error, refresh } = useApiData<any>('/security/overview/')
+const { data: securityEvents } = useApiData<any[]>('/security/events/')
+const { data: securitySettings } = useApiData<any>('/security/settings/')
 
 // Filters and pagination
 const eventFilter = ref('')
@@ -420,7 +421,7 @@ const { mutate: updateSettings } = useApiMutation(
       hasChanges.value = false
       refresh()
     },
-    onError: (error) => handleApiError(error, { context: { action: 'update_security_settings' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_security_settings' } })
   }
 )
 
@@ -436,7 +437,7 @@ watch(securitySettings, (newSettings) => {
 const filteredEvents = computed(() => {
   if (!securityEvents.value) return []
   
-  return securityEvents.value.filter(event => {
+  return securityEvents.value.filter((event: any) => {
     return !eventFilter.value || event.type === eventFilter.value
   })
 })
@@ -444,34 +445,34 @@ const filteredEvents = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredEvents.value.length / itemsPerPage))
 
 // Methods
-const getSecurityScoreClass = (score) => {
+const getSecurityScoreClass = (score: number) => {
   if (score >= 90) return 'excellent'
   if (score >= 70) return 'good'
   if (score >= 50) return 'fair'
   return 'poor'
 }
 
-const getSecurityScoreStatus = (score) => {
+const getSecurityScoreStatus = (score: number) => {
   if (score >= 90) return 'Excellent'
   if (score >= 70) return 'Good'
   if (score >= 50) return 'Fair'
   return 'Needs Improvement'
 }
 
-const formatDateTime = (date) => {
+const formatDateTime = (date: any) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleString()
 }
 
-const formatEventType = (type) => {
-  return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+const formatEventType = (type: string) => {
+  return type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
 }
 
-const formatStatus = (status) => {
-  return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+const formatStatus = (status: string) => {
+  return status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
 }
 
-const getEventClass = (type) => {
+const getEventClass = (type: string) => {
   if (type.includes('failed') || type.includes('locked')) return 'danger'
   if (type.includes('success') || type.includes('login')) return 'success'
   if (type.includes('changed') || type.includes('updated')) return 'warning'
@@ -490,7 +491,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_security_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_security_load' } })
   }
 }
 

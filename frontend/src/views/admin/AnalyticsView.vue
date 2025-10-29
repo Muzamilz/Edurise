@@ -46,7 +46,7 @@
             <h3>Total Users</h3>
             <div class="metric-icon">👥</div>
           </div>
-          <div class="metric-value">{{ formatNumber(analyticsData?.totalUsers || 0) }}</div>
+          <div class="metric-value">{{ formatNumber(typedAnalyticsData?.totalUsers || 0) }}</div>
           <div class="metric-change" :class="getChangeClass(analyticsData?.userGrowth)">
             {{ formatChange(analyticsData?.userGrowth) }}
           </div>
@@ -225,6 +225,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import AnalyticsChart from '@/components/analytics/AnalyticsChart.vue'
 
@@ -240,28 +241,31 @@ const userChartType = ref('total')
 const enrollmentChartType = ref('daily')
 
 // Data fetching
-const { data: analyticsData, loading, error, refresh } = useApiData('/analytics/', {
-  params: computed(() => ({
+const { data: analyticsData, loading, error, refresh } = useApiData<any>(() => {
+  const params = new URLSearchParams({
     period: selectedPeriod.value,
-    start_date: startDate.value,
-    end_date: endDate.value
-  }))
+    start_date: startDate.value || '',
+    end_date: endDate.value || ''
+  })
+  return `/analytics/?${params.toString()}`
 })
 
 // Computed properties
+const typedAnalyticsData = computed(() => analyticsData.value as any)
+
 const userGrowthData = computed(() => {
-  if (!analyticsData.value?.userGrowthTrend) return []
+  if (!(analyticsData.value as any)?.userGrowthTrend) return []
   
-  return analyticsData.value.userGrowthTrend.map(item => ({
+  return (analyticsData.value as any).userGrowthTrend.map((item: any) => ({
     label: item.date,
     value: item[userChartType.value] || 0
   }))
 })
 
 const enrollmentData = computed(() => {
-  if (!analyticsData.value?.enrollmentTrend) return []
+  if (!(analyticsData.value as any)?.enrollmentTrend) return []
   
-  return analyticsData.value.enrollmentTrend.map(item => ({
+  return (analyticsData.value as any).enrollmentTrend.map((item: any) => ({
     label: item.period,
     value: item.enrollments || 0
   }))
@@ -280,7 +284,7 @@ const updateDateRange = () => {
   refresh()
 }
 
-const formatNumber = (num) => {
+const formatNumber = (num: number) => {
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + 'M'
   } else if (num >= 1000) {
@@ -289,18 +293,18 @@ const formatNumber = (num) => {
   return num.toString()
 }
 
-const formatChange = (change) => {
+const formatChange = (change: number) => {
   if (!change) return '0%'
   const sign = change > 0 ? '+' : ''
   return `${sign}${change.toFixed(1)}%`
 }
 
-const getChangeClass = (change) => {
+const getChangeClass = (change: number) => {
   if (!change) return 'neutral'
   return change > 0 ? 'positive' : 'negative'
 }
 
-const exportData = async (format) => {
+const exportData = async (format: string) => {
   try {
     const response = await fetch(`/api/v1/analytics/export/?format=${format}`, {
       method: 'GET',
@@ -321,7 +325,7 @@ const exportData = async (format) => {
       document.body.removeChild(a)
     }
   } catch (error) {
-    handleApiError(error, { context: { action: 'export_analytics' } })
+    handleApiError(error as APIError, { context: { action: 'export_analytics' } })
   }
 }
 
@@ -342,12 +346,12 @@ const generateReport = async () => {
     })
     
     if (response.ok) {
-      const data = await response.json()
+      await response.json() // Parse response but don't store unused data
       // Handle report generation success
       alert('Report generation started. You will receive an email when it\'s ready.')
     }
   } catch (error) {
-    handleApiError(error, { context: { action: 'generate_report' } })
+    handleApiError(error as APIError, { context: { action: 'generate_report' } })
   }
 }
 
@@ -355,7 +359,7 @@ const handleRetry = async () => {
   try {
     await refresh()
   } catch (err) {
-    handleApiError(err, { context: { action: 'retry_analytics_load' } })
+    handleApiError(err as APIError, { context: { action: 'retry_analytics_load' } })
   }
 }
 

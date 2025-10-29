@@ -37,7 +37,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-tenant',  # Custom tenant header
+    'x-tenant-id',  # Custom tenant header
     'x-request-id',  # Request tracking header
 ]
 

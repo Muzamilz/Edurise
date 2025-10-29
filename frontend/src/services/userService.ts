@@ -46,15 +46,56 @@ export const userService = {
 
   // Get user profile for current tenant
   async getUserProfile(): Promise<UserProfileResponse> {
+    console.log('🔍 Getting user profile...')
+    console.log('🔍 Current tenant_id from localStorage:', localStorage.getItem('tenant_id'))
+    console.log('🔍 Current user from localStorage:', localStorage.getItem('user'))
+    
     const response = await api.get<UserProfileResponse[]>('/user-profiles/')
-    const profiles = response.data as unknown as UserProfileResponse[]
+    
+    console.log('🔍 API response profiles:', response.data)
+    
+    // Handle standardized API response format
+    let profiles: UserProfileResponse[]
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      // Standardized format: {success: true, data: [...], ...}
+      profiles = (response.data as any).data
+      console.log('🔍 Extracted profiles from standardized response:', profiles)
+    } else {
+      // Direct array format
+      profiles = response.data as unknown as UserProfileResponse[]
+    }
     
     // Return the first profile (current tenant)
     if (Array.isArray(profiles) && profiles.length > 0) {
+      console.log('✅ Found existing user profile:', profiles[0])
       return profiles[0]
     }
     
-    throw new Error('No user profile found')
+    // If no profile exists, create one automatically
+    console.log('🔧 No user profile found, creating default profile...')
+    try {
+      const newProfile = await this.createUserProfile({
+        bio: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: 'en'
+      })
+      console.log('✅ Default user profile created:', newProfile)
+      return newProfile
+    } catch (error) {
+      console.error('❌ Failed to create default user profile:', error)
+      throw new Error('No user profile found and failed to create one')
+    }
+  },
+
+  // Create user profile
+  async createUserProfile(profileData: {
+    bio?: string
+    phone_number?: string
+    timezone?: string
+    language?: string
+  }): Promise<UserProfileResponse> {
+    const response = await api.post<UserProfileResponse>('/user-profiles/', profileData)
+    return response.data as unknown as UserProfileResponse
   },
 
   // Update user profile

@@ -271,6 +271,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -281,7 +282,7 @@ const activeFilter = ref('all')
 const courseFilter = ref('')
 const dateFilter = ref('')
 const showCreateModal = ref(false)
-const editingClass = ref(null)
+const editingClass = ref<any>(null)
 const saving = ref(false)
 
 const classForm = ref({
@@ -299,7 +300,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/live-classes/', {
+} = useApiData<any>('/live-classes/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -330,7 +331,7 @@ const {
   }
 })
 
-const { data: coursesData } = useApiData('/api/v1/courses/', {
+const { data: coursesData } = useApiData('/courses/', {
   immediate: true,
   transform: (data) => {
     if (data.results) {
@@ -359,38 +360,38 @@ const teacherCourses = computed(() => coursesData.value?.results || [])
 
 const totalClasses = computed(() => liveClasses.value.length)
 const upcomingClasses = computed(() => 
-  liveClasses.value.filter(cls => cls.status === 'scheduled').length
+  (liveClasses.value as any[]).filter((cls: any) => cls.status === 'scheduled').length
 )
 const completedClasses = computed(() => 
-  liveClasses.value.filter(cls => cls.status === 'completed').length
+  (liveClasses.value as any[]).filter((cls: any) => cls.status === 'completed').length
 )
 const totalAttendees = computed(() => 
-  liveClasses.value.reduce((total, cls) => total + (cls.attendance_count || 0), 0)
+  (liveClasses.value as any[]).reduce((total: number, cls: any) => total + (cls.attendance_count || 0), 0)
 )
 
 const filteredClasses = computed(() => {
-  let classes = liveClasses.value
+  let classes = liveClasses.value as any[]
 
   // Filter by status
   if (activeFilter.value !== 'all') {
-    classes = classes.filter(cls => cls.status === activeFilter.value)
+    classes = classes.filter((cls: any) => cls.status === activeFilter.value)
   }
 
   // Filter by course
   if (courseFilter.value) {
-    classes = classes.filter(cls => cls.course_id === courseFilter.value)
+    classes = classes.filter((cls: any) => cls.course_id === courseFilter.value)
   }
 
   // Filter by date
   if (dateFilter.value) {
     const filterDate = new Date(dateFilter.value)
-    classes = classes.filter(cls => {
+    classes = classes.filter((cls: any) => {
       const classDate = new Date(cls.scheduled_at)
       return classDate.toDateString() === filterDate.toDateString()
     })
   }
 
-  return classes.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+  return classes.sort((a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 })
 
 const today = computed(() => {
@@ -451,12 +452,12 @@ const startClass = async (liveClass: any) => {
   try {
     const response = await api.post(`/live-classes/${liveClass.id}/start_class/`)
     // Open Zoom meeting
-    if (response.data.join_url) {
-      window.open(response.data.join_url, '_blank')
+    if ((response.data as any).join_url) {
+      window.open((response.data as any).join_url, '_blank')
     }
     await refresh()
   } catch (error) {
-    handleApiError(error, { context: { action: 'start_live_class' } })
+    handleApiError(error as any, { context: { action: 'start_live_class' } })
   }
 }
 
@@ -471,7 +472,7 @@ const endClass = async (liveClass: any) => {
     await api.post(`/live-classes/${liveClass.id}/end_class/`)
     await refresh()
   } catch (error) {
-    handleApiError(error, { context: { action: 'end_live_class' } })
+    handleApiError(error as any, { context: { action: 'end_live_class' } })
   }
 }
 
@@ -494,7 +495,7 @@ const cancelClass = async (liveClass: any) => {
       await api.patch(`/live-classes/${liveClass.id}/`, { status: 'cancelled' })
       await refresh()
     } catch (error) {
-      handleApiError(error, { context: { action: 'cancel_live_class' } })
+      handleApiError(error as any, { context: { action: 'cancel_live_class' } })
     }
   }
 }
@@ -558,7 +559,7 @@ const saveClass = async () => {
     await refresh()
     closeModal()
   } catch (error) {
-    handleApiError(error, { context: { action: 'save_live_class' } })
+    handleApiError(error as any, { context: { action: 'save_live_class' } })
   } finally {
     saving.value = false
   }

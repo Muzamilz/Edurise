@@ -391,7 +391,7 @@ const isTeacher = computed(() => user.value?.is_teacher || false)
 
 const teacherCourses = computed(() => {
   if (!isTeacher.value) return []
-  return courses.value.filter(course => course.instructor.id === user.value?.id)
+  return courses.value.filter((course: any) => course.instructor.id === user.value?.id)
 })
 
 const filteredClasses = computed(() => {
@@ -400,7 +400,7 @@ const filteredClasses = computed(() => {
   // Search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(cls => 
+    filtered = filtered.filter((cls: any) => 
       cls.title.toLowerCase().includes(query) ||
       cls.description?.toLowerCase().includes(query)
     )
@@ -408,12 +408,12 @@ const filteredClasses = computed(() => {
 
   // Status filter
   if (statusFilter.value) {
-    filtered = filtered.filter(cls => cls.status === statusFilter.value)
+    filtered = filtered.filter((cls: any) => cls.status === statusFilter.value)
   }
 
   // Course filter
   if (courseFilter.value) {
-    filtered = filtered.filter(cls => cls.course === courseFilter.value)
+    filtered = filtered.filter((cls: any) => cls.course === courseFilter.value)
   }
 
   // Sort by scheduled time

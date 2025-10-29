@@ -1,579 +1,370 @@
-# EduRise LMS Platform Completion Design
+# EduRise Platform Completion Design
 
 ## Overview
 
-This design document provides a comprehensive technical architecture for completing the EduRise LMS platform. It consolidates all previous work and defines the technical approach for implementing remaining features to achieve a production-ready, scalable learning management system.
+This design addresses the critical gaps between frontend API calls and backend implementations in the EduRise platform. The solution focuses on completing missing endpoints, fixing broken API connections, ensuring consistent data flow, and implementing production-ready features for a comprehensive Learning Management System.
 
-## Current Architecture Status
+## Architecture
 
-### ✅ **IMPLEMENTED COMPONENTS**
-- **Backend**: Django REST Framework with centralized API structure
-- **Database**: PostgreSQL with multi-tenant architecture
-- **Authentication**: JWT-based auth with Google OAuth
-- **Frontend Foundation**: Vue 3 + Vite + TypeScript + Pinia
-- **API Integration**: Standardized API responses and error handling
-- **Basic Real-time**: WebSocket infrastructure in place
+### Current State Analysis
 
-### 🔄 **PARTIALLY IMPLEMENTED**
-- **Frontend Integration**: Admin views connected, others using fallback data
-- **Security Monitoring**: Basic structure with mock data components
-- **Performance Optimization**: Basic caching and query optimization
-- **Mobile Responsiveness**: Basic responsive design needs enhancement
+The platform uses a centralized API architecture where all endpoints are routed through `apps/api/urls.py`. However, several critical gaps exist:
 
-### ❌ **MISSING COMPONENTS**
-- **Wishlist System**: No backend model or frontend integration
-- **Advanced AI Features**: Basic structure needs full implementation
-- **Comprehensive Testing**: Limited coverage across components
-- **Internationalization**: No i18n implementation
-- **Advanced Analytics**: Basic reporting needs enhancement
+1. **Missing Backend Endpoints**: Frontend services call endpoints that don't exist
+2. **Inconsistent API Patterns**: Some endpoints use different URL patterns
+3. **Incomplete Authentication Flow**: Token refresh and social auth issues
+4. **Missing Business Logic**: Payment processing, AI integration, analytics
+5. **Broken File Management**: Secure downloads and permissions not implemented
 
-## Architecture Enhancement Strategy
-
-### Enhanced System Architecture
+### Target Architecture
 
 ```mermaid
 graph TB
-    subgraph "Frontend Layer - Vue 3 Ecosystem"
-        A[Vue 3 SPA] --> B[Vue Router]
-        A --> C[Pinia Stores]
-        A --> D[Animation.js]
-        A --> E[Three.js]
-        A --> F[Vue i18n]
-    end
+    A[Vue.js Frontend] --> B[Centralized API Gateway]
+    B --> C[Authentication Service]
+    B --> D[Course Management]
+    B --> E[Payment Processing]
+    B --> F[AI Integration]
+    B --> G[Analytics Engine]
+    B --> H[File Management]
+    B --> I[Notification System]
     
-    subgraph "API Gateway & CDN"
-        G[Nginx/CloudFront] --> H[Load Balancer]
-        H --> I[Rate Limiting]
-    end
-    
-    subgraph "Backend Services - Django Ecosystem"
-        I --> J[Django REST Framework]
-        J --> K[Multi-Tenant Middleware]
-        J --> L[Celery Workers]
-        J --> M[WebSocket Handlers]
-    end
-    
-    subgraph "External Integrations"
-        N[Zoom API]
-        O[Gemini AI API]
-        P[Stripe/PayPal APIs]
-        Q[Email Services]
-    end
-    
-    subgraph "Data & Storage Layer"
-        R[PostgreSQL Primary]
-        S[Redis Cache/Sessions]
-        T[S3/MinIO File Storage]
-        U[Elasticsearch Search]
-    end
-    
-    subgraph "Monitoring & Analytics"
-        V[Prometheus Metrics]
-        W[Grafana Dashboards]
-        X[Sentry Error Tracking]
-        Y[Custom Analytics DB]
-    end
-    
-    J --> N
-    J --> O
-    J --> P
-    J --> Q
-    J --> R
-    J --> S
-    L --> T
-    J --> U
-    J --> V
-    V --> W
-    J --> X
-    J --> Y
+    C --> J[JWT + Multi-tenant]
+    D --> K[Live Classes + Zoom]
+    E --> L[Stripe + PayPal]
+    F --> M[OpenAI/Gemini]
+    G --> N[Real-time Analytics]
+    H --> O[Secure File Storage]
+    I --> P[WebSocket + Email]
 ```
 
-## Component Implementation Strategy
+## Components and Interfaces
 
-### 1. Complete Frontend Integration Architecture
+### 1. API Endpoint Completion
 
-#### Enhanced API Service Layer
-```typescript
-// services/api.ts - Production-ready API client
-class ApiService {
-  private client: AxiosInstance
-  private cache: Map<string, CacheEntry> = new Map()
-  
-  constructor() {
-    this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL,
-      timeout: 15000,
-    })
-    this.setupInterceptors()
-  }
-  
-  private setupInterceptors() {
-    // Request interceptor with caching
-    this.client.interceptors.request.use(
-      (config) => this.handleRequest(config),
-      (error) => Promise.reject(error)
-    )
-    
-    // Response interceptor with retry and error handling
-    this.client.interceptors.response.use(
-      (response) => this.handleResponse(response),
-      (error) => this.handleError(error)
-    )
-  }
-}
-```
+#### Missing Critical Endpoints
 
-#### Advanced State Management with Pinia
-```typescript
-// stores/platform.ts - Centralized platform state
-export const usePlatformStore = defineStore('platform', () => {
-  const user = ref<User | null>(null)
-  const tenant = ref<Tenant | null>(null)
-  const notifications = ref<Notification[]>([])
-  const realTimeConnection = ref<WebSocket | null>(null)
-  
-  // Computed properties
-  const isAuthenticated = computed(() => !!user.value)
-  const userRole = computed(() => user.value?.role)
-  const tenantFeatures = computed(() => tenant.value?.subscription_features)
-  
-  // Actions
-  const initializePlatform = async () => {
-    await Promise.all([
-      loadUserData(),
-      loadTenantData(),
-      initializeWebSocket(),
-      loadNotifications()
-    ])
-  }
-  
-  return {
-    user, tenant, notifications,
-    isAuthenticated, userRole, tenantFeatures,
-    initializePlatform
-  }
-})
-```#
-## 2. Wishlist System Implementation
+**Authentication & User Management**
+- `POST /api/v1/accounts/auth/token/refresh/` - Enhanced token refresh with tenant switching
+- `GET /api/v1/users/preferences/` - User preference management
+- `POST /api/v1/users/switch_tenant/` - Multi-tenant switching
+- `GET /api/v1/users/export-data/` - GDPR compliance data export
 
-#### Backend Model Design
+**Payment System**
+- `POST /api/v1/payments/create_course_payment/` - Course purchase initiation
+- `POST /api/v1/payments/{id}/confirm_payment/` - Payment confirmation
+- `GET /api/v1/payments/payment_analytics/` - Payment analytics
+- `GET /api/v1/invoices/overdue_invoices/` - Overdue invoice management
+
+**AI Integration**
+- `POST /api/v1/ai-conversations/{id}/send_message/` - AI chat messaging
+- `POST /api/v1/ai-summaries/generate/` - Content summarization
+- `POST /api/v1/ai-quizzes/generate/` - Quiz generation
+- `GET /api/v1/ai-usage/current_stats/` - Usage tracking
+
+**Analytics & Reporting**
+- `GET /api/v1/analytics/enrollment_trends/` - Enrollment analytics
+- `GET /api/v1/analytics/user_engagement/` - User engagement metrics
+- `GET /api/v1/analytics/financial_analytics/` - Financial reporting
+- `GET /api/v1/analytics/course_performance/` - Course performance metrics
+
+**File Management**
+- `GET /api/v1/file-uploads/{id}/secure_url/` - Secure file access
+- `POST /api/v1/files/permissions/bulk/` - Bulk permission checking
+- `GET /api/v1/file-categories/` - File category management
+
+### 2. Enhanced ViewSet Implementations
+
+#### Course Management Enhancement
 ```python
-# apps/courses/models.py
-class Wishlist(TenantAwareModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    added_at = models.DateTimeField(auto_now_add=True)
-    notes = models.TextField(blank=True)
-    
-    class Meta:
-        unique_together = ['user', 'course', 'tenant']
+class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
+    # Add missing actions
+    @action(detail=True, methods=['post'])
+    def duplicate(self, request, pk=None):
+        """Duplicate course for reuse"""
         
-class WishlistViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
-    serializer_class = WishlistSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return Wishlist.objects.filter(
-            user=self.request.user,
-            tenant=self.request.tenant
-        ).select_related('course', 'course__instructor')
+    @action(detail=True, methods=['get'])
+    def statistics(self, request, pk=None):
+        """Get course statistics"""
+        
+    @action(detail=True, methods=['get'])
+    def students(self, request, pk=None):
+        """Get enrolled students"""
 ```
 
-#### Frontend Wishlist Integration
-```typescript
-// composables/useWishlist.ts
-export const useWishlist = () => {
-  const wishlistItems = ref<WishlistItem[]>([])
-  const loading = ref(false)
-  
-  const addToWishlist = async (courseId: string) => {
-    loading.value = true
-    try {
-      await api.post('/wishlist/', { course_id: courseId })
-      await refreshWishlist()
-      toast.success('Course added to wishlist')
-    } catch (error) {
-      handleError(error)
-    } finally {
-      loading.value = false
-    }
-  }
-  
-  const removeFromWishlist = async (courseId: string) => {
-    await api.delete(`/wishlist/${courseId}/`)
-    wishlistItems.value = wishlistItems.value.filter(
-      item => item.course.id !== courseId
-    )
-  }
-  
-  return { wishlistItems, addToWishlist, removeFromWishlist }
-}
-```
-
-### 3. Real-Time Features Enhancement
-
-#### WebSocket Service Implementation
-```typescript
-// services/websocket.ts
-class WebSocketService {
-  private ws: WebSocket | null = null
-  private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
-  private eventHandlers = new Map<string, Function[]>()
-  
-  connect(token: string) {
-    const wsUrl = `${import.meta.env.VITE_WS_URL}?token=${token}`
-    this.ws = new WebSocket(wsUrl)
-    
-    this.ws.onopen = () => {
-      console.log('WebSocket connected')
-      this.reconnectAttempts = 0
-    }
-    
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      this.handleMessage(data)
-    }
-    
-    this.ws.onclose = () => {
-      this.handleReconnection()
-    }
-  }
-  
-  private handleMessage(data: any) {
-    const handlers = this.eventHandlers.get(data.type) || []
-    handlers.forEach(handler => handler(data.payload))
-  }
-  
-  subscribe(eventType: string, handler: Function) {
-    if (!this.eventHandlers.has(eventType)) {
-      this.eventHandlers.set(eventType, [])
-    }
-    this.eventHandlers.get(eventType)!.push(handler)
-  }
-}
-```
-
-### 4. Advanced Security Implementation
-
-#### Enhanced Security Monitoring
+#### Payment System Integration
 ```python
-# apps/security/models.py
-class SecurityEvent(models.Model):
-    EVENT_TYPES = [
-        ('failed_login', 'Failed Login'),
-        ('suspicious_activity', 'Suspicious Activity'),
-        ('data_breach_attempt', 'Data Breach Attempt'),
-        ('unauthorized_access', 'Unauthorized Access'),
+class PaymentViewSet(viewsets.ModelViewSet):
+    @action(detail=False, methods=['post'])
+    def create_course_payment(self, request):
+        """Initiate course purchase"""
+        
+    @action(detail=True, methods=['post'])
+    def confirm_payment(self, request, pk=None):
+        """Confirm payment completion"""
+        
+    @action(detail=False, methods=['get'])
+    def payment_analytics(self, request):
+        """Get payment analytics"""
+```
+
+### 3. Authentication & Authorization
+
+#### Enhanced JWT Implementation
+- Multi-tenant token support
+- Automatic token refresh
+- Social authentication integration
+- Role-based permissions
+
+#### Security Features
+- Rate limiting on sensitive endpoints
+- Audit logging for all actions
+- IP-based access control
+- Session management
+
+### 4. Real-time Features
+
+#### WebSocket Integration
+```python
+# WebSocket consumers for real-time features
+class NotificationConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        # Handle notification connections
+        
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        # Handle chat connections
+```
+
+#### Live Class Management
+- Zoom API integration
+- Attendance tracking
+- Recording management
+- Real-time engagement metrics
+
+## Data Models
+
+### Enhanced Models
+
+#### Payment Models
+```python
+class Payment(models.Model):
+    PAYMENT_METHODS = [
+        ('stripe', 'Stripe'),
+        ('paypal', 'PayPal'),
+        ('bank_transfer', 'Bank Transfer'),
     ]
     
-    event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    ip_address = models.GenericIPAddressField()
-    user_agent = models.TextField()
-    details = models.JSONField()
-    severity = models.CharField(max_length=20)
-    created_at = models.DateTimeField(auto_now_add=True)
+    PAYMENT_STATUS = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
     
-class SecurityMonitoringService:
-    @staticmethod
-    def log_failed_login(request, email):
-        SecurityEvent.objects.create(
-            event_type='failed_login',
-            ip_address=get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
-            details={'email': email},
-            severity='medium'
-        )
-    
-    @staticmethod
-    def detect_suspicious_activity(user, request):
-        # Implement anomaly detection logic
-        recent_events = SecurityEvent.objects.filter(
-            user=user,
-            created_at__gte=timezone.now() - timedelta(hours=1)
-        ).count()
-        
-        if recent_events > 10:  # Threshold for suspicious activity
-            SecurityEvent.objects.create(
-                event_type='suspicious_activity',
-                user=user,
-                ip_address=get_client_ip(request),
-                details={'event_count': recent_events},
-                severity='high'
-            )
-```
-
-### 5. Performance Optimization Strategy
-
-#### Database Optimization
-```python
-# apps/common/mixins.py
-class OptimizedQueryMixin:
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # Apply select_related for foreign keys
-        if hasattr(self, 'select_related_fields'):
-            queryset = queryset.select_related(*self.select_related_fields)
-        
-        # Apply prefetch_related for many-to-many relationships
-        if hasattr(self, 'prefetch_related_fields'):
-            queryset = queryset.prefetch_related(*self.prefetch_related_fields)
-        
-        # Apply database-level filtering
-        if hasattr(self.model, 'tenant'):
-            queryset = queryset.filter(tenant=self.request.tenant)
-        
-        return queryset
-
-# Example usage in ViewSet
-class CourseViewSet(OptimizedQueryMixin, viewsets.ModelViewSet):
-    select_related_fields = ['instructor', 'tenant']
-    prefetch_related_fields = ['enrollments__student', 'reviews']
-```
-
-#### Frontend Performance Optimization
-```typescript
-// utils/performance.ts
-export class PerformanceOptimizer {
-  // Virtual scrolling for large lists
-  static createVirtualScroller(items: any[], itemHeight: number) {
-    return {
-      visibleItems: computed(() => {
-        const startIndex = Math.floor(scrollTop.value / itemHeight)
-        const endIndex = Math.min(
-          startIndex + visibleCount.value,
-          items.length
-        )
-        return items.slice(startIndex, endIndex)
-      }),
-      
-      totalHeight: computed(() => items.length * itemHeight),
-      offsetY: computed(() => Math.floor(scrollTop.value / itemHeight) * itemHeight)
-    }
-  }
-  
-  // Image lazy loading
-  static setupLazyLoading() {
-    const imageObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target as HTMLImageElement
-          img.src = img.dataset.src!
-          imageObserver.unobserve(img)
-        }
-      })
-    })
-    
-    return imageObserver
-  }
-}
-```
-
-### 6. Internationalization Implementation
-
-#### Vue i18n Setup
-```typescript
-// plugins/i18n.ts
-import { createI18n } from 'vue-i18n'
-
-const messages = {
-  en: {
-    nav: {
-      dashboard: 'Dashboard',
-      courses: 'Courses',
-      profile: 'Profile'
-    },
-    course: {
-      enroll: 'Enroll Now',
-      addToWishlist: 'Add to Wishlist',
-      price: 'Price: {price}'
-    }
-  },
-  ar: {
-    nav: {
-      dashboard: 'لوحة التحكم',
-      courses: 'الدورات',
-      profile: 'الملف الشخصي'
-    },
-    course: {
-      enroll: 'سجل الآن',
-      addToWishlist: 'أضف إلى قائمة الأمنيات',
-      price: 'السعر: {price}'
-    }
-  },
-  so: {
-    nav: {
-      dashboard: 'Shabakada',
-      courses: 'Koorsooyin',
-      profile: 'Profile-ka'
-    }
-  }
-}
-
-export const i18n = createI18n({
-  locale: 'en',
-  fallbackLocale: 'en',
-  messages,
-  numberFormats: {
-    en: { currency: { style: 'currency', currency: 'USD' } },
-    ar: { currency: { style: 'currency', currency: 'USD' } }
-  }
-})
-```
-
-### 7. Advanced Testing Strategy
-
-#### Comprehensive Test Suite
-```typescript
-// tests/integration/course-workflow.spec.ts
-describe('Course Workflow Integration', () => {
-  it('completes full course enrollment and progress tracking', async () => {
-    // Setup test data
-    const course = await createTestCourse()
-    const student = await createTestUser('student')
-    
-    // Test course discovery
-    await page.goto('/marketplace')
-    await expect(page.locator(`[data-testid="course-${course.id}"]`)).toBeVisible()
-    
-    // Test wishlist functionality
-    await page.click(`[data-testid="wishlist-${course.id}"]`)
-    await expect(page.locator('.toast-success')).toContainText('Added to wishlist')
-    
-    // Test enrollment process
-    await page.click(`[data-testid="enroll-${course.id}"]`)
-    await fillPaymentForm(page, testCardData)
-    await page.click('[data-testid="complete-payment"]')
-    
-    // Verify enrollment success
-    await expect(page.locator('.enrollment-success')).toBeVisible()
-    
-    // Test progress tracking
-    await page.goto('/my-courses')
-    await expect(page.locator(`[data-testid="progress-${course.id}"]`)).toContainText('0%')
-    
-    // Complete a lesson
-    await page.click(`[data-testid="lesson-1"]`)
-    await page.click('[data-testid="mark-complete"]')
-    
-    // Verify progress update
-    await page.goto('/my-courses')
-    await expect(page.locator(`[data-testid="progress-${course.id}"]`)).not.toContainText('0%')
-  })
-})
-```
-
-## Data Models Enhancement
-
-### Enhanced Model Relationships
-```python
-# Complete model relationship diagram implementation
-class User(AbstractUser):
-    # Enhanced user model with additional fields
-    phone_number = models.CharField(max_length=20, blank=True)
-    timezone = models.CharField(max_length=50, default='UTC')
-    language_preference = models.CharField(max_length=10, default='en')
-    notification_preferences = models.JSONField(default=dict)
-
-class Course(TenantAwareModel):
-    # Enhanced course model
-    prerequisites = models.ManyToManyField('self', blank=True)
-    learning_objectives = models.JSONField(default=list)
-    difficulty_level = models.CharField(max_length=20)
-    estimated_duration = models.DurationField()
-    certificate_template = models.ForeignKey('CertificateTemplate', null=True)
-
-class Wishlist(TenantAwareModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    added_at = models.DateTimeField(auto_now_add=True)
-    priority = models.IntegerField(default=1)
-    notes = models.TextField(blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='USD')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS)
+    stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
+    paypal_order_id = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 ```
 
-## Deployment and Monitoring Strategy
-
-### Production Deployment Architecture
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/ssl
-  
-  backend:
-    build: ./backend
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
-      - DATABASE_URL=postgresql://user:pass@db:5432/edurise
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
-  
-  frontend:
-    build: ./frontend
-    environment:
-      - VITE_API_BASE_URL=https://api.edurise.com
-      - VITE_WS_URL=wss://ws.edurise.com
-  
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=edurise
-      - POSTGRES_USER=edurise_user
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-  
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-  
-  celery:
-    build: ./backend
-    command: celery -A config worker -l info
-    depends_on:
-      - db
-      - redis
-```
-
-### Monitoring and Analytics
+#### AI Integration Models
 ```python
-# apps/monitoring/services.py
-class PlatformAnalytics:
-    @staticmethod
-    def track_user_engagement(user, action, metadata=None):
-        AnalyticsEvent.objects.create(
-            user=user,
-            event_type=action,
-            metadata=metadata or {},
-            timestamp=timezone.now()
-        )
-    
-    @staticmethod
-    def generate_platform_metrics():
-        return {
-            'active_users_24h': User.objects.filter(
-                last_login__gte=timezone.now() - timedelta(hours=24)
-            ).count(),
-            'course_completions_week': Enrollment.objects.filter(
-                completed_at__gte=timezone.now() - timedelta(days=7)
-            ).count(),
-            'revenue_month': Payment.objects.filter(
-                created_at__gte=timezone.now() - timedelta(days=30),
-                status='completed'
-            ).aggregate(total=Sum('amount'))['total'] or 0
-        }
+class AIConversation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True)
+    title = models.CharField(max_length=255)
+    conversation_type = models.CharField(max_length=50)
+    context = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class AIMessage(models.Model):
+    conversation = models.ForeignKey(AIConversation, on_delete=models.CASCADE)
+    role = models.CharField(max_length=20)  # 'user' or 'assistant'
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
 ```
 
-This comprehensive design provides the technical foundation for completing the EduRise LMS platform with all remaining features and optimizations.
+#### Analytics Models
+```python
+class UserEngagementMetric(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    date = models.DateField()
+    time_spent_minutes = models.IntegerField(default=0)
+    pages_visited = models.IntegerField(default=0)
+    actions_performed = models.IntegerField(default=0)
+    engagement_score = models.FloatField(default=0.0)
+```
+
+## Error Handling
+
+### Standardized Error Responses
+```python
+class APIErrorResponse:
+    def __init__(self, message, code=None, status=400, errors=None):
+        self.response = {
+            'success': False,
+            'message': message,
+            'code': code,
+            'errors': errors,
+            'timestamp': timezone.now().isoformat()
+        }
+        self.status = status
+```
+
+### Error Categories
+1. **Authentication Errors** (401): Invalid tokens, expired sessions
+2. **Authorization Errors** (403): Insufficient permissions
+3. **Validation Errors** (400): Invalid input data
+4. **Not Found Errors** (404): Missing resources
+5. **Server Errors** (500): Internal system errors
+
+## Testing Strategy
+
+### Unit Testing
+- Model validation and business logic
+- Serializer data transformation
+- ViewSet action functionality
+- Authentication and permissions
+
+### Integration Testing
+- API endpoint functionality
+- Database transactions
+- External service integration (Stripe, Zoom, AI)
+- WebSocket connections
+
+### End-to-End Testing
+- Complete user workflows
+- Multi-tenant scenarios
+- Payment processing flows
+- Live class functionality
+
+### Performance Testing
+- API response times
+- Database query optimization
+- File upload/download performance
+- Concurrent user handling
+
+## Implementation Phases
+
+### Phase 1: Core API Completion (Priority 1)
+1. **Missing Endpoint Implementation**
+   - Authentication endpoints
+   - User management APIs
+   - Basic CRUD operations
+
+2. **API Response Standardization**
+   - Consistent response format
+   - Error handling middleware
+   - Request/response logging
+
+### Phase 2: Payment & Authentication (Priority 2)
+1. **Payment System Integration**
+   - Stripe/PayPal implementation
+   - Webhook handling
+   - Invoice generation
+
+2. **Enhanced Authentication**
+   - Multi-tenant support
+   - Social authentication
+   - Token refresh mechanism
+
+### Phase 3: Analytics & Reporting (Priority 3)
+1. **Analytics Engine**
+   - Data collection
+   - Metric calculation
+   - Report generation
+
+2. **Dashboard APIs**
+   - Student dashboard
+   - Teacher analytics
+   - Admin reports
+
+### Phase 4: AI Integration (Priority 4)
+1. **AI Service Implementation**
+   - Conversation management
+   - Content summarization
+   - Quiz generation
+
+2. **Usage Tracking**
+   - Quota management
+   - Billing integration
+   - Performance monitoring
+
+### Phase 5: Advanced Features (Priority 5)
+1. **Live Class Enhancement**
+   - Zoom integration
+   - Attendance tracking
+   - Recording management
+
+2. **File Management**
+   - Secure downloads
+   - Permission system
+   - Bulk operations
+
+## Security Considerations
+
+### Data Protection
+- Encryption at rest and in transit
+- PII data handling
+- GDPR compliance
+- Audit logging
+
+### Access Control
+- Role-based permissions
+- Multi-tenant isolation
+- API rate limiting
+- IP whitelisting
+
+### Payment Security
+- PCI DSS compliance
+- Secure payment processing
+- Fraud detection
+- Transaction monitoring
+
+## Performance Optimization
+
+### Database Optimization
+- Query optimization
+- Index management
+- Connection pooling
+- Caching strategies
+
+### API Performance
+- Response compression
+- Pagination implementation
+- Lazy loading
+- Background task processing
+
+### Scalability
+- Horizontal scaling support
+- Load balancing
+- CDN integration
+- Microservice architecture preparation
+
+## Monitoring and Logging
+
+### Application Monitoring
+- Performance metrics
+- Error tracking
+- User activity monitoring
+- System health checks
+
+### Business Metrics
+- User engagement
+- Course completion rates
+- Revenue tracking
+- System usage patterns
+
+### Alerting System
+- Critical error notifications
+- Performance degradation alerts
+- Security incident detection
+- Business metric thresholds

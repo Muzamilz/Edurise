@@ -135,9 +135,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData } from '@/composables/useApiData'
+// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const router = useRouter()
@@ -149,7 +150,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/teacher-approvals/', {
+} = useApiData('/teacher-approvals/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -188,8 +189,8 @@ const application = computed(() => applicationData.value || {
   teaching_philosophy: 'Not provided'
 })
 
-const formatStatus = (status) => {
-  const statusMap = {
+const formatStatus = (status: string) => {
+  const statusMap: Record<string, string> = {
     pending: 'Pending Review',
     approved: 'Approved',
     rejected: 'Not Approved'
@@ -197,8 +198,8 @@ const formatStatus = (status) => {
   return statusMap[status] || status
 }
 
-const getStatusIcon = (status) => {
-  const iconMap = {
+const getStatusIcon = (status: string) => {
+  const iconMap: Record<string, string> = {
     pending: '⏳',
     approved: '✅',
     rejected: '❌'
@@ -206,8 +207,8 @@ const getStatusIcon = (status) => {
   return iconMap[status] || '📋'
 }
 
-const getStatusDescription = (status) => {
-  const descriptionMap = {
+const getStatusDescription = (status: string) => {
+  const descriptionMap: Record<string, string> = {
     pending: 'Your application is currently being reviewed by our team. This process typically takes 1-2 business days.',
     approved: 'Congratulations! Your teacher application has been approved. You can now start creating courses.',
     rejected: 'Your application was not approved at this time. Please review the feedback below.'
@@ -215,7 +216,7 @@ const getStatusDescription = (status) => {
   return descriptionMap[status] || ''
 }
 
-const formatDate = (date) => {
+const formatDate = (date: any) => {
   if (!date) return 'Not available'
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',

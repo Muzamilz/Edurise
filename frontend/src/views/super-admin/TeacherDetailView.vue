@@ -5,9 +5,9 @@
         <router-link to="/super-admin/teachers/global" class="back-link">
           ← Back to Teachers
         </router-link>
-        <h1>{{ teacher?.first_name }} {{ teacher?.last_name || 'Loading...' }}</h1>
-        <div class="teacher-status" :class="teacher?.is_approved_teacher ? 'approved' : 'pending'">
-          {{ teacher?.is_approved_teacher ? 'Approved Teacher' : 'Pending Approval' }}
+        <h1>{{ (teacher as any)?.first_name }} {{ (teacher as any)?.last_name || 'Loading...' }}</h1>
+        <div class="teacher-status" :class="(teacher as any)?.is_approved_teacher ? 'approved' : 'pending'">
+          {{ (teacher as any)?.is_approved_teacher ? 'Approved Teacher' : 'Pending Approval' }}
         </div>
       </div>
     </div>
@@ -135,7 +135,7 @@
       <!-- Courses Section -->
       <div class="courses-section">
         <div class="section-header">
-          <h2>Courses ({{ teacherCourses.length }})</h2>
+          <h2>Courses ({{ (teacherCourses as any)?.length || 0 }})</h2>
           <div class="course-filters">
             <select v-model="courseFilter">
               <option value="">All Courses</option>
@@ -295,6 +295,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const route = useRoute()
@@ -318,13 +319,13 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData(() => `/users/${teacherId.value}/`, {
+} = useApiData<any>(() => `/users/${teacherId.value}/`, {
   immediate: true
 })
 
-const { data: teacherCourses } = useApiData(() => `/courses/?instructor=${teacherId.value}`)
-const { data: analytics } = useApiData(() => `/analytics/teacher/?user=${teacherId.value}&period=${analyticsPeriod.value}`)
-const { data: recentActivity } = useApiData(() => `/audit-logs/?user=${teacherId.value}&limit=10`)
+const { data: teacherCourses } = useApiData<any[]>(() => `/courses/?instructor=${teacherId.value}`)
+const { data: analytics } = useApiData<any>(() => `/analytics/teacher/?user=${teacherId.value}&period=${analyticsPeriod.value}`)
+const { data: recentActivity } = useApiData<any[]>(() => `/audit-logs/?user=${teacherId.value}&limit=10`)
 
 // Mutations
 const { mutate: updateTeacherStatus } = useApiMutation(
@@ -335,7 +336,7 @@ const { mutate: updateTeacherStatus } = useApiMutation(
   }),
   {
     onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error, { context: { action: 'update_teacher_status' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_teacher_status' } })
   }
 )
 
@@ -350,15 +351,16 @@ const { mutate: sendMessageMutation } = useApiMutation(
       closeMessageModal()
       // Show success message
     },
-    onError: (error) => handleApiError(error, { context: { action: 'send_message' } })
+    onError: (error) => handleApiError(error as APIError, { context: { action: 'send_message' } })
   }
 )
 
-// Computed properties
+// Computed properties (removed unused computed properties)
+
 const filteredCourses = computed(() => {
   if (!teacherCourses.value) return []
   
-  return teacherCourses.value.filter(course => {
+  return (teacherCourses.value as any[]).filter((course: any) => {
     return !courseFilter.value || course.status === courseFilter.value
   })
 })

@@ -4,6 +4,18 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    env_file = BASE_DIR / '.env.development'
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"✅ Loaded environment from {env_file}")
+    else:
+        print(f"⚠️  Environment file not found: {env_file}")
+except ImportError:
+    print("⚠️  python-dotenv not installed, using system environment variables")
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me-in-production')
 
@@ -45,7 +57,9 @@ LOCAL_APPS = [
     'apps.notifications',
     'apps.admin_tools',
     'apps.files',  # File management app
+    'apps.security',  # Security and compliance app
     'apps.common',
+    'apps.content',  # Content management app
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -53,14 +67,20 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'apps.security.middleware.SecurityHeadersMiddleware',  # Security headers
+    'apps.security.middleware.RateLimitingMiddleware',  # Rate limiting
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'apps.security.middleware.CSRFEnhancementMiddleware',  # Enhanced CSRF protection
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.common.middleware.TenantMiddleware',  # Custom tenant middleware
+    'apps.security.middleware.InputValidationMiddleware',  # Input validation
+    'apps.security.middleware.SecurityMonitoringMiddleware',  # Security monitoring
+    'apps.security.middleware.AuditLoggingMiddleware',  # Audit logging
     'apps.api.middleware.APILoggingMiddleware',  # API request/response logging
     'apps.api.middleware.APIVersioningMiddleware',  # API versioning
     'apps.api.middleware.APIErrorHandlingMiddleware',  # Standardized error handling
@@ -216,17 +236,43 @@ CHANNEL_LAYERS = {
 }
 
 # Third-party API Keys
+# Zoom Configuration
+ZOOM_ACCOUNT_ID = os.environ.get('ZOOM_ACCOUNT_ID', os.environ.get('ZOOM_API_KEY', ''))
+ZOOM_CLIENT_ID = os.environ.get('ZOOM_CLIENT_ID', os.environ.get('ZOOM_API_KEY', ''))
+ZOOM_CLIENT_SECRET = os.environ.get('ZOOM_CLIENT_SECRET', os.environ.get('ZOOM_API_SECRET', ''))
+ZOOM_BASE_URL = os.environ.get('ZOOM_BASE_URL', 'https://api.zoom.us/v2')
+ZOOM_WEBHOOK_SECRET = os.environ.get('ZOOM_WEBHOOK_SECRET', '')
+
+# Legacy Zoom settings (for backward compatibility)
 ZOOM_API_KEY = os.environ.get('ZOOM_API_KEY', '')
 ZOOM_API_SECRET = os.environ.get('ZOOM_API_SECRET', '')
 
+# Payment Gateway Configuration
+# Stripe Configuration
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
+# PayPal Configuration
 PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_BASE_URL = os.environ.get('PAYPAL_BASE_URL', 'https://api.sandbox.paypal.com')
+PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
+
+# Payment Settings
+DEFAULT_CURRENCY = os.environ.get('DEFAULT_CURRENCY', 'USD')
+PAYMENT_SUCCESS_URL = os.environ.get('PAYMENT_SUCCESS_URL', 'http://localhost:3000/payment/success')
+PAYMENT_CANCEL_URL = os.environ.get('PAYMENT_CANCEL_URL', 'http://localhost:3000/payment/cancel')
+
+# Admin Configuration
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@edurise.com')
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+# AI Configuration
+AI_CACHE_TIMEOUT = os.environ.get('AI_CACHE_TIMEOUT', 3600)  # 1 hour default
+AI_MAX_RETRIES = os.environ.get('AI_MAX_RETRIES', 3)
+AI_RESPONSE_QUALITY_THRESHOLD = os.environ.get('AI_RESPONSE_QUALITY_THRESHOLD', 0.8)
 
 # Frontend URL for email links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
@@ -234,6 +280,88 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
+# Security Settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# Session Security
+SESSION_COOKIE_AGE = 3600  # 1 hour
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# CSRF Protection
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_USE_SESSIONS = True
+CSRF_FAILURE_VIEW = 'apps.security.views.csrf_failure'
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://apis.google.com")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com")
+CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
+CSP_IMG_SRC = ("'self'", "data:", "https:")
+CSP_CONNECT_SRC = ("'self'", "https://api.zoom.us", "https://generativelanguage.googleapis.com")
+
+# File Upload Security
+ALLOWED_FILE_EXTENSIONS = [
+    # Documents
+    'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt',
+    # Images
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
+    # Videos
+    'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+    # Audio
+    'mp3', 'wav', 'ogg', 'aac', 'm4a',
+    # Archives
+    'zip', 'rar', '7z', 'tar', 'gz',
+    # Presentations
+    'ppt', 'pptx', 'odp',
+    # Spreadsheets
+    'xls', 'xlsx', 'ods', 'csv'
+]
+
+BLOCKED_FILE_EXTENSIONS = [
+    'exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'js', 'jar',
+    'php', 'asp', 'aspx', 'jsp', 'py', 'pl', 'sh', 'ps1'
+]
+
+MAX_FILE_SIZE_MB = 100  # 100MB max file size
+VIRUS_SCAN_ENABLED = True
+FILE_QUARANTINE_ENABLED = True
+
+# Rate Limiting
+RATE_LIMIT_ENABLE = True
+RATE_LIMIT_PER_MINUTE = 100
+RATE_LIMIT_PER_HOUR = 1000
+RATE_LIMIT_PER_DAY = 10000
+
+# Security Monitoring
+SECURITY_MONITORING_ENABLED = True
+FAILED_LOGIN_THRESHOLD = 5
+ACCOUNT_LOCKOUT_DURATION = 900  # 15 minutes
+SUSPICIOUS_ACTIVITY_THRESHOLD = 10
+INTRUSION_DETECTION_ENABLED = True
+
+# Audit Logging
+AUDIT_LOG_ENABLED = True
+AUDIT_LOG_RETENTION_DAYS = 365
+AUDIT_LOG_SENSITIVE_FIELDS = ['password', 'token', 'secret', 'key']
+
+# GDPR Compliance
+GDPR_COMPLIANCE_ENABLED = True
+DATA_RETENTION_DAYS = 365
+AUTO_DELETE_INACTIVE_USERS_DAYS = 730  # 2 years
+CONSENT_TRACKING_ENABLED = True
+
+# Encryption Settings
+FIELD_ENCRYPTION_KEY = os.environ.get('FIELD_ENCRYPTION_KEY', SECRET_KEY)
+ENCRYPT_SENSITIVE_DATA = True
 
 # Django Sites Framework
 SITE_ID = 1
@@ -244,9 +372,9 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+# Updated allauth settings (new format)
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
@@ -291,7 +419,39 @@ API_DEFAULT_PAGE_SIZE = 20
 API_MAX_PAGE_SIZE = 100
 API_RATE_LIMIT_PER_MINUTE = 100
 
-# API CORS settings
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',  # Frontend development
+    'http://localhost:5173',  # Vite development
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-tenant-id',  # Allow our custom tenant header
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# API CORS settings (legacy - keeping for compatibility)
 API_ALLOWED_ORIGINS = [
     'http://localhost:3000',  # Frontend development
     'http://localhost:5173',  # Vite development
@@ -307,6 +467,11 @@ API_INCLUDE_REQUEST_ID = False
 DASHBOARD_CACHE_TIMEOUT = 300  # 5 minutes
 DASHBOARD_MAX_RECENT_ITEMS = 10
 DASHBOARD_TREND_DAYS = 30
+
+# Suppress third-party deprecation warnings
+import warnings
+warnings.filterwarnings('ignore', message='app_settings.USERNAME_REQUIRED is deprecated')
+warnings.filterwarnings('ignore', message='app_settings.EMAIL_REQUIRED is deprecated')
 
 # Logging configuration for API
 LOGGING = {

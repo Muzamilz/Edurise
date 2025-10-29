@@ -111,7 +111,7 @@ const orgForm = ref({
   name: 'My Organization',
   subdomain: 'myorg',
   description: 'A great learning organization',
-  logo: null
+  logo: null as string | null
 })
 
 const subscription = ref({
@@ -138,13 +138,13 @@ const { mutate: updateSettings } = useApiMutation(
 )
 
 // Methods
-const handleLogoUpload = (event) => {
-  const file = event.target.files[0]
+const handleLogoUpload = (event: Event) => {
+  const file = (event.target as HTMLInputElement)?.files?.[0]
   if (file) {
     // Handle file upload
     const reader = new FileReader()
     reader.onload = (e) => {
-      orgForm.value.logo = e.target.result
+      orgForm.value.logo = (e.target as FileReader)?.result as string
     }
     reader.readAsDataURL(file)
   }

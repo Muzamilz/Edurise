@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useApiData, useApiMutation } from '@/composables/useApiData'
+// Removed unused imports
 
 // Mock data for now
 const contentItems = ref([
@@ -56,13 +56,13 @@ const contentItems = ref([
 ])
 
 const loading = ref(false)
-const pendingCount = computed(() => contentItems.value.filter(item => item.status === 'pending').length)
+const pendingCount = computed(() => contentItems.value.filter((item: any) => item.status === 'pending').length)
 
-const approveContent = (item) => {
+const approveContent = (item: any) => {
   item.status = 'approved'
 }
 
-const rejectContent = (item) => {
+const rejectContent = (item: any) => {
   item.status = 'rejected'
 }
 

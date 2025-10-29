@@ -222,6 +222,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useAnimations } from '../../composables/useAnimations'
+import { useAI } from '../../composables/useAI'
 
 interface Message {
   id: string
@@ -239,6 +240,15 @@ interface QuickAction {
 
 // Composables
 const { slideIn } = useAnimations()
+const {
+  currentConversation,
+  // messages: aiMessages, // Unused
+  // loading, // Unused
+  // error: aiError, // Unused
+  createConversation,
+  sendMessage: sendAIMessage,
+  clearError
+} = useAI()
 
 // State
 const isOpen = ref(false)
@@ -272,32 +282,32 @@ const quickActions = ref<QuickAction[]>([
   {
     id: '1',
     text: 'What is EduRise?',
-    response: 'EduRise is a comprehensive Learning Management System that combines live classes, AI-powered tutoring, and interactive learning tools to provide an exceptional educational experience. 🎓'
+    response: 'EduRise is an advanced Learning Management System that combines live virtual classes, AI-powered tutoring, interactive course content, and comprehensive progress tracking to deliver exceptional online education experiences. 🎓'
   },
   {
     id: '2',
-    text: 'How does AI tutoring work?',
-    response: 'Our AI tutor provides personalized assistance 24/7! It can help with homework, generate quizzes, summarize content, and answer questions about your courses. It\'s like having a smart study buddy! 🤖✨'
+    text: 'How does EduRise AI work?',
+    response: 'EduRise AI provides 24/7 tutoring support, generates quizzes from your course materials, creates content summaries, and offers personalized learning recommendations. It\'s integrated throughout the platform to enhance your learning experience! 🤖✨'
   },
   {
     id: '3',
-    text: 'What features do you offer?',
-    response: 'We offer live virtual classes, AI-powered tutoring, content summarization, quiz generation, progress tracking, and much more! Everything you need for effective online learning. 📚💡'
+    text: 'What EduRise features are available?',
+    response: 'EduRise offers:<br/>• Live virtual classes with interactive tools<br/>• AI tutoring and content generation<br/>• Progress tracking and analytics<br/>• Mobile-optimized learning<br/>• Verified certificates<br/>• Multi-tenant organization support 📚💡'
   },
   {
     id: '4',
-    text: 'How do I get started?',
-    response: 'Getting started is easy! Simply sign up for an account, choose your courses, and start learning. You can join live classes or study at your own pace with our AI assistant. 🚀'
+    text: 'How do I start using EduRise?',
+    response: 'Getting started with EduRise is simple! Sign up for a free 14-day trial, browse our course catalog, enroll in courses that interest you, and start learning with live classes and AI support. No credit card required for the trial! 🚀'
   },
   {
     id: '5',
-    text: 'Show me pricing plans',
-    response: 'We have flexible pricing options:<br/>• <strong>Basic Plan</strong>: $29/month - Live classes + AI tutoring<br/>• <strong>Pro Plan</strong>: $49/month - Everything + advanced analytics<br/>• <strong>Enterprise</strong>: Custom pricing for institutions<br/>All plans include a 14-day free trial! 💰'
+    text: 'What are EduRise pricing plans?',
+    response: 'EduRise pricing plans:<br/>• <strong>Basic</strong>: $29/month - Live classes + AI tutoring<br/>• <strong>Pro</strong>: $49/month - Everything + advanced analytics<br/>• <strong>Enterprise</strong>: Custom pricing for organizations<br/>All plans include 14-day free trial! 💰'
   },
   {
     id: '6',
-    text: 'What subjects are available?',
-    response: 'We offer courses in:<br/>• Mathematics & Statistics<br/>• Computer Science & Programming<br/>• Sciences (Physics, Chemistry, Biology)<br/>• Languages & Literature<br/>• Business & Economics<br/>• Arts & Design<br/>And many more! What interests you? 📖'
+    text: 'What courses does EduRise offer?',
+    response: 'EduRise course categories:<br/>• Technology & Programming<br/>• Business & Management<br/>• Sciences & Mathematics<br/>• Languages & Communication<br/>• Creative Arts & Design<br/>• Professional Development<br/>All with live classes and AI support! 📖'
   }
 ])
 
@@ -402,7 +412,7 @@ const openChat = () => {
   if (messages.value.length === 0) {
     showWelcomeExperience()
     setTimeout(() => {
-      addAIMessageEnhanced('Hello! 🎓 Welcome to EduRise! I\'m your AI Teaching Assistant and I\'m here to help you learn about our educational platform. What would you like to know?')
+      addAIMessageEnhanced('Hello! 🎓 Welcome to EduRise! I\'m your dedicated EduRise AI Assistant. I\'m here to help you understand our learning platform, features, courses, and how to get started. I can only assist with EduRise-related questions. What would you like to know about EduRise?')
     }, 500)
   }
   
@@ -430,27 +440,64 @@ const sendMessage = async () => {
   const message = userInput.value.trim()
   userInput.value = ''
 
-  // Add user message
+  // Add user message to local messages
   addUserMessage(message)
 
   // Reset typing state
   isTypingUser.value = false
   
-  // Show typing indicator
-  isTyping.value = true
-  const typingMessage = addAIMessage('', true)
+  try {
+    // Show typing indicator
+    isTyping.value = true
+    const typingMessage = addAIMessage('', true)
 
-  // Simulate AI response delay with more realistic timing
-  const responseDelay = 800 + Math.random() * 1500
-  await new Promise(resolve => setTimeout(resolve, responseDelay))
+    // Create conversation if none exists
+    if (!currentConversation.value) {
+      await createConversation({
+        title: 'AI Assistant Chat',
+        conversation_type: 'general',
+        context: {
+          source: 'landing_widget',
+          user_agent: navigator.userAgent
+        }
+      })
+    }
 
-  // Remove typing indicator
-  messages.value = messages.value.filter(m => m.id !== typingMessage.id)
-  isTyping.value = false
+    // Send message to real AI service
+    const response = await sendAIMessage(message, {
+      source: 'landing_widget',
+      widget_version: '2.0'
+    })
 
-  // Generate AI response
-  const response = generateAIResponse(message)
-  addAIMessageEnhanced(response)
+    // Remove typing indicator
+    messages.value = messages.value.filter(m => m.id !== typingMessage.id)
+    isTyping.value = false
+
+    // Add AI response
+    if (response.ai_response) {
+      addAIMessageEnhanced(response.ai_response)
+    } else {
+      // Fallback to simulated response if AI service fails
+      const fallbackResponse = generateAIResponse(message)
+      addAIMessageEnhanced(fallbackResponse)
+    }
+
+  } catch (error) {
+    console.error('AI service error:', error)
+    
+    // Remove typing indicator
+    messages.value = messages.value.filter(m => m.isTyping)
+    isTyping.value = false
+    
+    // Show fallback response
+    const fallbackResponse = generateAIResponse(message)
+    addAIMessageEnhanced(fallbackResponse)
+    
+    // Clear AI error after showing fallback
+    if (clearError) {
+      clearError()
+    }
+  }
   
   // Auto-resize input back to single line
   if (messageInput.value) {
@@ -493,49 +540,66 @@ const addAIMessage = (content: string, isTyping = false) => {
 const generateAIResponse = (userMessage: string): string => {
   const lowerMessage = userMessage.toLowerCase()
   
-  // Simple keyword-based responses
+  // Check if question is about EduRise platform
+  const eduRiseKeywords = ['edurise', 'platform', 'course', 'class', 'learn', 'study', 'price', 'cost', 'pricing', 'ai', 'tutor', 'teacher', 'instructor', 'live', 'virtual', 'demo', 'trial', 'support', 'help', 'mobile', 'app', 'technology', 'feature']
+  const isEduRiseRelated = eduRiseKeywords.some(keyword => lowerMessage.includes(keyword))
+  
+  // If not EduRise related, redirect to platform topics
+  if (!isEduRiseRelated && !lowerMessage.includes('what') && !lowerMessage.includes('how') && !lowerMessage.includes('hello') && !lowerMessage.includes('hi')) {
+    return 'I\'m the EduRise AI Assistant and I\'m here to help you with questions about our learning platform! I can tell you about our courses, live classes, AI tutoring features, pricing plans, and how to use EduRise. What would you like to know about EduRise? 🎓'
+  }
+  
+  // EduRise-specific responses
   if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('pricing')) {
-    return 'We offer flexible pricing plans to suit different needs! Our basic plan starts at $29/month with access to live classes and AI tutoring. Check out our pricing page for detailed information! 💰'
+    return 'EduRise offers flexible pricing plans! Our Basic plan starts at $29/month with live classes and AI tutoring. Pro plan is $49/month with advanced features. Enterprise plans are available for institutions. All plans include a 14-day free trial! 💰'
   }
   
-  if (lowerMessage.includes('ai') || lowerMessage.includes('artificial intelligence')) {
-    return 'Our AI technology is designed to enhance your learning experience! It can provide personalized tutoring, generate practice quizzes, summarize complex content, and answer your questions 24/7. It\'s like having a personal tutor that never sleeps! 🤖🧠'
+  if (lowerMessage.includes('ai') || lowerMessage.includes('tutor') || lowerMessage.includes('artificial intelligence')) {
+    return 'EduRise\'s AI features include: 24/7 AI tutoring for course help, automatic content summarization, quiz generation from your materials, and personalized learning recommendations. It\'s like having a smart study assistant available anytime! 🤖✨'
   }
   
-  if (lowerMessage.includes('live class') || lowerMessage.includes('zoom') || lowerMessage.includes('virtual')) {
-    return 'Our live classes are conducted through integrated video conferencing with features like screen sharing, breakout rooms, and interactive whiteboards. You can attend from anywhere and interact with instructors and classmates in real-time! 📹👥'
+  if (lowerMessage.includes('live class') || lowerMessage.includes('virtual') || lowerMessage.includes('zoom')) {
+    return 'EduRise live classes feature integrated video conferencing with screen sharing, breakout rooms, interactive whiteboards, and real-time collaboration tools. Join from anywhere and interact with instructors and classmates! 📹👥'
   }
   
   if (lowerMessage.includes('mobile') || lowerMessage.includes('app') || lowerMessage.includes('phone')) {
-    return 'Yes! EduRise works perfectly on mobile devices through your web browser. We\'re also working on dedicated mobile apps for iOS and Android. You can learn on-the-go! 📱✨'
+    return 'EduRise works seamlessly on mobile devices through your web browser! Access courses, join live classes, chat with AI tutors, and track progress on-the-go. Full mobile optimization for the best learning experience! 📱✨'
   }
   
   if (lowerMessage.includes('support') || lowerMessage.includes('help') || lowerMessage.includes('contact')) {
-    return 'We provide 24/7 support through multiple channels! You can reach us via live chat, email, or phone. Our support team is always ready to help you succeed in your learning journey! 🎧💬'
+    return 'EduRise provides comprehensive support! Use this AI assistant anytime, access our help center, contact support via email/chat, or join community forums. We\'re here to ensure your success on the platform! 🎧💬'
   }
   
   if (lowerMessage.includes('demo') || lowerMessage.includes('trial') || lowerMessage.includes('free')) {
-    return 'Absolutely! We offer a 14-day free trial so you can explore all our features. No credit card required! You can also schedule a personalized demo with our team. Ready to get started? 🎯'
+    return 'Yes! EduRise offers a 14-day free trial with full access to all features - no credit card required! Experience live classes, AI tutoring, course content, and all platform features. Ready to start your learning journey? 🎯'
   }
   
   if (lowerMessage.includes('course') || lowerMessage.includes('subject') || lowerMessage.includes('learn')) {
-    return 'We offer courses in various subjects including Mathematics, Science, Programming, Languages, Business, and more! Our AI adapts to your learning style and pace. What subject interests you most? 📖'
+    return 'EduRise offers courses in Technology, Business, Sciences, Languages, Arts, and more! Each course includes live classes, interactive content, AI tutoring support, and progress tracking. What subject interests you? 📖'
   }
   
   if (lowerMessage.includes('teacher') || lowerMessage.includes('instructor') || lowerMessage.includes('expert')) {
-    return 'Our platform features certified instructors and subject matter experts from top universities and companies. They conduct live classes and provide personalized feedback. Plus, our AI tutor is available 24/7! 👨‍🏫'
+    return 'EduRise instructors are certified experts from top universities and companies. They conduct live classes, provide personalized feedback, and create engaging course content. Plus, our AI tutor supplements their teaching 24/7! 👨‍🏫'
   }
   
-  if (lowerMessage.includes('technology') || lowerMessage.includes('tech') || lowerMessage.includes('platform')) {
-    return 'EduRise is built with cutting-edge technology including AI/ML, real-time video streaming, interactive whiteboards, and cloud-based infrastructure. We ensure a seamless learning experience across all devices! 💻'
+  if (lowerMessage.includes('technology') || lowerMessage.includes('tech') || lowerMessage.includes('platform') || lowerMessage.includes('feature')) {
+    return 'EduRise is built with cutting-edge technology: AI-powered tutoring, real-time video streaming, interactive whiteboards, progress analytics, mobile optimization, and cloud-based infrastructure for seamless learning! 💻'
   }
   
-  // Default responses
+  if (lowerMessage.includes('certificate') || lowerMessage.includes('certification')) {
+    return 'EduRise provides verified certificates upon course completion! These industry-recognized certificates showcase your skills to employers and can boost your career prospects. Track your progress and earn certificates as you learn! 🏆'
+  }
+  
+  if (lowerMessage.includes('progress') || lowerMessage.includes('track') || lowerMessage.includes('analytics')) {
+    return 'EduRise offers detailed progress tracking with analytics dashboards, completion percentages, time spent learning, quiz scores, and personalized insights. Monitor your learning journey and stay motivated! 📊'
+  }
+  
+  // Default EduRise-focused responses
   const defaultResponses = [
-    'That\'s a great question! EduRise is designed to make learning more effective and engaging. Would you like to know more about any specific feature? 🤔',
-    'I\'d be happy to help you with that! EduRise offers comprehensive learning solutions. What aspect interests you most? 📚',
-    'Thanks for asking! Our platform combines the best of traditional and modern learning methods. Is there something specific you\'d like to explore? 🚀',
-    'Great to hear from you! EduRise is all about empowering learners with cutting-edge technology. What would you like to discover? 💡'
+    'I\'m here to help you with EduRise! Ask me about our courses, live classes, AI tutoring, pricing, or any platform features. What would you like to know? 🤔',
+    'Welcome to EduRise! I can help you understand our learning platform, features, and how to get started. What specific aspect interests you? 📚',
+    'Great question about EduRise! Our platform offers live classes, AI tutoring, interactive courses, and much more. What would you like to explore? 🚀',
+    'I\'m your EduRise AI Assistant! I can explain our features, help with platform navigation, or answer questions about courses and pricing. How can I help? 💡'
   ]
   
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)]

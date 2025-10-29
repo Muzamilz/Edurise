@@ -226,7 +226,7 @@ const filteredCourses = computed(() => {
   // Filter by search query
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(course =>
+    filtered = filtered.filter((course: any) =>
       course.title.toLowerCase().includes(query) ||
       course.description.toLowerCase().includes(query) ||
       course.tags.some(tag => tag.toLowerCase().includes(query))
@@ -236,9 +236,9 @@ const filteredCourses = computed(() => {
   // Filter by status
   if (statusFilter.value) {
     if (statusFilter.value === 'published') {
-      filtered = filtered.filter(course => course.is_public)
+      filtered = filtered.filter((course: any) => course.is_public)
     } else if (statusFilter.value === 'draft') {
-      filtered = filtered.filter(course => !course.is_public)
+      filtered = filtered.filter((course: any) => !course.is_public)
     }
   }
 

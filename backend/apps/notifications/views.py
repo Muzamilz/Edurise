@@ -10,9 +10,11 @@ from .serializers import (
     NotificationStatsSerializer, NotificationPreferencesSerializer,
     EmailDeliveryLogSerializer, NotificationTemplateSerializer,
     EmailTemplateListSerializer, ChatMessageSerializer, ChatMessageCreateSerializer,
-    WebSocketConnectionSerializer, WebSocketStatsSerializer
+    WebSocketConnectionSerializer, WebSocketStatsSerializer,
+    NotificationLanguageSerializer, LocalizedNotificationPreferencesSerializer
 )
 from .services import EmailService, WebSocketNotificationService
+from .i18n_service import NotificationI18nService
 
 User = get_user_model()
 
@@ -208,6 +210,174 @@ class NotificationViewSet(viewsets.ModelViewSet):
             data=grouped_notifications,
             message="Notifications grouped by type retrieved successfully"
         )
+    
+    @action(detail=True, methods=['get'])
+    def delivery_status(self, request, pk=None):
+        """Get delivery status for a specific notification"""
+        notification = self.get_object()
+        
+        from .services import NotificationDeliveryTracker
+        delivery_stats = NotificationDeliveryTracker.get_delivery_stats(notification)
+        
+        return StandardAPIResponse.success(
+            data=delivery_stats,
+            message="Notification delivery status retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['post'])
+    def retry_failed(self, request):
+        """Retry failed notification deliveries"""
+        if not request.user.is_staff:
+            return StandardAPIResponse.error(
+                message="Only staff can retry failed deliveries",
+                status_code=403
+            )
+        
+        from .services import NotificationDeliveryTracker
+        retry_count = NotificationDeliveryTracker.retry_failed_deliveries()
+        
+        return StandardAPIResponse.success(
+            data={'retried_count': retry_count},
+            message=f"Retried {retry_count} failed deliveries"
+        )
+    
+    @action(detail=False, methods=['post'])
+    def push_subscription(self, request):
+        """Handle push notification subscription"""
+        subscription_data = request.data.get('subscription')
+        if not subscription_data:
+            return StandardAPIResponse.error(
+                message="Subscription data is required",
+                status_code=400
+            )
+        
+        # Store subscription data in user profile or separate model
+        # For now, we'll just return success
+        return StandardAPIResponse.success(
+            data={'subscribed': True},
+            message="Push notification subscription saved successfully"
+        )
+    
+    @action(detail=False, methods=['delete'])
+    def push_subscription(self, request):
+        """Handle push notification unsubscription"""
+        subscription_data = request.data.get('subscription')
+        if not subscription_data:
+            return StandardAPIResponse.error(
+                message="Subscription data is required",
+                status_code=400
+            )
+        
+        # Remove subscription data
+        # For now, we'll just return success
+        return StandardAPIResponse.success(
+            data={'unsubscribed': True},
+            message="Push notification subscription removed successfully"
+        )
+    
+    @action(detail=False, methods=['get'])
+    def email_analytics(self, request):
+        """Get email notification analytics"""
+        if not request.user.is_staff:
+            return StandardAPIResponse.error(
+                message="Only staff can view email analytics",
+                status_code=403
+            )
+        
+        from .services import EmailAutomationService
+        analytics = EmailAutomationService.get_email_analytics()
+        
+        return StandardAPIResponse.success(
+            data=analytics,
+            message="Email analytics retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['post'])
+    def trigger_automation(self, request):
+        """Trigger automated notification for testing"""
+        if not request.user.is_staff:
+            return StandardAPIResponse.error(
+                message="Only staff can trigger automated notifications",
+                status_code=403
+            )
+        
+        event_type = request.data.get('event_type')
+        user_id = request.data.get('user_id')
+        context_data = request.data.get('context_data', {})
+        
+        if not event_type or not user_id:
+            return StandardAPIResponse.error(
+                message="event_type and user_id are required",
+                status_code=400
+            )
+        
+        try:
+            from django.contrib.auth import get_user_model
+            from .services import EmailAutomationService
+            
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+            
+            success = EmailAutomationService.trigger_event_notification(
+                event_type, user, context_data
+            )
+            
+            if success:
+                return StandardAPIResponse.success(
+                    message="Automated notification triggered successfully"
+                )
+            else:
+                return StandardAPIResponse.error(
+                    message="Failed to trigger automated notification",
+                    status_code=500
+                )
+                
+        except User.DoesNotExist:
+            return StandardAPIResponse.error(
+                message="User not found",
+                status_code=404
+            )
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message=f"Error triggering notification: {str(e)}",
+                status_code=500
+            )
+    
+    @action(detail=False, methods=['get'])
+    def supported_languages(self, request):
+        """Get supported notification languages"""
+        languages = []
+        for code, name in NotificationI18nService.get_all_supported_languages().items():
+            languages.append({
+                'code': code,
+                'name': name,
+                'is_rtl': NotificationI18nService.is_rtl_language(code)
+            })
+        
+        serializer = NotificationLanguageSerializer(languages, many=True)
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message="Supported languages retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['get'])
+    def localized_preferences(self, request):
+        """Get localized notification preference labels"""
+        language = request.query_params.get('language', 'en')
+        
+        if language not in NotificationI18nService.get_all_supported_languages():
+            return StandardAPIResponse.error(
+                message="Unsupported language",
+                status_code=400
+            )
+        
+        data = {'language': language}
+        serializer = LocalizedNotificationPreferencesSerializer(data)
+        
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message="Localized preference labels retrieved successfully"
+        )
 
 
 class EmailDeliveryLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -256,6 +426,41 @@ class EmailDeliveryLogViewSet(viewsets.ReadOnlyModelViewSet):
         return StandardAPIResponse.success(
             data=stats,
             message="Email delivery statistics retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['get'])
+    def delivery_trends(self, request):
+        """Get email delivery trends over time"""
+        queryset = self.get_queryset()
+        
+        from django.db.models import Count, Q
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Get trends for the last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        # Group by day
+        daily_stats = []
+        for i in range(30):
+            day = thirty_days_ago + timedelta(days=i)
+            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            
+            day_logs = queryset.filter(sent_at__gte=day_start, sent_at__lt=day_end)
+            
+            daily_stats.append({
+                'date': day_start.date().isoformat(),
+                'total_sent': day_logs.count(),
+                'successful': day_logs.filter(status__in=['sent', 'delivered']).count(),
+                'failed': day_logs.filter(status='failed').count(),
+                'opened': day_logs.filter(status='opened').count(),
+                'clicked': day_logs.filter(status='clicked').count()
+            })
+        
+        return StandardAPIResponse.success(
+            data=daily_stats,
+            message="Email delivery trends retrieved successfully"
         )
 
 

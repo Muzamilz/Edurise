@@ -29,8 +29,50 @@ export const useProfile = () => {
       
       userProfile.value = await userService.getUserProfile()
     } catch (err: any) {
-      error.value = err.response?.data?.message || err.message || 'Failed to load user profile'
+      // If it's a "no profile found" error, set error to trigger profile creation UI
+      if (err.message?.includes('No user profile found')) {
+        error.value = 'profile_not_found'
+      } else {
+        error.value = err.response?.data?.message || err.message || 'Failed to load user profile'
+      }
       console.error('Failed to load user profile:', err)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const createUserProfile = async (profileData: UserProfileUpdateData): Promise<void> => {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      // Create profile with basic data (no role field - backend will handle tenant_id)
+      const createData = {
+        bio: profileData.bio || '',
+        phone_number: profileData.phone_number || '',
+        date_of_birth: profileData.date_of_birth,
+        timezone: profileData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: profileData.language || 'en'
+      }
+
+      userProfile.value = await userService.createUserProfile(createData)
+
+      // Update user basic info if provided
+      if (profileData.first_name || profileData.last_name) {
+        const userData: Partial<User> = {}
+        if (profileData.first_name) userData.first_name = profileData.first_name
+        if (profileData.last_name) userData.last_name = profileData.last_name
+        
+        await userService.updateCurrentUser(userData)
+        
+        // Update auth store
+        await authStore.getCurrentUser()
+      }
+
+    } catch (err: any) {
+      error.value = err.response?.data?.message || err.message || 'Failed to create profile'
+      console.error('Failed to create profile:', err)
+      throw err
     } finally {
       isLoading.value = false
     }
@@ -42,7 +84,9 @@ export const useProfile = () => {
       error.value = null
 
       if (!userProfile.value) {
-        throw new Error('No user profile loaded')
+        // If no profile exists, create one instead
+        await createUserProfile(profileData)
+        return
       }
 
       // Update user basic info if provided

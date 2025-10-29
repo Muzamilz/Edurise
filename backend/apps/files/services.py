@@ -8,6 +8,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import models
 from .models import FileUpload, FileCategory, FileProcessingJob, FileAccessLog
+from apps.security.file_scanner import FileUploadSecurityScanner
+from apps.security.validators import SecurityValidator
 
 User = get_user_model()
 
@@ -65,6 +67,7 @@ class FileUploadService:
     
     def __init__(self):
         self.storage_service = FileStorageService()
+        self.security_scanner = FileUploadSecurityScanner()
     
     def upload_file(
         self,
@@ -96,6 +99,12 @@ class FileUploadService:
         
         if category.allowed_extensions and not self.storage_service.validate_file_type(file, category.allowed_extensions):
             raise ValueError(f"File type not allowed. Allowed types: {', '.join(category.allowed_extensions)}")
+        
+        # Security scan
+        scan_results = self.security_scanner.scan_uploaded_file(file)
+        if not scan_results['safe']:
+            threats = ', '.join(scan_results['threats'][:3])  # Show first 3 threats
+            raise ValueError(f"File failed security scan: {threats}")
         
         # Extract metadata
         metadata = self.storage_service.get_file_metadata(file)

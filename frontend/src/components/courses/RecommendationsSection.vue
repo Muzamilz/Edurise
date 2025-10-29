@@ -19,7 +19,7 @@
           <option value="popularity">Popular Courses</option>
         </select>
         <button 
-          @click="refreshRecommendations" 
+          @click="() => refreshRecommendations()" 
           :disabled="loading"
           class="refresh-btn"
         >
@@ -79,7 +79,7 @@
       <!-- Recommendations Grid -->
       <div class="recommendations-grid">
         <div 
-          v-for="(recommendation, index) in displayedRecommendations" 
+          v-for="recommendation in displayedRecommendations" 
           :key="recommendation.course.id"
           class="recommendation-card"
           @click="handleCourseClick(recommendation)"
@@ -115,7 +115,7 @@
           <!-- Course Info -->
           <div class="course-info">
             <h3 class="course-title">{{ recommendation.course.title }}</h3>
-            <p class="course-instructor">{{ recommendation.course.instructor_name || 'Unknown Instructor' }}</p>
+            <p class="course-instructor">{{ recommendation.course.instructor ? `${recommendation.course.instructor.first_name} ${recommendation.course.instructor.last_name}` : 'Unknown Instructor' }}</p>
             
             <!-- Recommendation Reason -->
             <div class="recommendation-reason">
@@ -218,7 +218,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router'
 import { useRecommendations } from '@/composables/useRecommendations'
 import { CourseService } from '@/services/courses'
 import WishlistButton from './WishlistButton.vue'
@@ -257,7 +257,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-const router = useRouter()
+// const router = useRouter()
 
 // Composables
 const {

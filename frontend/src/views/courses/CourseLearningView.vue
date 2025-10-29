@@ -149,6 +149,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApiData } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -168,7 +169,7 @@ const courseId = route.params.id
 const { 
   data: courseData, 
   loading, 
-  error, 
+  // error, // Unused
   refresh 
 } = useApiData(`/courses/${courseId}/`, {
   immediate: true
@@ -239,7 +240,7 @@ const markLessonComplete = async () => {
     currentLesson.value.completed = true
     await refresh()
   } catch (error) {
-    handleApiError(error, { context: { action: 'mark_lesson_complete' } })
+    handleApiError(error as APIError, { context: { action: 'mark_lesson_complete' } })
   }
 }
 

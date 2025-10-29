@@ -497,6 +497,8 @@ export interface WishlistFilters {
   category?: string
   search?: string
   ordering?: string
+  page?: number
+  page_size?: number
 }
 
 // Recommendation Types

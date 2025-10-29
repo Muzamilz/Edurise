@@ -172,6 +172,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useApiData } from '@/composables/useApiData'
+import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
 
@@ -186,7 +187,7 @@ const {
   loading, 
   error, 
   refresh 
-} = useApiData('/api/v1/live-classes/', {
+} = useApiData('/live-classes/', {
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
@@ -320,7 +321,7 @@ const setReminder = async (liveClass: any) => {
     })
     alert('Reminder set successfully!')
   } catch (error) {
-    handleApiError(error, { context: { action: 'set_class_reminder' } })
+    handleApiError(error as APIError, { context: { action: 'set_class_reminder' } })
   }
 }
 
@@ -345,7 +346,7 @@ const downloadMaterials = async (liveClass: any) => {
     link.remove()
     window.URL.revokeObjectURL(url)
   } catch (error) {
-    handleApiError(error, { context: { action: 'download_class_materials' } })
+    handleApiError(error as APIError, { context: { action: 'download_class_materials' } })
   }
 }
 

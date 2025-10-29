@@ -5,15 +5,29 @@ from .models import User, UserProfile, TeacherApproval, Organization
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
+    organization_name = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 
+            'id', 'email', 'first_name', 'last_name', 'full_name',
             'is_teacher', 'is_approved_teacher', 'is_staff', 'is_superuser',
-            'date_joined', 'last_login'
+            'date_joined', 'last_login', 'organization_name'
         ]
         read_only_fields = ['id', 'is_approved_teacher', 'is_staff', 'is_superuser', 'date_joined', 'last_login']
+    
+    def get_organization_name(self, obj):
+        """Get the user's primary organization name"""
+        try:
+            profile = obj.profiles.first()
+            return profile.tenant.name if profile and profile.tenant else 'No Organization'
+        except:
+            return 'No Organization'
+    
+    def get_full_name(self, obj):
+        """Get the user's full name"""
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.email
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -79,15 +93,27 @@ class TeacherApprovalSerializer(serializers.ModelSerializer):
     """Serializer for TeacherApproval model"""
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    organization_name = serializers.SerializerMethodField()
     
     class Meta:
         model = TeacherApproval
         fields = [
-            'id', 'user', 'user_email', 'user_name', 'status',
-            'teaching_experience', 'qualifications', 'subject_expertise',
-            'portfolio_url', 'applied_at', 'reviewed_at', 'review_notes'
+            'id', 'user', 'user_email', 'user_name', 'user_first_name', 'user_last_name',
+            'organization_name', 'status', 'teaching_experience', 'qualifications', 
+            'subject_expertise', 'portfolio_url', 'applied_at', 'reviewed_at', 'review_notes'
         ]
         read_only_fields = ['id', 'user', 'status', 'applied_at', 'reviewed_at']
+    
+    def get_organization_name(self, obj):
+        """Get the organization name for the user"""
+        try:
+            # Get the user's first profile (assuming users typically belong to one org)
+            profile = obj.user.profiles.first()
+            return profile.tenant.name if profile and profile.tenant else 'No Organization'
+        except:
+            return 'No Organization'
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
