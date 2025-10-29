@@ -257,7 +257,7 @@ const searchQuery = ref('')
 const courseFilter = ref('')
 const statusFilter = ref('')
 const sortBy = ref('name')
-const selectedStudent = ref(null)
+const selectedStudent = ref<any>(null)
 
 // API data
 const { 

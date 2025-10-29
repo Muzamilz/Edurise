@@ -153,18 +153,18 @@ const applications = computed(() => {
   console.log('📋 Processed teacher applications:', apps)
   return apps
 })
-const totalTeachers = computed(() => applications.value.filter(app => app.status === 'approved').length)
-const pendingApprovals = computed(() => applications.value.filter(app => app.status === 'pending').length)
+const totalTeachers = computed(() => applications.value.filter((app: any) => app.status === 'approved').length)
+const pendingApprovals = computed(() => applications.value.filter((app: any) => app.status === 'pending').length)
 const approvedThisMonth = computed(() => {
   const thisMonth = new Date()
   thisMonth.setDate(1)
-  return applications.value.filter(app => 
+  return applications.value.filter((app: any) => 
     app.status === 'approved' && 
     new Date(app.submitted_at) >= thisMonth
   ).length
 })
 const organizationsCount = computed(() => {
-  const orgs = new Set(applications.value.map(app => app.organization?.name))
+  const orgs = new Set(applications.value.map((app: any) => app.organization?.name))
   return orgs.size
 })
 
@@ -193,14 +193,14 @@ const { mutate: rejectApplicationMutation } = useApiMutation(
 
 const filteredApplications = computed(() => {
   if (!statusFilter.value) return applications.value
-  return applications.value.filter(app => app.status === statusFilter.value)
+  return applications.value.filter((app: any) => app.status === statusFilter.value)
 })
 
-const formatStatus = (status) => {
+const formatStatus = (status: any) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
-const approveApplication = async (application) => {
+const approveApplication = async (application: any) => {
   if (confirm(`Approve ${application.user.first_name} ${application.user.last_name}'s application?`)) {
     try {
       await approveApplicationMutation(application.id)
@@ -210,7 +210,7 @@ const approveApplication = async (application) => {
   }
 }
 
-const rejectApplication = async (application) => {
+const rejectApplication = async (application: any) => {
   const reason = prompt(`Reject ${application.user.first_name} ${application.user.last_name}'s application? Please provide a reason:`)
   if (reason) {
     try {
@@ -221,7 +221,7 @@ const rejectApplication = async (application) => {
   }
 }
 
-const viewDetails = (application) => {
+const viewDetails = (application: any) => {
   router.push(`/super-admin/teachers/${application.id}`)
 }
 
