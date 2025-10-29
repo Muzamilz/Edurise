@@ -232,23 +232,23 @@ const liveClasses = computed(() => liveClassesData.value?.results || [])
 
 const totalClasses = computed(() => liveClasses.value.length)
 const upcomingClasses = computed(() => 
-  liveClasses.value.filter(cls => cls.status === 'scheduled').length
+  liveClasses.value.filter((cls: any) => cls.status === 'scheduled').length
 )
 const attendedClasses = computed(() => 
-  liveClasses.value.filter(cls => cls.attended).length
+  liveClasses.value.filter((cls: any) => cls.attended).length
 )
 const availableRecordings = computed(() => 
-  liveClasses.value.filter(cls => cls.recording_url).length
+  liveClasses.value.filter((cls: any) => cls.recording_url).length
 )
 
 const filteredClasses = computed(() => {
   let classes = liveClasses.value
 
   if (activeFilter.value !== 'all') {
-    classes = classes.filter(cls => cls.status === activeFilter.value)
+    classes = classes.filter((cls: any) => cls.status === activeFilter.value)
   }
 
-  return classes.sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
+  return classes.sort((a: any, b: any) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
 })
 
 // Methods
@@ -337,7 +337,7 @@ const downloadMaterials = async (liveClass: any) => {
       responseType: 'blob'
     })
     
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response.data as any]))
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `${liveClass.title}-materials.zip`)

@@ -249,13 +249,13 @@ const enrollments = computed(() => enrollmentsData.value?.results || [])
 
 const totalCourses = computed(() => enrollments.value.length)
 const completedCourses = computed(() => 
-  enrollments.value.filter(e => e.progress_percentage >= 100).length
+  enrollments.value.filter((e: any) => e.progress_percentage >= 100).length
 )
 const inProgressCourses = computed(() => 
-  enrollments.value.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100).length
+  enrollments.value.filter((e: any) => e.progress_percentage > 0 && e.progress_percentage < 100).length
 )
 const earnedCertificates = computed(() => 
-  enrollments.value.filter(e => e.certificate_earned).length
+  enrollments.value.filter((e: any) => e.certificate_earned).length
 )
 
 const filteredCourses = computed(() => {
@@ -263,7 +263,7 @@ const filteredCourses = computed(() => {
 
   // Filter by status
   if (activeFilter.value !== 'all') {
-    courses = courses.filter(course => {
+    courses = courses.filter((course: any) => {
       const progress = course.progress_percentage || 0
       switch (activeFilter.value) {
         case 'completed':
@@ -281,14 +281,14 @@ const filteredCourses = computed(() => {
   // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    courses = courses.filter(course =>
+    courses = courses.filter((course: any) =>
       course.title?.toLowerCase().includes(query) ||
       course.instructor?.first_name?.toLowerCase().includes(query) ||
       course.instructor?.last_name?.toLowerCase().includes(query)
     )
   }
 
-  return courses.sort((a, b) => {
+  return courses.sort((a: any, b: any) => {
     // Sort by last accessed, then by enrollment date
     const aDate = new Date(a.last_accessed || a.enrollment_date)
     const bDate = new Date(b.last_accessed || b.enrollment_date)

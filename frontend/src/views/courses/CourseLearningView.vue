@@ -157,10 +157,10 @@ const route = useRoute()
 const { handleApiError } = useErrorHandler()
 
 // Reactive state
-const expandedModules = ref([])
-const currentLesson = ref(null)
+const expandedModules = ref<string[]>([])
+const currentLesson = ref<any>(null)
 const videoPlayer = ref(null)
-const quizAnswers = ref({})
+const quizAnswers = ref<Record<number, any>>({})
 const quizCompleted = ref(false)
 const quizScore = ref(0)
 
@@ -179,9 +179,8 @@ const { data: modulesData } = useApiData(`/course-modules/?course=${courseId}`, 
   immediate: true
 })
 
-const { data: progressData } = useApiData(`/enrollments/`, {
-  immediate: true,
-  params: { course: courseId }
+const { data: progressData } = useApiData(`/enrollments/?course=${courseId}`, {
+  immediate: true
 })
 
 // Computed properties
@@ -269,7 +268,7 @@ const submitQuiz = () => {
   if (!currentLesson.value?.questions) return
 
   let correct = 0
-  currentLesson.value.questions.forEach((question, index) => {
+  currentLesson.value.questions.forEach((question: any, index: number) => {
     if (quizAnswers.value[index] === question.correct_answer) {
       correct++
     }

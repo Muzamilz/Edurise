@@ -229,7 +229,7 @@ const filteredCourses = computed(() => {
     filtered = filtered.filter((course: any) =>
       course.title.toLowerCase().includes(query) ||
       course.description.toLowerCase().includes(query) ||
-      course.tags.some(tag => tag.toLowerCase().includes(query))
+      course.tags.some((tag: any) => tag.toLowerCase().includes(query))
     )
   }
 

@@ -206,7 +206,7 @@ const profile = computed(() => ({
   name: `${user.value?.first_name || ''} ${user.value?.last_name || ''}`.trim() || 'Teacher',
   email: user.value?.email || '',
   avatar: profileData.value?.avatar,
-  isVerified: user.value?.is_verified || false,
+  isVerified: (user.value as any)?.is_verified || false,
   isApproved: user.value?.is_approved_teacher || false,
   totalStudents: profileData.value?.total_students || 0,
   totalCourses: profileData.value?.total_courses || 0,

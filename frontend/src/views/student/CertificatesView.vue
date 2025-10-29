@@ -166,7 +166,7 @@ const { fullName } = useAuth()
 const { handleApiError } = useErrorHandler()
 
 // Reactive state
-const selectedCertificate = ref(null)
+const selectedCertificate = ref<any>(null)
 
 // API data
 const { 
@@ -206,17 +206,17 @@ const {
 const certificates = computed(() => certificatesData.value?.results || [])
 const totalCertificates = computed(() => certificates.value.length)
 const completedCourses = computed(() => 
-  new Set(certificates.value.map(cert => cert.course_id)).size
+  new Set(certificates.value.map((cert: any) => cert.course_id)).size
 )
 const averageScore = computed(() => {
-  const scoresWithValues = certificates.value.filter(cert => cert.final_score)
+  const scoresWithValues = certificates.value.filter((cert: any) => cert.final_score)
   if (scoresWithValues.length === 0) return 0
-  const total = scoresWithValues.reduce((sum, cert) => sum + cert.final_score, 0)
+  const total = scoresWithValues.reduce((sum: number, cert: any) => sum + cert.final_score, 0)
   return Math.round(total / scoresWithValues.length)
 })
 const latestCertificateDate = computed(() => {
   if (certificates.value.length === 0) return 'None'
-  const latest = certificates.value.reduce((latest, cert) => 
+  const latest = certificates.value.reduce((latest: any, cert: any) => 
     new Date(cert.issued_at) > new Date(latest.issued_at) ? cert : latest
   )
   return formatDate(latest.issued_at)
@@ -250,7 +250,7 @@ const downloadCertificate = async (certificate: any) => {
     })
     
     // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response.data as any]))
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `certificate-${certificate.course_title}.pdf`)
