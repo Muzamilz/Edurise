@@ -407,7 +407,7 @@ const loadFeaturedTestimonials = async () => {
     loadingTestimonials.value = true
     const response = await contentService.getFeaturedTestimonials()
     // Handle the API response structure: { success: true, data: [...] }
-    const testimonialsData = Array.isArray(response) ? response : (response.data || response.results || [])
+    const testimonialsData = Array.isArray(response) ? response : (response.data || (response as any).results || [])
     testimonials.value = testimonialsData.slice(0, 3) // Show only first 3
   } catch (err) {
     console.error('Error loading testimonials:', err)

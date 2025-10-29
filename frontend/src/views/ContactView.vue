@@ -219,7 +219,8 @@ const loadContactInfo = async () => {
   try {
     loadingContact.value = true
     contactError.value = null
-    contactInfo.value = await contentService.getContactInfo()
+    const response = await contentService.getContactInfo()
+    contactInfo.value = response.data
   } catch (err) {
     console.error('Error loading contact info:', err)
     contactError.value = 'Failed to load contact information. Please try again later.'

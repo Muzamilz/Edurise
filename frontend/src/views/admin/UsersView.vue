@@ -189,7 +189,7 @@ const itemsPerPage = 10
 
 // Modal state
 const showCreateModal = ref(false)
-const editingUser = ref(null)
+const editingUser = ref<any>(null)
 const userForm = ref({
   first_name: '',
   last_name: '',
@@ -232,7 +232,13 @@ const { mutate: deleteUserMutation } = useApiMutation(
 const filteredUsers = computed(() => {
   if (!users.value) return []
   
-  return users.value.filter(user => {
+  // Handle different response structures
+  const usersList = Array.isArray(users.value) ? users.value : 
+                   (users.value as any)?.results || 
+                   (users.value as any)?.data || 
+                   []
+  
+  return usersList.filter((user: any) => {
     const matchesSearch = !searchQuery.value || 
       user.first_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -265,7 +271,7 @@ const formatDate = (date: any) => {
   return new Date(date).toLocaleDateString()
 }
 
-const editUser = (user) => {
+const editUser = (user: any) => {
   editingUser.value = user
   userForm.value = {
     first_name: user.first_name,
@@ -294,11 +300,11 @@ const saveUser = async () => {
   }
 }
 
-const toggleUserStatus = async (user) => {
+const toggleUserStatus = async (user: any) => {
   await updateUser({ id: user.id, is_active: !user.is_active })
 }
 
-const deleteUser = async (user) => {
+const deleteUser = async (user: any) => {
   if (confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
     await deleteUserMutation(user.id)
   }

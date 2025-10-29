@@ -146,7 +146,7 @@ const formatStatus = (status: any) => {
 
 const approveTeacher = async () => {
   if (confirm('Are you sure you want to approve this teacher application?')) {
-    await approveTeacherMutation()
+    await approveTeacherMutation({})
   }
 }
 

@@ -146,7 +146,7 @@ const loadFAQs = async () => {
     error.value = null
     const response = await contentService.getFAQs()
     // Handle the API response structure: { success: true, data: [...] }
-    faqs.value = Array.isArray(response) ? response : (response.data || response.results || [])
+    faqs.value = Array.isArray(response) ? response : (response.data || (response as any).results || [])
   } catch (err) {
     console.error('Error loading FAQs:', err)
     error.value = 'Failed to load FAQs. Please try again later.'

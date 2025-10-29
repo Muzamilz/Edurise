@@ -116,7 +116,7 @@ const loadTeamMembers = async () => {
     error.value = null
     const response = await contentService.getTeamMembers()
     // Handle the API response structure: { success: true, data: [...] }
-    teamMembers.value = Array.isArray(response) ? response : (response.data || response.results || [])
+    teamMembers.value = Array.isArray(response) ? response : (response.data || (response as any).results || [])
   } catch (err) {
     console.error('Error loading team members:', err)
     error.value = 'Failed to load team members. Please try again later.'

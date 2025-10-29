@@ -185,19 +185,30 @@ const { data: progressData } = useApiData(`/enrollments/`, {
 })
 
 // Computed properties
-const course = computed(() => courseData.value)
-const modules = computed(() => modulesData.value?.results || [])
+const course = computed(() => {
+  if (!courseData.value) return {}
+  // Handle different response structures
+  return (courseData.value as any)?.data || courseData.value || {}
+})
+const modules = computed(() => {
+  if (!modulesData.value) return []
+  return (modulesData.value as any)?.results || 
+         (modulesData.value as any)?.data || 
+         (Array.isArray(modulesData.value) ? modulesData.value : [])
+})
 const courseProgress = computed(() => {
-  const enrollment = progressData.value?.results?.[0]
+  const enrollment = (progressData.value as any)?.results?.[0] || 
+                     (progressData.value as any)?.data?.[0] ||
+                     (Array.isArray(progressData.value) ? progressData.value[0] : null)
   return enrollment?.progress_percentage || 0
 })
 
 const allLessons = computed(() => {
-  return modules.value.flatMap(module => module.lessons || [])
+  return modules.value.flatMap((module: any) => module.lessons || [])
 })
 
 const currentLessonIndex = computed(() => {
-  return allLessons.value.findIndex(lesson => lesson.id === currentLesson.value?.id)
+  return allLessons.value.findIndex((lesson: any) => lesson.id === currentLesson.value?.id)
 })
 
 const hasPreviousLesson = computed(() => currentLessonIndex.value > 0)

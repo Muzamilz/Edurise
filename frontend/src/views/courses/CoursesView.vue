@@ -297,7 +297,7 @@
               <button
                 v-for="page in visiblePages"
                 :key="page"
-                @click="currentPage = page"
+                @click="currentPage = typeof page === 'number' ? page : parseInt(page.toString())"
                 class="pagination-number"
                 :class="{ active: page === currentPage }"
               >
@@ -353,7 +353,7 @@ const router = useRouter()
 const route = useRoute()
 const { isAuthenticated } = useAuth()
 const { handleApiError } = useErrorHandler()
-const { enrollInCourse, isEnrolledInCourse, enrolling } = useEnrollment()
+const { enrollInCourse, isEnrolledInCourse } = useEnrollment()
 
 // Local state
 const searchQuery = ref('')

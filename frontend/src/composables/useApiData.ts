@@ -2,7 +2,7 @@ import { ref, computed, onMounted, watch, type Ref } from 'vue'
 import { api, type APIError } from '@/services/api'
 import { apiCache, type CacheOptions, ApiCache } from '@/utils/apiCache'
 import { getFallbackData, hasFallbackData } from '@/services/fallbackData'
-import { showToast } from '@/utils/toast'
+import { useToast } from '@/composables/useToast'
 
 // Generic data fetching composable with loading, error, and data states
 export interface UseApiDataOptions<T> extends CacheOptions {
@@ -49,6 +49,8 @@ export const useApiData = <T>(
   const loading = ref(false)
   const error = ref<APIError | null>(null)
   const retryCount = ref(0)
+  
+  const { showToast } = useToast()
 
   const getEndpoint = () => {
     return typeof endpoint === 'function' ? endpoint() : endpoint
@@ -318,6 +320,8 @@ export const useApiMutation = <TData = any, TVariables = any>(
   const error = ref<APIError | null>(null)
   const data = ref<TData | null>(null)
   let previousData: TData | null = null
+  
+  const { showToast } = useToast()
 
   const mutate = async (variables: TVariables): Promise<TData> => {
     loading.value = true

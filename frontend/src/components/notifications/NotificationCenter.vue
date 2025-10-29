@@ -151,14 +151,14 @@ interface NotificationPreferences {
 
 const notificationStore = useNotificationStore()
 const websocketStore = useWebSocketStore()
-const { fadeIn, slideIn, morphButton, pulse } = useAnimations()
+const { fadeIn, slideIn, pulse } = useAnimations()
 
 const isOpen = ref(false)
 const showSettings = ref(false)
 const loading = ref(false)
 const hasNewNotification = ref(false)
 const activeFilter = ref('all')
-const notificationSound = ref<HTMLAudioElement | null>(null)
+// const notificationSound = ref<HTMLAudioElement | null>(null)
 
 const notifications = computed(() => Array.isArray(notificationStore.notifications) ? notificationStore.notifications : [])
 const unreadCount = computed(() => notificationStore.unreadCount)

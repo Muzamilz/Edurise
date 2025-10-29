@@ -72,8 +72,8 @@ export const useNotificationStore = defineStore('notifications', () => {
       if (response.data && typeof response.data === 'object') {
         if (Array.isArray(response.data)) {
           notificationData = response.data
-        } else if (response.data.results && Array.isArray(response.data.results)) {
-          notificationData = response.data.results
+        } else if ((response.data as any).results && Array.isArray((response.data as any).results)) {
+          notificationData = (response.data as any).results
         } else if (response.data.data && Array.isArray(response.data.data)) {
           notificationData = response.data.data
         } else {
