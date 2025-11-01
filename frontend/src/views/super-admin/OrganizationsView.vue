@@ -203,21 +203,19 @@ const { data: organizationsData, loading, refresh } = useApiData('/organizations
   immediate: true,
   transform: (data) => {
     // Transform the response to ensure consistent data structure
-    if (data.results) {
-      return data.results.map((org: any) => ({
-        id: org.id,
-        name: org.name,
-        subdomain: org.subdomain,
-        logo: org.logo,
-        subscription_plan: org.subscription_plan || 'basic',
-        is_active: org.is_active !== false,
-        user_count: org.user_count || 0,
-        course_count: org.course_count || 0,
-        revenue: org.revenue || 0,
-        created_at: org.created_at
-      }))
-    }
-    return []
+    const orgList = data.results || data.data || data || []
+    return orgList.map((org: any) => ({
+      id: org.id,
+      name: org.name,
+      subdomain: org.subdomain,
+      logo: org.logo,
+      subscription_plan: org.subscription?.plan_name || org.subscription_plan || 'basic',
+      is_active: org.is_active !== false,
+      user_count: org.user_count || 0,
+      course_count: org.course_count || 0,
+      revenue: org.revenue || 0,
+      created_at: org.created_at
+    }))
   },
   retryAttempts: 3,
   onError: (error) => {
@@ -243,11 +241,18 @@ const orgForm = ref({
   subscription_plan: 'basic'
 })
 
-// Mock stats (would come from API)
-const totalOrganizations = ref(156)
-const activeOrganizations = ref(152)
-const totalUsers = ref(12450)
-const totalRevenue = ref(245000)
+// Real stats from dashboard API
+const { data: dashboardData } = useApiData('/dashboard/superadmin/', {
+  immediate: true,
+  onError: (error) => {
+    console.error('Failed to load dashboard stats:', error)
+  }
+})
+
+const totalOrganizations = computed(() => dashboardData.value?.platform_stats?.total_organizations || 0)
+const activeOrganizations = computed(() => dashboardData.value?.platform_stats?.active_organizations || 0)
+const totalUsers = computed(() => dashboardData.value?.platform_stats?.total_users || 0)
+const totalRevenue = computed(() => dashboardData.value?.platform_stats?.total_revenue || 0)
 
 // Mutations
 const { mutate: createOrg } = useApiMutation(

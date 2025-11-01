@@ -82,6 +82,12 @@ export interface SuperAdminDashboardData {
     totalUsers: number
     totalCourses: number
     totalRevenue: number
+    totalEnrollments: number
+    totalTeachers: number
+    approvedTeachers: number
+    publishedCourses: number
+    activeEnrollments: number
+    completedEnrollments: number
   }
   tenantStats: Tenant[]
   systemMetrics: {
@@ -260,7 +266,13 @@ export const useDashboardData = () => {
         activeTenants: data.platform_stats?.active_organizations || 0,
         totalUsers: data.platform_stats?.total_users || 0,
         totalCourses: data.platform_stats?.total_courses || 0,
-        totalRevenue: data.platform_stats?.total_revenue || 0
+        totalRevenue: data.platform_stats?.total_revenue || 0,
+        totalEnrollments: data.platform_stats?.total_enrollments || 0,
+        totalTeachers: data.platform_stats?.total_teachers || 0,
+        approvedTeachers: data.platform_stats?.approved_teachers || 0,
+        publishedCourses: data.platform_stats?.published_courses || 0,
+        activeEnrollments: data.platform_stats?.active_enrollments || 0,
+        completedEnrollments: data.platform_stats?.completed_enrollments || 0
       },
       tenantStats: (data.organization_performance || []).map((org: any) => ({
         id: org.id,

@@ -111,6 +111,14 @@
             <span class="btn-icon">⚙️</span>
             System Administration
           </router-link>
+          <router-link to="/super-admin/categories" class="action-btn secondary">
+            <span class="btn-icon">📂</span>
+            Global Categories
+          </router-link>
+          <router-link to="/super-admin/subscription-plans" class="action-btn secondary">
+            <span class="btn-icon">💳</span>
+            Subscription Plans
+          </router-link>
         </div>
       </div>
 
@@ -131,7 +139,12 @@
               <div class="org-info">
                 <h3>{{ org.name }}</h3>
                 <p class="org-subdomain">{{ org.subdomain }}.edurise.com</p>
-                <span class="org-plan" :class="org.subscription_plan">{{ formatPlan(org.subscription_plan) }}</span>
+                <div class="org-plan-section">
+                  <span class="org-plan" :class="org.subscription_plan">{{ formatPlan(org.subscription_plan) }}</span>
+                  <button @click="manageOrgSubscription(org)" class="manage-plan-btn" title="Manage Subscription">
+                    ⚙️
+                  </button>
+                </div>
               </div>
             </div>
             <div class="org-stats">
@@ -284,11 +297,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useApiMutation } from '@/composables/useApiData'
 import { api } from '@/services/api'
 
+const router = useRouter()
 const { superAdminData } = useDashboardData()
 const { handleApiError } = useErrorHandler()
 
@@ -303,16 +318,14 @@ const totalPlatformUsers = computed(() =>
 )
 
 const totalStudents = computed(() => {
-  // Calculate from platform stats - would need to be added to API
   const totalUsers = totalPlatformUsers.value
-  return Math.round(totalUsers * 0.85) // Estimate 85% students
+  const teachers = totalTeachers.value
+  return totalUsers - teachers // Students = Total Users - Teachers
 })
 
-const totalTeachers = computed(() => {
-  // Calculate from platform stats - would need to be added to API
-  const totalUsers = totalPlatformUsers.value
-  return Math.round(totalUsers * 0.15) // Estimate 15% teachers
-})
+const totalTeachers = computed(() => 
+  dashboardData.value?.platformStats?.totalTeachers || 0
+)
 
 const totalOrganizations = computed(() => 
   dashboardData.value?.platformStats?.totalTenants || 0
@@ -323,18 +336,18 @@ const activeOrganizations = computed(() =>
 )
 
 const pendingTeachersCount = computed(() => {
-  // This would need to be added to super admin API
-  return 0 // Placeholder
+  const totalTeachers = dashboardData.value?.platformStats?.totalTeachers || 0
+  const approvedTeachers = dashboardData.value?.platformStats?.approvedTeachers || 0
+  return totalTeachers - approvedTeachers // Pending = Total - Approved
 })
 
 const totalCourses = computed(() => 
   dashboardData.value?.platformStats?.totalCourses || 0
 )
 
-const publicCourses = computed(() => {
-  // Calculate from total courses - would need API enhancement
-  return Math.round(totalCourses.value * 0.7) // Estimate 70% public
-})
+const publicCourses = computed(() => 
+  dashboardData.value?.platformStats?.publishedCourses || 0
+)
 
 const privateCourses = computed(() => 
   totalCourses.value - publicCourses.value
@@ -350,16 +363,16 @@ const monthlyRevenue = computed(() => {
   return revenueByTenant.reduce((total, tenant) => total + (tenant.revenue || 0), 0)
 })
 
-const totalEnrollments = computed(() => {
-  // This would need to be added to platform stats
-  return 0 // Placeholder
-})
+const totalEnrollments = computed(() => 
+  dashboardData.value?.platformStats?.totalEnrollments || 0
+)
 
 const enrollmentGrowth = computed(() => {
-  // Calculate average growth from revenue by tenant
-  const revenueByTenant = dashboardData.value?.revenueByTenant || []
-  const avgGrowth = revenueByTenant.reduce((total, tenant) => total + (tenant.growth || 0), 0) / revenueByTenant.length
-  return Math.round(avgGrowth || 0)
+  // Calculate enrollment completion rate as growth indicator
+  const totalEnrollments = dashboardData.value?.platformStats?.totalEnrollments || 0
+  const completedEnrollments = dashboardData.value?.platformStats?.completedEnrollments || 0
+  const completionRate = totalEnrollments > 0 ? (completedEnrollments / totalEnrollments) * 100 : 0
+  return Math.round(completionRate)
 })
 
 const securityAlerts = computed(() => {
@@ -508,6 +521,11 @@ const switchToOrg = async (orgId: string) => {
   } catch (error) {
     // Error handling is done in the mutation
   }
+}
+
+const manageOrgSubscription = (org: any) => {
+  // Navigate to organization detail page where subscription can be managed
+  router.push(`/super-admin/organizations/${org.id}`)
 }
 
 // Utility functions
@@ -772,12 +790,35 @@ const handleRetry = async () => {
   margin-bottom: 0.5rem;
 }
 
+.org-plan-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .org-plan {
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
+}
+
+.manage-plan-btn {
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #7c3aed;
+}
+
+.manage-plan-btn:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: #7c3aed;
+  transform: scale(1.05);
 }
 
 .org-plan.basic {

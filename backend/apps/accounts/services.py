@@ -78,18 +78,31 @@ class JWTAuthService:
         """Generate JWT access and refresh tokens with enhanced tenant support"""
         refresh = RefreshToken.for_user(user)
         
+        # Get user profile information
+        profile = None
+        is_teacher = False
+        is_approved_teacher = False
+        tenant_role = 'student'
+        
+        if tenant:
+            try:
+                profile = UserProfile.objects.get(user=user, tenant=tenant)
+                is_teacher = profile.role == 'teacher'
+                is_approved_teacher = profile.is_approved_teacher
+                tenant_role = profile.role
+            except UserProfile.DoesNotExist:
+                # Create a default profile if it doesn't exist
+                profile = UserProfile.objects.create(user=user, tenant=tenant, role='student')
+                is_teacher = False
+                is_approved_teacher = False
+                tenant_role = 'student'
+        
         # Add tenant information to token if available
         if tenant:
             refresh['tenant_id'] = str(tenant.id)
             refresh['tenant_subdomain'] = tenant.subdomain
             refresh['tenant_name'] = tenant.name
-            
-            # Add user role within this tenant
-            try:
-                profile = UserProfile.objects.get(user=user, tenant=tenant)
-                refresh['tenant_role'] = profile.role
-            except UserProfile.DoesNotExist:
-                refresh['tenant_role'] = 'student'
+            refresh['tenant_role'] = tenant_role
         else:
             refresh['tenant_id'] = None
             refresh['tenant_subdomain'] = None
@@ -101,8 +114,8 @@ class JWTAuthService:
         refresh['email'] = user.email
         refresh['first_name'] = user.first_name
         refresh['last_name'] = user.last_name
-        refresh['is_teacher'] = user.is_teacher
-        refresh['is_approved_teacher'] = user.is_approved_teacher
+        refresh['is_teacher'] = is_teacher
+        refresh['is_approved_teacher'] = is_approved_teacher
         refresh['is_staff'] = user.is_staff
         refresh['is_superuser'] = user.is_superuser
         
@@ -112,13 +125,13 @@ class JWTAuthService:
             access_token['tenant_id'] = str(tenant.id)
             access_token['tenant_subdomain'] = tenant.subdomain
             access_token['tenant_name'] = tenant.name
-            access_token['tenant_role'] = refresh['tenant_role']
+            access_token['tenant_role'] = tenant_role
         
         access_token['email'] = user.email
         access_token['first_name'] = user.first_name
         access_token['last_name'] = user.last_name
-        access_token['is_teacher'] = user.is_teacher
-        access_token['is_approved_teacher'] = user.is_approved_teacher
+        access_token['is_teacher'] = is_teacher
+        access_token['is_approved_teacher'] = is_approved_teacher
         access_token['is_staff'] = user.is_staff
         access_token['is_superuser'] = user.is_superuser
         
@@ -130,8 +143,8 @@ class JWTAuthService:
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'is_teacher': user.is_teacher,
-                'is_approved_teacher': user.is_approved_teacher,
+                'is_teacher': is_teacher,
+                'is_approved_teacher': is_approved_teacher,
                 'is_staff': user.is_staff,
                 'is_superuser': user.is_superuser,
             },
@@ -139,7 +152,7 @@ class JWTAuthService:
                 'id': str(tenant.id) if tenant else None,
                 'name': tenant.name if tenant else None,
                 'subdomain': tenant.subdomain if tenant else None,
-                'role': refresh['tenant_role'] if tenant else None,
+                'role': tenant_role if tenant else None,
             } if tenant else None
         }
     

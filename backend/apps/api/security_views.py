@@ -193,33 +193,77 @@ class GlobalFinancialView(APIView):
         # Revenue by organization
         revenue_by_org = []
         for org in Organization.objects.filter(is_active=True):
-            org_revenue = completed_payments.filter(course__tenant=org).aggregate(
+            org_revenue = completed_payments.filter(tenant=org).aggregate(
                 total=models.Sum('amount')
             )['total'] or 0
             
-            if org_revenue > 0:
-                revenue_by_org.append({
-                    'organization_id': org.id,
-                    'organization_name': org.name,
-                    'revenue': float(org_revenue)
-                })
+            # Get additional org stats
+            org_payments_count = completed_payments.filter(tenant=org).count()
+            org_current_month = completed_payments.filter(
+                tenant=org,
+                created_at__gte=current_month_start
+            ).aggregate(total=models.Sum('amount'))['total'] or 0
+            
+            org_last_month = completed_payments.filter(
+                tenant=org,
+                created_at__gte=last_month_start,
+                created_at__lt=current_month_start
+            ).aggregate(total=models.Sum('amount'))['total'] or 0
+            
+            org_growth = 0
+            if org_last_month > 0:
+                org_growth = ((org_current_month - org_last_month) / org_last_month) * 100
+            
+            revenue_by_org.append({
+                'organization_id': str(org.id),
+                'organization_name': org.name,
+                'subdomain': org.subdomain,
+                'total_revenue': float(org_revenue),
+                'monthly_growth': round(org_growth, 2),
+                'transactions': org_payments_count,
+                'commission_earned': float(float(org_revenue) * 0.05),  # 5% commission
+                'pending_payout': float(float(org_revenue) * 0.95),  # 95% to organization
+                'status': 'active' if org.is_active else 'inactive'
+            })
         
         # Sort by revenue
-        revenue_by_org.sort(key=lambda x: x['revenue'], reverse=True)
+        revenue_by_org.sort(key=lambda x: x['total_revenue'], reverse=True)
         
         # Growth calculation
         growth_rate = 0
         if last_month_revenue > 0:
             growth_rate = ((current_month_revenue - last_month_revenue) / last_month_revenue) * 100
         
+        # Revenue trend (last 6 months)
+        revenue_trend = []
+        for i in range(6):
+            month_start = now - timedelta(days=30 * (i + 1))
+            month_end = now - timedelta(days=30 * i)
+            month_revenue = completed_payments.filter(
+                created_at__gte=month_start,
+                created_at__lt=month_end
+            ).aggregate(total=models.Sum('amount'))['total'] or 0
+            
+            revenue_trend.append({
+                'month': month_start.strftime('%b %Y'),
+                'revenue': float(month_revenue),
+                'transactions': completed_payments.filter(
+                    created_at__gte=month_start,
+                    created_at__lt=month_end
+                ).count()
+            })
+        
         financial_data = {
             'total_revenue': float(total_revenue),
             'current_month_revenue': float(current_month_revenue),
             'last_month_revenue': float(last_month_revenue),
             'growth_rate': round(growth_rate, 2),
-            'revenue_by_organization': revenue_by_org[:10],  # Top 10
+            'revenue_by_organization': revenue_by_org,
+            'revenue_trend': list(reversed(revenue_trend)),
             'total_transactions': completed_payments.count(),
             'average_transaction': float(total_revenue / max(completed_payments.count(), 1)),
+            'total_commission': float(float(total_revenue) * 0.05),
+            'total_payouts': float(float(total_revenue) * 0.95),
             'generated_at': now.isoformat()
         }
         

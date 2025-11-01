@@ -556,15 +556,30 @@ const handleRetry = async () => {
 }
 
 // Utility functions
-const formatCategory = (category: string) => {
-  return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
+const formatCategory = (category: any) => {
+  if (!category) return 'General'
+  
+  // If category is an object with a name property
+  if (typeof category === 'object' && category.name) {
+    return category.name.charAt(0).toUpperCase() + category.name.slice(1).replace('_', ' ')
+  }
+  
+  // If category is a string
+  if (typeof category === 'string') {
+    return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
+  }
+  
+  // Fallback
+  return 'General'
 }
 
-const formatDifficulty = (difficulty: string) => {
+const formatDifficulty = (difficulty: any) => {
+  if (!difficulty || typeof difficulty !== 'string') return 'Beginner'
   return difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
 }
 
-const formatStatus = (status: string) => {
+const formatStatus = (status: any) => {
+  if (!status || typeof status !== 'string') return 'Unknown'
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 

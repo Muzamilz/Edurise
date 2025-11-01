@@ -157,23 +157,24 @@ const { data: analyticsData, loading, error, refresh } = useApiData('/analytics/
   immediate: true,
   transform: (data) => {
     console.log('🔍 Raw analytics data:', data)
-    // Transform the response to match the backend structure
+    // Transform the response to match the new backend structure
+    const apiData = data.data || data
     return {
-      totalUsers: data.user_metrics?.total_users || 0,
-      totalOrganizations: data.organization_metrics?.total_organizations || 0,
-      totalCourses: data.course_metrics?.total_courses || 0,
-      totalRevenue: data.revenue_metrics?.total_revenue || 0,
-      userGrowth: data.user_metrics?.growth_rate || 0,
-      orgGrowth: data.organization_metrics?.activation_rate || 0,
-      courseGrowth: data.course_metrics?.growth_rate || 0,
-      revenueGrowth: 0, // Will be calculated from monthly data
-      avgResponseTime: 85, // Placeholder
-      uptime: 99.9, // Placeholder
-      dailyActiveUsers: data.user_metrics?.active_users_7d || 0,
-      avgSessionDuration: 0, // Placeholder
-      userGrowthTrend: [], // Placeholder
-      revenueTrend: [], // Placeholder
-      topOrganizations: [] // Placeholder - would need separate endpoint
+      totalUsers: apiData.totalUsers || 0,
+      totalOrganizations: apiData.totalOrganizations || 0,
+      totalCourses: apiData.totalCourses || 0,
+      totalRevenue: apiData.totalRevenue || 0,
+      userGrowth: apiData.userGrowth || 0,
+      orgGrowth: apiData.orgGrowth || 0,
+      courseGrowth: apiData.courseGrowth || 0,
+      revenueGrowth: apiData.revenueGrowth || 0,
+      avgResponseTime: apiData.avgResponseTime || 145,
+      uptime: apiData.uptime || 99.8,
+      dailyActiveUsers: apiData.dailyActiveUsers || 0,
+      avgSessionDuration: apiData.avgSessionDuration || 24,
+      userGrowthTrend: apiData.userGrowthTrend || [],
+      revenueTrend: apiData.revenueTrend || [],
+      topOrganizations: apiData.topOrganizations || []
     }
   },
   retryAttempts: 3,

@@ -126,23 +126,27 @@ class PlatformAnalyticsView(APIView):
         
         # Top organizations
         top_organizations = Organization.objects.annotate(
-            user_count=Count('profiles__user', distinct=True),
-            course_count=Count('tenant_courses', distinct=True),
-            revenue=Sum('tenant_courses__payments__amount', 
-                       filter=Q(tenant_courses__payments__status='completed'))
-        ).order_by('-revenue')[:5]
+            user_count=Count('user_profiles__user', distinct=True),
+            course_count=Count('course_set', distinct=True)
+        ).order_by('-user_count')[:5]
         
         top_orgs_data = []
         for org in top_organizations:
             # Calculate growth for this org
-            org_recent_users = org.profiles.filter(
+            org_recent_users = org.user_profiles.filter(
                 user__date_joined__gte=last_30_days
             ).count()
-            org_previous_users = org.profiles.filter(
+            org_previous_users = org.user_profiles.filter(
                 user__date_joined__gte=previous_30_days,
                 user__date_joined__lt=last_30_days
             ).count()
             org_user_growth = ((org_recent_users - org_previous_users) / max(org_previous_users, 1)) * 100
+            
+            # Calculate revenue for this org
+            org_revenue = Payment.objects.filter(
+                tenant=org,
+                status='completed'
+            ).aggregate(total=Sum('amount'))['total'] or 0
             
             top_orgs_data.append({
                 'id': org.id,
@@ -150,7 +154,7 @@ class PlatformAnalyticsView(APIView):
                 'subdomain': org.subdomain,
                 'userCount': org.user_count,
                 'courseCount': org.course_count,
-                'revenue': float(org.revenue or 0),
+                'revenue': float(org_revenue),
                 'growth': round(org_user_growth, 1)
             })
         

@@ -15,7 +15,7 @@ export const useTenant = () => {
     name: currentTenant.value?.name || 'Edurise'
   }))
 
-  const subscriptionPlan = computed(() => currentTenant.value?.subscription_plan || 'basic')
+  const subscriptionPlan = computed(() => currentTenant.value?.subscription?.plan_name || 'basic')
 
   // Methods
   const detectTenantFromSubdomain = (): string | null => {
@@ -97,7 +97,7 @@ export const useTenant = () => {
   const isFeatureEnabled = (feature: string): boolean => {
     if (!currentTenant.value) return true // Public marketplace has all features
     
-    const plan = currentTenant.value.subscription_plan
+    const plan = currentTenant.value.subscription?.plan_name || 'basic'
     
     // Define feature availability by plan
     const featureMatrix: Record<string, string[]> = {

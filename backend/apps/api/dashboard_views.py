@@ -192,9 +192,16 @@ class TeacherDashboardView(APIView):
         user = request.user
         tenant = getattr(request, 'tenant', None)
         
-        if not user.is_teacher:
+        # Check if user is a teacher in the current tenant
+        try:
+            profile = UserProfile.objects.get(user=user, tenant=tenant)
+            if profile.role != 'teacher':
+                return StandardAPIResponse.permission_denied(
+                    message="Only teachers can access this dashboard"
+                )
+        except UserProfile.DoesNotExist:
             return StandardAPIResponse.permission_denied(
-                message="Only teachers can access this dashboard"
+                message="User profile not found for this tenant"
             )
         
         # Get teacher's courses with optimized queries
@@ -357,10 +364,18 @@ class AdminDashboardView(APIView):
         user_stats = users.aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
-            new_users_this_month=Count('id', filter=Q(date_joined__gte=thirty_days_ago)),
-            total_teachers=Count('id', filter=Q(is_teacher=True)),
-            approved_teachers=Count('id', filter=Q(is_teacher=True, is_approved_teacher=True))
+            new_users_this_month=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
         )
+        
+        # Teacher statistics from UserProfile for this tenant
+        teacher_profiles = UserProfile.objects.filter(tenant=tenant)
+        teacher_stats = teacher_profiles.aggregate(
+            total_teachers=Count('id', filter=Q(role='teacher')),
+            approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
+        )
+        
+        # Merge teacher stats into user stats
+        user_stats.update(teacher_stats)
         
         # Course statistics with single query
         courses = Course.objects.filter(tenant=tenant)
@@ -446,7 +461,7 @@ class AdminDashboardView(APIView):
         dashboard_data = {
             'organization_info': {
                 'name': tenant.name if tenant else 'System',
-                'subscription_plan': tenant.subscription_plan if tenant else 'enterprise',
+                'subscription_plan': (tenant.subscription.plan.name if tenant and hasattr(tenant, 'subscription') and tenant.subscription else 'enterprise'),
                 'logo': tenant.logo.url if tenant and tenant.logo else None
             },
             'user_stats': {
@@ -559,10 +574,17 @@ class SuperAdminDashboardView(APIView):
         user_stats = User.objects.aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
-            total_teachers=Count('id', filter=Q(is_teacher=True)),
-            approved_teachers=Count('id', filter=Q(is_teacher=True, is_approved_teacher=True)),
             new_users=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
         )
+        
+        # Teacher statistics from UserProfile
+        teacher_stats = UserProfile.objects.aggregate(
+            total_teachers=Count('id', filter=Q(role='teacher')),
+            approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
+        )
+        
+        # Merge teacher stats into user stats
+        user_stats.update(teacher_stats)
         
         # Course statistics across all tenants
         course_stats = Course.objects.aggregate(
@@ -597,11 +619,19 @@ class SuperAdminDashboardView(APIView):
                 total=Sum('amount')
             )['total'] or 0
             
+            # Get subscription plan name
+            subscription_plan_name = 'No Plan'
+            try:
+                if hasattr(org, 'subscription') and org.subscription:
+                    subscription_plan_name = org.subscription.plan.name
+            except:
+                subscription_plan_name = 'No Plan'
+            
             org_performance.append({
                 'id': org.id,
                 'name': org.name,
                 'subdomain': org.subdomain,
-                'subscription_plan': org.subscription_plan,
+                'subscription_plan': subscription_plan_name,
                 'total_users': org_users,
                 'total_courses': org_courses,
                 'total_enrollments': org_enrollments,
@@ -666,9 +696,9 @@ class SuperAdminDashboardView(APIView):
             'organization_performance': sorted(org_performance, key=lambda x: x['total_revenue'], reverse=True),
             'growth_trend': growth_trend,
             'subscription_breakdown': {
-                'basic': Organization.objects.filter(subscription_plan='basic').count(),
-                'pro': Organization.objects.filter(subscription_plan='pro').count(),
-                'enterprise': Organization.objects.filter(subscription_plan='enterprise').count()
+                'basic': Organization.objects.filter(subscription__plan__name='basic').count(),
+                'pro': Organization.objects.filter(subscription__plan__name='pro').count(),
+                'enterprise': Organization.objects.filter(subscription__plan__name='enterprise').count()
             }
         }
         

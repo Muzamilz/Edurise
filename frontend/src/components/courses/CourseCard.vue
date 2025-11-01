@@ -139,7 +139,8 @@ withDefaults(defineProps<Props>(), {
 
 defineEmits<Emits>()
 
-const formatCategory = (category: string) => {
+const formatCategory = (category: string | null | undefined) => {
+  if (!category || typeof category !== 'string') return 'General'
   return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
 }
 

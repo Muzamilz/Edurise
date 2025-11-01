@@ -114,7 +114,12 @@ class FileAccessControlService:
                 return result
             
             # Check subscription plan restrictions
-            subscription_plan = user_org.subscription_plan
+            subscription_plan = 'basic'
+            try:
+                if hasattr(user_org, 'subscription') and user_org.subscription:
+                    subscription_plan = user_org.subscription.plan.name
+            except:
+                subscription_plan = 'basic'
             
             # Define file access restrictions by subscription plan
             plan_restrictions = {
@@ -458,7 +463,15 @@ class FileAccessControlService:
         
         # Check subscription plan sharing limits
         user_org = getattr(user, 'tenant', None)
-        if user_org and user_org.subscription_plan == 'basic':
+        subscription_plan = 'basic'
+        if user_org:
+            try:
+                if hasattr(user_org, 'subscription') and user_org.subscription:
+                    subscription_plan = user_org.subscription.plan.name
+            except:
+                subscription_plan = 'basic'
+        
+        if user_org and subscription_plan == 'basic':
             result['reason'] = 'File sharing requires Pro or Enterprise plan'
             result['upgrade_url'] = self.get_subscription_upgrade_url(user)
             return result

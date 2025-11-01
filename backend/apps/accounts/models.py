@@ -32,8 +32,6 @@ class User(AbstractUser):
     """Custom user model with email as username field"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    is_teacher = models.BooleanField(default=False)
-    is_approved_teacher = models.BooleanField(default=False)
     
     objects = UserManager()
     
@@ -53,16 +51,7 @@ class Organization(models.Model):
     primary_color = models.CharField(max_length=7, default='#3B82F6')  # Hex color
     secondary_color = models.CharField(max_length=7, default='#1E40AF')
     
-    SUBSCRIPTION_CHOICES = [
-        ('basic', 'Basic'),
-        ('pro', 'Pro'),
-        ('enterprise', 'Enterprise'),
-    ]
-    subscription_plan = models.CharField(
-        max_length=20,
-        choices=SUBSCRIPTION_CHOICES,
-        default='basic'
-    )
+    # Subscription relationship moved to Subscription model
     
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -96,6 +85,27 @@ class UserProfile(models.Model):
         ('admin', 'Admin'),
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    
+    # Teacher-specific fields (per tenant)
+    is_approved_teacher = models.BooleanField(default=False)
+    teacher_approval_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_applied', 'Not Applied'),
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+        ],
+        default='not_applied'
+    )
+    teacher_approved_at = models.DateTimeField(null=True, blank=True)
+    teacher_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_teachers'
+    )
     
     # Notification preferences
     notification_preferences = models.JSONField(default=dict, blank=True)
@@ -151,16 +161,25 @@ class TeacherApproval(models.Model):
     def __str__(self):
         return f"{self.user.email} - {self.status}"
     
-    def approve(self, reviewer):
+    def approve(self, reviewer, tenant=None):
         """Approve teacher application"""
         self.status = 'approved'
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
         self.save()
         
-        # Update user teacher status
-        self.user.is_approved_teacher = True
-        self.user.save()
+        # Update user profile teacher status for specific tenant
+        if tenant:
+            profile, created = UserProfile.objects.get_or_create(
+                user=self.user,
+                tenant=tenant,
+                defaults={'role': 'teacher'}
+            )
+            profile.is_approved_teacher = True
+            profile.teacher_approval_status = 'approved'
+            profile.teacher_approved_at = timezone.now()
+            profile.teacher_approved_by = reviewer
+            profile.save()
     
     def reject(self, reviewer, notes=""):
         """Reject teacher application"""

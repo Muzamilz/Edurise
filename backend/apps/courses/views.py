@@ -5,16 +5,85 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Count, Avg, Q
 from django.utils import timezone
-from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment, Wishlist, RecommendationInteraction
+from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment, Wishlist, RecommendationInteraction, CourseCategory
+from apps.accounts.models import Organization
 from .serializers import (
     CourseSerializer, CourseDetailSerializer, LiveClassSerializer,
     CourseModuleSerializer, CourseReviewSerializer, CourseLicenseSerializer,
-    EnrollmentSerializer, WishlistSerializer
+    EnrollmentSerializer, WishlistSerializer, CourseCategorySerializer
 )
 from .filters import CourseFilter, LiveClassFilter, EnrollmentFilter
 from .services import CourseService, EnrollmentService
 from apps.api.responses import StandardAPIResponse
 from apps.api.mixins import StandardViewSetMixin
+
+
+class CourseCategoryViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
+    """ViewSet for CourseCategory model with hierarchy support"""
+    
+    serializer_class = CourseCategorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['sort_order', 'name', 'created_at']
+    ordering = ['sort_order', 'name']
+    
+    def get_queryset(self):
+        """Get categories for current tenant or global categories"""
+        # Get global categories and tenant-specific categories
+        queryset = CourseCategory.objects.filter(
+            Q(tenant=None) | Q(tenant=getattr(self.request, 'tenant', None))
+        ).select_related('parent').prefetch_related('subcategories')
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def root_categories(self, request):
+        """Get only root categories (no parent)"""
+        categories = self.get_queryset().filter(
+            parent=None,
+            is_active=True
+        ).order_by('sort_order', 'name')
+        
+        serializer = self.get_serializer(categories, many=True)
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message="Root categories retrieved successfully"
+        )
+    
+    @action(detail=True, methods=['get'])
+    def subcategories(self, request, pk=None):
+        """Get subcategories for a specific category"""
+        category = self.get_object()
+        subcategories = category.subcategories.filter(is_active=True).order_by('sort_order', 'name')
+        
+        serializer = self.get_serializer(subcategories, many=True)
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message=f"Subcategories for {category.name} retrieved successfully"
+        )
+    
+    @action(detail=False, methods=['get'])
+    def hierarchy(self, request):
+        """Get complete category hierarchy"""
+        root_categories = self.get_queryset().filter(
+            parent=None,
+            is_active=True
+        ).order_by('sort_order', 'name')
+        
+        serializer = self.get_serializer(root_categories, many=True)
+        return StandardAPIResponse.success(
+            data=serializer.data,
+            message="Category hierarchy retrieved successfully"
+        )
+    
+    def perform_create(self, serializer):
+        """Set tenant when creating category"""
+        # Only allow tenant-specific categories for non-superusers
+        if not self.request.user.is_superuser:
+            serializer.save(tenant=getattr(self.request, 'tenant', None))
+        else:
+            serializer.save()
 
 
 class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
@@ -138,30 +207,46 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def categories(self, request):
         """Get course categories with counts"""
-        # For public marketplace, show categories from all tenants
-        # Only filter by tenant if user is not accessing public marketplace
-        queryset = Course.objects.filter(is_public=True)
-        
-        # If user is authenticated and has a tenant, they might want tenant-specific data
-        if hasattr(request, 'tenant') and request.tenant and request.user.is_authenticated:
-            # For authenticated users, show their tenant's categories plus public ones
-            queryset = Course.objects.filter(
-                Q(tenant=request.tenant) | Q(is_public=True)
+        try:
+            # For public marketplace, show categories from all tenants
+            # Only filter by tenant if user is not accessing public marketplace
+            queryset = Course.objects.filter(is_public=True)
+            
+            # If user is authenticated and has a tenant, they might want tenant-specific data
+            if hasattr(request, 'tenant') and request.tenant and request.user.is_authenticated:
+                # For authenticated users, show their tenant's categories plus public ones
+                queryset = Course.objects.filter(
+                    Q(tenant=request.tenant) | Q(is_public=True)
+                )
+            
+            categories = queryset.exclude(
+                category__isnull=True
+            ).exclude(
+                category__exact=''
+            ).values('category').annotate(
+                count=Count('id'),
+                avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
+            ).order_by('category')
+            
+            # Convert to list and handle any potential issues
+            categories_list = []
+            for cat in categories:
+                categories_list.append({
+                    'category': cat['category'] or 'General',
+                    'count': cat['count'] or 0,
+                    'avg_rating': round(cat['avg_rating'] or 0, 2)
+                })
+            
+            return StandardAPIResponse.success(
+                data=categories_list,
+                message='Course categories retrieved successfully'
             )
-        
-        categories = queryset.exclude(
-            category__isnull=True
-        ).exclude(
-            category__exact=''
-        ).values('category').annotate(
-            count=Count('id'),
-            avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
-        ).order_by('category')
-        
-        return StandardAPIResponse.success(
-            data=list(categories),
-            message='Course categories retrieved successfully'
-        )
+        except Exception as e:
+            # Return empty categories if there's an error
+            return StandardAPIResponse.success(
+                data=[],
+                message=f'Course categories retrieved with warning: {str(e)}'
+            )
     
     @action(detail=False, methods=['get'])
     def featured(self, request):
@@ -461,16 +546,31 @@ class CourseViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         
         User = get_user_model()
         
-        # Platform-wide statistics (no tenant filtering for public stats)
-        total_courses = Course.objects.count()
-        total_instructors = User.objects.filter(is_teacher=True, is_approved_teacher=True).count()
-        total_students = Enrollment.objects.values('student').distinct().count()
-        
-        return Response({
-            'total_courses': total_courses,
-            'total_instructors': total_instructors,
-            'total_students': total_students
-        })
+        try:
+            # Platform-wide statistics (no tenant filtering for public stats)
+            total_courses = Course.objects.count()
+            
+            # Check if is_approved_teacher field exists, otherwise use is_teacher
+            try:
+                total_instructors = User.objects.filter(is_teacher=True, is_approved_teacher=True).count()
+            except:
+                total_instructors = User.objects.filter(is_teacher=True).count()
+            
+            total_students = Enrollment.objects.values('student').distinct().count()
+            
+            return StandardAPIResponse.success(
+                data={
+                    'total_courses': total_courses,
+                    'total_instructors': total_instructors,
+                    'total_students': total_students
+                },
+                message='Platform statistics retrieved successfully'
+            )
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message=f'Failed to retrieve statistics: {str(e)}',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=False, methods=['get'])
     def dashboard_stats(self, request):
@@ -2374,3 +2474,324 @@ class RecommendationViewSet(StandardViewSetMixin, viewsets.ViewSet):
             'skill_level': skill_level,
             'is_new_user': enrollments.count() == 0
         }
+
+
+class OrganizationViewSet(StandardViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    """ViewSet for Organization model - read-only for course marketplace"""
+    
+    permission_classes = [permissions.AllowAny]  # Public access for marketplace
+    
+    def get_queryset(self):
+        """Get active organizations"""
+        return Organization.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        """Use a simple serializer for organizations"""
+        from rest_framework import serializers
+        
+        class OrganizationSerializer(serializers.ModelSerializer):
+            course_count = serializers.SerializerMethodField()
+            total_students = serializers.SerializerMethodField()
+            avg_rating = serializers.SerializerMethodField()
+            
+            class Meta:
+                model = Organization
+                fields = [
+                    'id', 'name', 'subdomain', 'logo', 'primary_color', 
+                    'secondary_color', 'is_active', 'created_at', 'updated_at',
+                    'course_count', 'total_students', 'avg_rating'
+                ]
+            
+            def get_course_count(self, obj):
+                """Get number of public courses for this organization"""
+                return Course.objects.filter(tenant=obj, is_public=True).count()
+            
+            def get_total_students(self, obj):
+                """Get total number of students enrolled in organization courses"""
+                return Enrollment.objects.filter(
+                    course__tenant=obj,
+                    course__is_public=True
+                ).values('student').distinct().count()
+            
+            def get_avg_rating(self, obj):
+                """Get average rating for organization courses"""
+                from django.db.models import Avg
+                avg_rating = Course.objects.filter(
+                    tenant=obj,
+                    is_public=True
+                ).aggregate(
+                    avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
+                )['avg_rating']
+                return round(avg_rating or 0, 2)
+        
+        return OrganizationSerializer
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get detailed statistics for an organization"""
+        organization = self.get_object()
+        
+        try:
+            # Course statistics
+            courses = Course.objects.filter(tenant=organization, is_public=True)
+            course_stats = courses.aggregate(
+                total_courses=Count('id'),
+                avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+                total_enrollments=Count('enrollments')
+            )
+            
+            # Student statistics
+            student_stats = Enrollment.objects.filter(
+                course__tenant=organization,
+                course__is_public=True
+            ).aggregate(
+                total_students=Count('student', distinct=True),
+                completed_enrollments=Count('id', filter=Q(status='completed')),
+                active_enrollments=Count('id', filter=Q(status='active'))
+            )
+            
+            # Revenue calculation (simplified)
+            total_revenue = sum(
+                float(course.price or 0) * course.enrollments.count()
+                for course in courses.prefetch_related('enrollments')
+            )
+            
+            stats_data = {
+                'organization_info': {
+                    'id': organization.id,
+                    'name': organization.name,
+                    'subdomain': organization.subdomain,
+                    'logo': organization.logo,
+                    'created_at': organization.created_at
+                },
+                'course_statistics': course_stats,
+                'student_statistics': student_stats,
+                'financial_statistics': {
+                    'total_revenue': total_revenue,
+                    'average_course_price': courses.aggregate(
+                        avg_price=Avg('price')
+                    )['avg_price'] or 0
+                },
+                'performance_metrics': {
+                    'completion_rate': (
+                        student_stats['completed_enrollments'] / 
+                        max(student_stats['total_students'], 1)
+                    ) * 100 if student_stats['total_students'] > 0 else 0,
+                    'avg_rating': round(course_stats['avg_rating'] or 0, 2),
+                    'courses_per_student': (
+                        course_stats['total_enrollments'] / 
+                        max(student_stats['total_students'], 1)
+                    ) if student_stats['total_students'] > 0 else 0
+                }
+            }
+            
+            return StandardAPIResponse.success(
+                data=stats_data,
+                message=f'Statistics for {organization.name} retrieved successfully'
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message='Failed to retrieve organization statistics',
+                errors={'detail': str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'])
+    def subscription_info(self, request, pk=None):
+        """Get subscription information for an organization (super admin only)"""
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message='Only super administrators can access subscription information'
+            )
+        
+        organization = self.get_object()
+        
+        try:
+            # Get subscription information
+            subscription = getattr(organization, 'subscription', None)
+            
+            # Get available subscription plans
+            from apps.accounts.models import SubscriptionPlan
+            available_plans = SubscriptionPlan.objects.filter(is_active=True).order_by('sort_order')
+            
+            subscription_data = {
+                'has_subscription': subscription is not None,
+                'organization_id': organization.id,
+                'organization_name': organization.name,
+                'available_plans': [
+                    {
+                        'id': plan.id,
+                        'name': plan.name,
+                        'display_name': plan.display_name,
+                        'description': plan.description,
+                        'price_monthly': float(plan.price_monthly),
+                        'price_yearly': float(plan.price_yearly),
+                        'max_users': plan.max_users,
+                        'max_courses': plan.max_courses,
+                        'max_storage_gb': plan.max_storage_gb,
+                        'features': plan.features,
+                        'is_popular': plan.is_popular
+                    }
+                    for plan in available_plans
+                ]
+            }
+            
+            if subscription:
+                subscription_data.update({
+                    'subscription_id': subscription.id,
+                    'current_plan': {
+                        'id': subscription.plan.id,
+                        'name': subscription.plan.name,
+                        'display_name': subscription.plan.display_name,
+                        'price_monthly': float(subscription.plan.price_monthly),
+                        'price_yearly': float(subscription.plan.price_yearly)
+                    },
+                    'billing_cycle': subscription.billing_cycle,
+                    'status': subscription.status,
+                    'current_period_start': subscription.current_period_start,
+                    'current_period_end': subscription.current_period_end,
+                    'amount': float(subscription.amount),
+                    'currency': subscription.currency
+                })
+            
+            return StandardAPIResponse.success(
+                data=subscription_data,
+                message='Subscription information retrieved successfully'
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message='Failed to retrieve subscription information',
+                errors={'detail': str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def marketplace_summary(self, request):
+        """Get summary of all organizations for marketplace"""
+        try:
+            organizations = self.get_queryset()
+            
+            summary_data = []
+            for org in organizations:
+                # Get basic stats for each organization
+                course_count = Course.objects.filter(tenant=org, is_public=True).count()
+                
+                if course_count > 0:  # Only include orgs with courses
+                    student_count = Enrollment.objects.filter(
+                        course__tenant=org,
+                        course__is_public=True
+                    ).values('student').distinct().count()
+                    
+                    avg_rating = Course.objects.filter(
+                        tenant=org,
+                        is_public=True
+                    ).aggregate(
+                        avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True))
+                    )['avg_rating']
+                    
+                    summary_data.append({
+                        'id': org.id,
+                        'name': org.name,
+                        'subdomain': org.subdomain,
+                        'logo': org.logo,
+                        'description': getattr(org, 'description', f'Specialized courses and training from {org.name}'),
+                        'course_count': course_count,
+                        'total_students': student_count,
+                        'avg_rating': round(avg_rating or 0, 2),
+                        'primary_color': org.primary_color,
+                        'secondary_color': org.secondary_color
+                    })
+            
+            # Sort by course count descending
+            summary_data.sort(key=lambda x: x['course_count'], reverse=True)
+            
+            return StandardAPIResponse.success(
+                data=summary_data,
+                message='Organization marketplace summary retrieved successfully'
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message='Failed to retrieve organization summary',
+                errors={'detail': str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )    
+
+    @action(detail=True, methods=['post'])
+    def change_subscription_plan(self, request, pk=None):
+        """Change subscription plan for an organization (super admin only)"""
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message='Only super administrators can change subscription plans'
+            )
+        
+        organization = self.get_object()
+        plan_id = request.data.get('plan_id')
+        billing_cycle = request.data.get('billing_cycle', 'monthly')
+        
+        if not plan_id:
+            return StandardAPIResponse.error(
+                message='Plan ID is required',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from apps.accounts.models import SubscriptionPlan, Subscription
+            
+            # Get the new plan
+            try:
+                new_plan = SubscriptionPlan.objects.get(id=plan_id, is_active=True)
+            except SubscriptionPlan.DoesNotExist:
+                return StandardAPIResponse.error(
+                    message='Invalid subscription plan',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get current subscription or create new one
+            subscription, created = Subscription.objects.get_or_create(
+                organization=organization,
+                defaults={
+                    'plan': new_plan,
+                    'billing_cycle': billing_cycle,
+                    'status': 'active',
+                    'amount': new_plan.price_monthly if billing_cycle == 'monthly' else new_plan.price_yearly,
+                    'currency': 'USD',
+                    'current_period_start': timezone.now(),
+                    'current_period_end': timezone.now() + timezone.timedelta(
+                        days=30 if billing_cycle == 'monthly' else 365
+                    )
+                }
+            )
+            
+            old_plan_name = None
+            if not created:
+                old_plan_name = subscription.plan.display_name
+                subscription.plan = new_plan
+                subscription.billing_cycle = billing_cycle
+                subscription.amount = new_plan.price_monthly if billing_cycle == 'monthly' else new_plan.price_yearly
+                subscription.status = 'active'
+                subscription.save()
+            
+            return StandardAPIResponse.success(
+                data={
+                    'organization_id': organization.id,
+                    'organization_name': organization.name,
+                    'old_plan': old_plan_name,
+                    'new_plan': new_plan.display_name,
+                    'billing_cycle': billing_cycle,
+                    'amount': float(subscription.amount),
+                    'status': subscription.status,
+                    'effective_date': subscription.current_period_start,
+                    'next_billing_date': subscription.current_period_end
+                },
+                message=f'Subscription plan {"updated" if not created else "created"} successfully'
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message='Failed to change subscription plan',
+                errors={'detail': str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

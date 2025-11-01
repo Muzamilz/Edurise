@@ -13,13 +13,12 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  is_teacher: boolean
-  is_approved_teacher: boolean
   is_staff: boolean
   is_superuser: boolean
   is_verified?: boolean
   date_joined: string
   last_login: string
+  current_profile?: UserProfile
   avatar?: string
   phone?: string
   organization?: Organization
@@ -45,6 +44,20 @@ export interface User {
   rating?: number
 }
 
+export interface UserProfile {
+  id: string
+  role: 'student' | 'teacher' | 'admin'
+  is_approved_teacher: boolean
+  teacher_approval_status: 'not_applied' | 'pending' | 'approved' | 'rejected'
+  is_online: boolean
+  last_seen?: string
+  avatar?: string
+  bio?: string
+  phone_number?: string
+  timezone: string
+  language: string
+}
+
 export interface Organization {
   id: string
   name: string
@@ -52,7 +65,14 @@ export interface Organization {
   logo?: string
   primary_color?: string
   secondary_color?: string
-  plan?: string
+  subscription?: {
+    id: string
+    plan_name: string
+    plan_display_name: string
+    status: string
+    billing_cycle: string
+    is_active: boolean
+  }
 }
 
 export interface Tenant {

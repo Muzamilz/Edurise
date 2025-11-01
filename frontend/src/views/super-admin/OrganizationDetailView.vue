@@ -39,8 +39,8 @@
           </div>
           <div class="info-item">
             <label>Subscription Plan</label>
-            <span class="plan-badge" :class="organization.subscription_plan">
-              {{ formatPlan(organization.subscription_plan) }}
+            <span class="plan-badge" :class="organization.subscription?.plan_name || 'basic'">
+              {{ formatPlan(organization.subscription?.plan_name || 'basic') }}
             </span>
           </div>
           <div class="info-item">
@@ -58,28 +58,68 @@
             <div class="stat-icon">👥</div>
             <div class="stat-content">
               <h3>Total Users</h3>
-              <p class="stat-number">{{ stats.total_users || 0 }}</p>
+              <p class="stat-number">{{ stats.user_stats?.total_users || 0 }}</p>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">📚</div>
             <div class="stat-content">
               <h3>Total Courses</h3>
-              <p class="stat-number">{{ stats.total_courses || 0 }}</p>
+              <p class="stat-number">{{ stats.course_stats?.total_courses || 0 }}</p>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">🎓</div>
             <div class="stat-content">
               <h3>Total Enrollments</h3>
-              <p class="stat-number">{{ stats.total_enrollments || 0 }}</p>
+              <p class="stat-number">{{ stats.enrollment_stats?.total_enrollments || 0 }}</p>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">💰</div>
             <div class="stat-content">
               <h3>Total Revenue</h3>
-              <p class="stat-number">${{ stats.total_revenue || 0 }}</p>
+              <p class="stat-number">${{ stats.revenue_stats?.total_revenue || 0 }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subscription Management -->
+      <div class="subscription-section">
+        <h2>Subscription Management</h2>
+        <div class="subscription-info">
+          <div class="subscription-card">
+            <div class="subscription-header">
+              <div class="plan-info">
+                <h3>Current Plan</h3>
+                <span class="plan-badge" :class="organization.subscription?.plan_name || 'basic'">
+                  {{ formatPlan(organization.subscription?.plan_name || 'basic') }}
+                </span>
+              </div>
+              <button @click="openSubscriptionModal" class="manage-btn">
+                <span class="btn-icon">⚙️</span>
+                Manage Plan
+              </button>
+            </div>
+            <div v-if="organization.subscription" class="subscription-details">
+              <div class="detail-item">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value" :class="organization.subscription.status">
+                  {{ formatStatus(organization.subscription.status) }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Billing:</span>
+                <span class="detail-value">{{ formatBillingCycle(organization.subscription.billing_cycle) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Next Billing:</span>
+                <span class="detail-value">{{ formatDate(organization.subscription.current_period_end) }}</span>
+              </div>
+            </div>
+            <div v-else class="no-subscription">
+              <p>No active subscription found. Click "Manage Plan" to assign a subscription plan.</p>
             </div>
           </div>
         </div>
@@ -105,6 +145,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Subscription Management Modal -->
+    <OrganizationSubscriptionModal
+      :is-open="showSubscriptionModal"
+      :organization-id="organizationId"
+      :organization-name="organization?.name || ''"
+      @close="closeSubscriptionModal"
+      @plan-changed="onPlanChanged"
+    />
   </div>
 </template>
 
@@ -115,6 +164,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { api } from '@/services/api'
+import OrganizationSubscriptionModal from '@/components/super-admin/OrganizationSubscriptionModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,6 +176,7 @@ const stats = ref({})
 const loading = ref(true)
 const error = ref(null)
 const actionLoading = ref(false)
+const showSubscriptionModal = ref(false)
 
 const loadOrganization = async () => {
   try {
@@ -133,11 +184,11 @@ const loadOrganization = async () => {
     error.value = null
     
     const response = await api.get(`/organizations/${organizationId}/`)
-    organization.value = response.data.data
+    organization.value = response.data.data || response.data
     
     // Load organization stats
     const statsResponse = await api.get(`/organizations/${organizationId}/stats/`)
-    stats.value = statsResponse.data.data
+    stats.value = statsResponse.data.data || statsResponse.data
     
   } catch (err) {
     error.value = err
@@ -173,8 +224,42 @@ const viewCourses = () => {
   router.push(`/super-admin/organizations/${organizationId}/courses`)
 }
 
+const openSubscriptionModal = () => {
+  showSubscriptionModal.value = true
+}
+
+const closeSubscriptionModal = () => {
+  showSubscriptionModal.value = false
+}
+
+const onPlanChanged = (result: any) => {
+  // Update the organization data with new plan info
+  if (organization.value) {
+    organization.value.subscription = {
+      plan_name: result.new_plan,
+      status: 'active',
+      billing_cycle: 'monthly',
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  }
+  
+  // Show success message
+  console.log('Subscription plan changed successfully:', result)
+  
+  // Reload organization data to get updated info
+  loadOrganization()
+}
+
 const formatPlan = (plan: string) => {
   return plan.charAt(0).toUpperCase() + plan.slice(1)
+}
+
+const formatStatus = (status: string) => {
+  return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')
+}
+
+const formatBillingCycle = (cycle: string) => {
+  return cycle === 'yearly' ? 'Billed Yearly' : 'Billed Monthly'
 }
 
 const formatDate = (date: string) => {
@@ -240,7 +325,7 @@ onMounted(() => {
   color: #dc2626;
 }
 
-.info-section, .stats-section, .actions-section {
+.info-section, .stats-section, .subscription-section, .actions-section {
   background: white;
   padding: 2rem;
   border-radius: 12px;
@@ -249,7 +334,7 @@ onMounted(() => {
   margin-bottom: 2rem;
 }
 
-.info-section h2, .stats-section h2, .actions-section h2 {
+.info-section h2, .stats-section h2, .subscription-section h2, .actions-section h2 {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
@@ -450,5 +535,101 @@ onMounted(() => {
 .retry-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+/* Subscription Section Styles */
+.subscription-card {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(124, 58, 237, 0.1));
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.subscription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-info h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.manage-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.manage-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+.subscription-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.detail-value.active {
+  color: #059669;
+}
+
+.detail-value.cancelled {
+  color: #dc2626;
+}
+
+.detail-value.past_due {
+  color: #f59e0b;
+}
+
+.no-subscription {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
 }
 </style>

@@ -387,7 +387,11 @@ const attendanceClass = ref<LiveClass | null>(null)
 const editingClass = ref<LiveClass | null>(null)
 
 // Computed properties
-const isTeacher = computed(() => user.value?.is_teacher || false)
+const isTeacher = computed(() => 
+  user.value?.current_profile?.role === 'teacher' || 
+  user.value?.current_profile?.role === 'admin' || 
+  user.value?.is_staff || false
+)
 
 const teacherCourses = computed(() => {
   if (!isTeacher.value) return []

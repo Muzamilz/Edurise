@@ -24,7 +24,7 @@ from apps.security.system_views import (
 # Import ViewSets from other apps
 from apps.accounts.views import UserViewSet, UserProfileViewSet, TeacherApprovalViewSet, OrganizationViewSet
 from apps.courses.views import (
-    CourseViewSet, LiveClassViewSet, CourseModuleViewSet, 
+    CourseCategoryViewSet, CourseViewSet, LiveClassViewSet, CourseModuleViewSet, 
     CourseReviewViewSet, EnrollmentViewSet
 )
 from apps.classes.views import ClassAttendanceViewSet, ClassRecordingViewSet
@@ -60,6 +60,7 @@ router.register(r'teacher-approvals', TeacherApprovalViewSet, basename='teachera
 router.register(r'organizations', OrganizationViewSet, basename='organization')
 
 # Courses app ViewSets
+router.register(r'course-categories', CourseCategoryViewSet, basename='coursecategory')
 router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'live-classes', LiveClassViewSet, basename='liveclass')
 router.register(r'course-modules', CourseModuleViewSet, basename='coursemodule')

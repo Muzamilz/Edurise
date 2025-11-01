@@ -148,8 +148,14 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'courses',
-        component: () => import('../views/courses/CoursesView.vue'),
+        component: () => import('../views/courses/EnhancedCoursesView.vue'),
         meta: { title: 'Courses - Edurise' }
+      },
+      {
+        path: 'classic',
+        name: 'courses-classic',
+        component: () => import('../views/courses/CoursesView.vue'),
+        meta: { title: 'Courses (Classic) - Edurise' }
       },
       {
         path: ':id',
@@ -378,6 +384,18 @@ const routes: RouteRecordRaw[] = [
         name: 'admin-system',
         component: () => import('../views/admin/SystemView.vue'),
         meta: { title: 'System Settings - Edurise', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'categories',
+        name: 'admin-categories',
+        component: () => import('../views/admin/CategoryManagementView.vue'),
+        meta: { title: 'Category Management - Edurise', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'subscription-plans',
+        name: 'admin-subscription-plans',
+        component: () => import('../views/admin/SubscriptionPlanManagementView.vue'),
+        meta: { title: 'Subscription Plans - Edurise', requiresAuth: true, requiresAdmin: true }
       }
     ]
   },
@@ -398,6 +416,18 @@ const routes: RouteRecordRaw[] = [
         name: 'super-admin-organization-detail',
         component: () => import('../views/super-admin/OrganizationDetailView.vue'),
         meta: { title: 'Organization Details - Edurise', requiresAuth: true, requiresSuperAdmin: true }
+      },
+      {
+        path: 'organizations/:id/users',
+        name: 'super-admin-organization-users',
+        component: () => import('../views/super-admin/OrganizationUsersView.vue'),
+        meta: { title: 'Organization Users - Edurise', requiresAuth: true, requiresSuperAdmin: true }
+      },
+      {
+        path: 'organizations/:id/courses',
+        name: 'super-admin-organization-courses',
+        component: () => import('../views/super-admin/OrganizationCoursesView.vue'),
+        meta: { title: 'Organization Courses - Edurise', requiresAuth: true, requiresSuperAdmin: true }
       },
       {
         path: 'teachers/global',
@@ -446,6 +476,18 @@ const routes: RouteRecordRaw[] = [
         name: 'super-admin-system',
         component: () => import('../views/super-admin/SystemView.vue'),
         meta: { title: 'System Administration - Edurise', requiresAuth: true, requiresSuperAdmin: true }
+      },
+      {
+        path: 'categories',
+        name: 'super-admin-categories',
+        component: () => import('../views/super-admin/GlobalCategoryManagementView.vue'),
+        meta: { title: 'Global Category Management - Edurise', requiresAuth: true, requiresSuperAdmin: true }
+      },
+      {
+        path: 'subscription-plans',
+        name: 'super-admin-subscription-plans',
+        component: () => import('../views/super-admin/GlobalSubscriptionPlanManagementView.vue'),
+        meta: { title: 'Global Subscription Plans - Edurise', requiresAuth: true, requiresSuperAdmin: true }
       }
     ]
   },

@@ -171,8 +171,21 @@ const loading = ref(false)
 const error = ref<Error | null>(null)
 const showAllRecommendations = ref(false)
 
-const formatCategoryName = (category: string) => {
-  return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
+const formatCategoryName = (category: any) => {
+  if (!category) return 'General'
+  
+  // If category is an object with a name property
+  if (typeof category === 'object' && category.name) {
+    return category.name.charAt(0).toUpperCase() + category.name.slice(1).replace('_', ' ')
+  }
+  
+  // If category is a string
+  if (typeof category === 'string') {
+    return category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
+  }
+  
+  // Fallback
+  return 'General'
 }
 
 const formatPriceRange = (range: string) => {

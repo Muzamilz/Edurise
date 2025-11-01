@@ -12,7 +12,7 @@
         <div class="card-content">
           <h3>Total Platform Revenue</h3>
           <p class="amount">${{ formatCurrency(financialData?.total_revenue || 0) }}</p>
-          <span class="change positive">+{{ financialData?.revenue_growth || 0 }}% this month</span>
+          <span class="change positive">+{{ financialData?.growth_rate || 0 }}% this month</span>
         </div>
       </div>
       
@@ -21,7 +21,7 @@
         <div class="card-content">
           <h3>Total Transactions</h3>
           <p class="amount">{{ formatNumber(financialData?.total_transactions || 0) }}</p>
-          <span class="change positive">+{{ financialData?.transaction_growth || 0 }}% this month</span>
+          <span class="change positive">+{{ financialData?.growth_rate || 0 }}% this month</span>
         </div>
       </div>
       
@@ -29,8 +29,8 @@
         <div class="card-icon">📊</div>
         <div class="card-content">
           <h3>Platform Commission</h3>
-          <p class="amount">${{ formatCurrency(financialData?.platform_commission || 0) }}</p>
-          <span class="change">{{ financialData?.commission_rate || 10 }}% commission rate</span>
+          <p class="amount">${{ formatCurrency(financialData?.total_commission || 0) }}</p>
+          <span class="change">5% commission rate</span>
         </div>
       </div>
       
@@ -38,8 +38,8 @@
         <div class="card-icon">⏳</div>
         <div class="card-content">
           <h3>Pending Payouts</h3>
-          <p class="amount">${{ formatCurrency(financialData?.pending_payouts || 0) }}</p>
-          <span class="change">{{ financialData?.pending_count || 0 }} organizations</span>
+          <p class="amount">${{ formatCurrency(financialData?.total_payouts || 0) }}</p>
+          <span class="change">{{ financialData?.revenue_by_organization?.length || 0 }} organizations</span>
         </div>
       </div>
     </div>
@@ -112,19 +112,19 @@
                   <img :src="org.logo || '/default-org.jpg'" :alt="org.name" />
                 </div>
                 <div class="org-details">
-                  <h4>{{ org.name }}</h4>
-                  <p>{{ org.domain }}</p>
+                  <h4>{{ org.organization_name }}</h4>
+                  <p>{{ org.subdomain }}.edurise.com</p>
                 </div>
               </td>
               <td class="revenue">
                 <span class="amount">${{ formatCurrency(org.total_revenue || 0) }}</span>
               </td>
               <td class="growth">
-                <span :class="{ positive: org.growth_rate > 0, negative: org.growth_rate < 0 }">
-                  {{ org.growth_rate > 0 ? '+' : '' }}{{ org.growth_rate || 0 }}%
+                <span :class="{ positive: org.monthly_growth > 0, negative: org.monthly_growth < 0 }">
+                  {{ org.monthly_growth > 0 ? '+' : '' }}{{ org.monthly_growth || 0 }}%
                 </span>
               </td>
-              <td>{{ formatNumber(org.transaction_count || 0) }}</td>
+              <td>{{ formatNumber(org.transactions || 0) }}</td>
               <td class="commission">
                 <span class="amount">${{ formatCurrency(org.commission_earned || 0) }}</span>
               </td>
@@ -132,8 +132,8 @@
                 <span class="amount">${{ formatCurrency(org.pending_payout || 0) }}</span>
               </td>
               <td>
-                <span class="status-badge" :class="org.payout_status">
-                  {{ formatPayoutStatus(org.payout_status) }}
+                <span class="status-badge" :class="org.status">
+                  {{ org.status }}
                 </span>
               </td>
               <td class="actions">
@@ -142,7 +142,7 @@
                 </button>
                 <button 
                   @click="processPayout(org)" 
-                  :disabled="!org.pending_payout || org.payout_status === 'processing'"
+                  :disabled="!org.pending_payout || org.status === 'processing'"
                   class="action-btn payout"
                 >
                   Process Payout
@@ -189,11 +189,11 @@
               <td class="transaction-id">
                 <code>{{ transaction.id }}</code>
               </td>
-              <td>{{ transaction.organization?.name }}</td>
+              <td>{{ transaction.organization?.name || 'N/A' }}</td>
               <td>{{ transaction.course?.title }}</td>
-              <td>{{ transaction.student?.first_name }} {{ transaction.student?.last_name }}</td>
+              <td>{{ transaction.user?.name || 'N/A' }}</td>
               <td class="amount">${{ formatCurrency(transaction.amount) }}</td>
-              <td class="commission">${{ formatCurrency(transaction.commission) }}</td>
+              <td class="commission">${{ formatCurrency(transaction.commission || transaction.amount * 0.1) }}</td>
               <td>
                 <span class="status-badge" :class="transaction.status">
                   {{ formatTransactionStatus(transaction.status) }}
@@ -243,26 +243,26 @@
     <div v-if="processingPayout" class="modal-overlay" @click="closePayoutModal">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3>Process Payout: {{ processingPayout.name }}</h3>
+          <h3>Process Payout: {{ processingPayout?.name }}</h3>
           <button @click="closePayoutModal" class="close-btn">×</button>
         </div>
         <div class="modal-body">
           <div class="payout-details">
             <div class="detail-row">
               <span class="label">Organization:</span>
-              <span class="value">{{ processingPayout.name }}</span>
+              <span class="value">{{ processingPayout?.name }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Pending Amount:</span>
-              <span class="value">${{ formatCurrency(processingPayout.pending_payout) }}</span>
+              <span class="value">${{ formatCurrency(processingPayout?.pending_payout || 0) }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Commission Deduction:</span>
-              <span class="value">${{ formatCurrency(processingPayout.pending_payout * 0.1) }}</span>
+              <span class="value">${{ formatCurrency((processingPayout?.pending_payout || 0) * 0.1) }}</span>
             </div>
             <div class="detail-row total">
               <span class="label">Net Payout:</span>
-              <span class="value">${{ formatCurrency(processingPayout.pending_payout * 0.9) }}</span>
+              <span class="value">${{ formatCurrency((processingPayout?.pending_payout || 0) * 0.9) }}</span>
             </div>
           </div>
           <div class="form-group">
@@ -293,6 +293,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
+import type { Transaction, OrganizationPayout } from '@/types/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { handleApiError } = useErrorHandler()
@@ -302,28 +303,33 @@ const { data: financialData, loading, error, refresh } = useApiData('/financial/
   immediate: true,
   transform: (data) => {
     console.log('🔍 Raw financial data:', data)
+    const apiData = data.data || data
     return {
-      totalRevenue: data.total_revenue || 0,
-      currentMonthRevenue: data.current_month_revenue || 0,
-      lastMonthRevenue: data.last_month_revenue || 0,
-      growthRate: data.growth_rate || 0,
-      totalTransactions: data.total_transactions || 0,
-      averageTransaction: data.average_transaction || 0,
-      revenueByOrganization: data.revenue_by_organization || []
+      total_revenue: apiData.total_revenue || 0,
+      current_month_revenue: apiData.current_month_revenue || 0,
+      last_month_revenue: apiData.last_month_revenue || 0,
+      growth_rate: apiData.growth_rate || 0,
+      total_transactions: apiData.total_transactions || 0,
+      average_transaction: apiData.average_transaction || 0,
+      total_commission: apiData.total_commission || 0,
+      total_payouts: apiData.total_payouts || 0,
+      revenue_trend: apiData.revenue_trend || [],
+      revenue_by_organization: apiData.revenue_by_organization || []
     }
   }
 })
 
-const { data: organizations } = useApiData('/organizations/', {
-  immediate: true,
-  transform: (data) => {
-    const results = data.results || data.data || data || []
-    return results.map((org: any) => ({
-      id: org.id,
-      name: org.name || 'Unknown Organization'
-    }))
-  }
-})
+// Commented out unused organizations data
+// const { data: organizations } = useApiData('/organizations/', {
+//   immediate: true,
+//   transform: (data) => {
+//     const results = data.results || data.data || data || []
+//     return results.map((org: any) => ({
+//       id: org.id,
+//       name: org.name || 'Unknown Organization'
+//     }))
+//   }
+// })
 
 // Chart and filters
 const chartPeriod = ref('30d')
@@ -333,7 +339,7 @@ const currentPage = ref(1)
 const itemsPerPage = 20
 
 // Payout processing
-const processingPayout = ref(null)
+const processingPayout = ref<OrganizationPayout | null>(null)
 const payoutMethod = ref('bank_transfer')
 const payoutNotes = ref('')
 
@@ -380,18 +386,18 @@ const transactions = ref([
 
 // Computed properties
 const sortedOrganizations = computed(() => {
-  if (!organizations.value) return []
+  if (!financialData.value?.revenue_by_organization) return []
   
-  const sorted = [...organizations.value].sort((a, b) => {
+  const sorted = [...financialData.value.revenue_by_organization].sort((a, b) => {
     switch (sortBy.value) {
       case 'revenue':
         return (b.total_revenue || 0) - (a.total_revenue || 0)
       case 'growth':
-        return (b.growth_rate || 0) - (a.growth_rate || 0)
+        return (b.monthly_growth || 0) - (a.monthly_growth || 0)
       case 'transactions':
-        return (b.transaction_count || 0) - (a.transaction_count || 0)
+        return (b.transactions || 0) - (a.transactions || 0)
       case 'name':
-        return a.name.localeCompare(b.name)
+        return (a.organization_name || '').localeCompare(b.organization_name || '')
       default:
         return 0
     }
@@ -431,12 +437,12 @@ const formatDate = (date: any) => {
   return new Date(date).toLocaleDateString()
 }
 
-const formatPayoutStatus = (status: any) => {
-  return status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Pending'
-}
+// const formatPayoutStatus = (status: any) => {
+//   return status?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Pending'
+// }
 
 const formatTransactionStatus = (status: any) => {
-  return status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'
+  return status?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Unknown'
 }
 
 const sortOrganizations = () => {
@@ -444,11 +450,11 @@ const sortOrganizations = () => {
   sortBy.value = sortBy.value
 }
 
-const viewOrgDetails = (org) => {
-  window.open(`/super-admin/organizations/${org.id}`, '_blank')
+const viewOrgDetails = (org: any) => {
+  window.open(`/super-admin/organizations/${org.organization_id}`, '_blank')
 }
 
-const processPayout = (org) => {
+const processPayout = (org: OrganizationPayout) => {
   processingPayout.value = org
   payoutMethod.value = 'bank_transfer'
   payoutNotes.value = ''
@@ -464,18 +470,18 @@ const confirmPayout = async () => {
   if (!processingPayout.value) return
   
   await processPayoutMutation({
-    orgId: processingPayout.value.id,
+    orgId: processingPayout.value?.id || '',
     method: payoutMethod.value,
     notes: payoutNotes.value
   })
 }
 
-const viewTransaction = (transaction) => {
+const viewTransaction = (transaction: Transaction) => {
   // Open transaction details in modal or new page
   console.log('View transaction:', transaction)
 }
 
-const retryTransaction = async (transaction) => {
+const retryTransaction = async (transaction: Transaction) => {
   // Implement transaction retry logic
   console.log('Retry transaction:', transaction)
 }
@@ -487,17 +493,77 @@ const updateChartData = async () => {
 }
 
 const initializeChart = () => {
-  if (!revenueChart.value) return
+  if (!revenueChart.value || !financialData.value?.revenue_trend) return
   
-  // Initialize chart with Chart.js or similar library
-  // This is a placeholder for actual chart implementation
-  const ctx = revenueChart.value.getContext('2d')
-  ctx.fillStyle = '#f59e0b'
-  ctx.fillRect(0, 0, 800, 400)
-  ctx.fillStyle = 'white'
-  ctx.font = '20px Arial'
+  const canvas = revenueChart.value as HTMLCanvasElement
+  const ctx = canvas.getContext('2d')
+  const trend = financialData.value.revenue_trend
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, 800, 400)
+  
+  if (trend.length === 0) {
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '16px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('No revenue data available', 400, 200)
+    return
+  }
+  
+  // Simple line chart implementation
+  const padding = 60
+  const chartWidth = 800 - (padding * 2)
+  const chartHeight = 400 - (padding * 2)
+  
+  const maxRevenue = Math.max(...trend.map((t: any) => t.revenue))
+  const minRevenue = Math.min(...trend.map((t: any) => t.revenue))
+  const revenueRange = maxRevenue - minRevenue || 1
+  
+  // Draw axes
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(padding, padding)
+  ctx.lineTo(padding, 400 - padding)
+  ctx.lineTo(800 - padding, 400 - padding)
+  ctx.stroke()
+  
+  // Draw revenue line
+  ctx.strokeStyle = '#3b82f6'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  
+  trend.forEach((point: any, index: number) => {
+    const x = padding + (index * chartWidth / (trend.length - 1))
+    const y = 400 - padding - ((point.revenue - minRevenue) / revenueRange * chartHeight)
+    
+    if (index === 0) {
+      ctx.moveTo(x, y)
+    } else {
+      ctx.lineTo(x, y)
+    }
+  })
+  ctx.stroke()
+  
+  // Draw data points
+  ctx.fillStyle = '#3b82f6'
+  trend.forEach((point: any, index: number) => {
+    const x = padding + (index * chartWidth / (trend.length - 1))
+    const y = 400 - padding - ((point.revenue - minRevenue) / revenueRange * chartHeight)
+    
+    ctx.beginPath()
+    ctx.arc(x, y, 4, 0, 2 * Math.PI)
+    ctx.fill()
+  })
+  
+  // Draw labels
+  ctx.fillStyle = '#6b7280'
+  ctx.font = '12px Arial'
   ctx.textAlign = 'center'
-  ctx.fillText('Revenue Chart Placeholder', 400, 200)
+  trend.forEach((point: any, index: number) => {
+    const x = padding + (index * chartWidth / (trend.length - 1))
+    ctx.fillText(point.month || point.date, x, 400 - padding + 20)
+  })
 }
 
 const handleRetry = async () => {

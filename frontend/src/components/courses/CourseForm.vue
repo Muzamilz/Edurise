@@ -49,13 +49,13 @@
               required
             >
               <option value="">Select a category</option>
-              <option value="technology">Technology</option>
-              <option value="business">Business</option>
-              <option value="design">Design</option>
-              <option value="marketing">Marketing</option>
-              <option value="language">Language</option>
-              <option value="science">Science</option>
-              <option value="other">Other</option>
+              <option 
+                v-for="option in categoryOptions" 
+                :key="option.value" 
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
             </select>
             <span v-if="errors.category" class="error-message">{{ errors.category }}</span>
           </div>
@@ -247,6 +247,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import type { Course } from '../../types/api'
+import { useCategoriesGlobal } from '@/composables/useCategories'
 
 interface Props {
   course?: Course | null
@@ -264,6 +265,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+// Categories
+const { categoryOptions, fetchCategories } = useCategoriesGlobal()
 
 // Form data
 const formData = ref({
@@ -421,6 +425,7 @@ const loadCourseData = () => {
 // Lifecycle
 onMounted(() => {
   loadCourseData()
+  fetchCategories()
 })
 
 // Watch for course changes

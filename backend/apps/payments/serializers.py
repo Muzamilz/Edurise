@@ -7,7 +7,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     
     user_email = serializers.CharField(source='user.email', read_only=True)
     course_title = serializers.CharField(source='course.title', read_only=True)
-    subscription_plan = serializers.CharField(source='subscription.plan', read_only=True)
+    subscription_plan = serializers.CharField(source='subscription.plan.display_name', read_only=True)
     
     class Meta:
         model = Payment
@@ -132,7 +132,7 @@ class PaymentCreateSerializer(serializers.Serializer):
 class SubscriptionCreateSerializer(serializers.Serializer):
     """Serializer for creating subscriptions"""
     
-    plan = serializers.ChoiceField(choices=Subscription.PLAN_CHOICES)
+    plan_id = serializers.UUIDField()
     billing_cycle = serializers.ChoiceField(
         choices=Subscription.BILLING_CYCLE_CHOICES,
         default='monthly'
@@ -141,6 +141,14 @@ class SubscriptionCreateSerializer(serializers.Serializer):
         choices=Payment.PAYMENT_METHOD_CHOICES,
         default='stripe'
     )
+    
+    def validate_plan_id(self, value):
+        """Validate that the plan exists and is active"""
+        try:
+            plan = SubscriptionPlan.objects.get(id=value, is_active=True)
+            return value
+        except SubscriptionPlan.DoesNotExist:
+            raise serializers.ValidationError("Invalid or inactive subscription plan")
 
 
 class BankTransferApprovalSerializer(serializers.Serializer):

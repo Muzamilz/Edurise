@@ -143,6 +143,63 @@
         </button>
       </div>
     </div>
+
+    <!-- User Detail Modal -->
+    <div v-if="showUserModal && selectedUser" class="modal-overlay" @click="closeUserModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>User Details</h3>
+          <button @click="closeUserModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="user-detail-grid">
+            <div class="detail-item">
+              <label>Name:</label>
+              <span>{{ selectedUser.full_name || `${selectedUser.first_name} ${selectedUser.last_name}` }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Email:</label>
+              <span>{{ selectedUser.email }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Role:</label>
+              <span class="role-badge" :class="selectedUser.role">{{ formatRole(selectedUser.role) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Organization:</label>
+              <span>{{ selectedUser.organization_name || 'No Organization' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Status:</label>
+              <span class="status-badge" :class="selectedUser.is_active ? 'active' : 'inactive'">
+                {{ selectedUser.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <label>Joined:</label>
+              <span>{{ formatDate(selectedUser.date_joined) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Last Login:</label>
+              <span>{{ selectedUser.last_login ? formatDate(selectedUser.last_login) : 'Never' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Organizations:</label>
+              <span>{{ selectedUser.profiles_count || 1 }} organization(s)</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeUserModal" class="btn btn-secondary">Close</button>
+          <button 
+            @click="toggleUserStatus(selectedUser); closeUserModal()" 
+            :class="['btn', selectedUser.is_active ? 'btn-danger' : 'btn-success']"
+          >
+            {{ selectedUser.is_active ? 'Suspend User' : 'Activate User' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,7 +222,7 @@ const currentPage = ref(1)
 const itemsPerPage = 20
 
 // API data
-const { data: usersData, loading, error, refresh } = useApiData<any[]>('/users/', {
+const { data: usersData, loading, error, refresh } = useApiData<any[]>('/users/all_with_roles/', {
   immediate: true,
   transform: (data) => {
     console.log('🔍 Raw users data:', data)
@@ -173,30 +230,22 @@ const { data: usersData, loading, error, refresh } = useApiData<any[]>('/users/'
     // Handle both paginated and direct array responses
     const results = data.results || data.data || data || []
     
-    return results.map((user: any) => {
-      // Determine user role based on flags
-      let role = 'student'
-      if (user.is_superuser) role = 'superuser'
-      else if (user.is_staff) role = 'admin'
-      else if (user.is_teacher) role = 'teacher'
-      
-      return {
-        id: user.id,
-        first_name: user.first_name || 'Unknown',
-        last_name: user.last_name || 'User',
-        email: user.email,
-        role: role,
-        organization: user.organization_name || 'No Organization',
-        is_active: user.is_active !== false,
-        date_joined: user.date_joined,
-        last_login: user.last_login,
-        avatar: user.avatar || null,
-        is_teacher: user.is_teacher,
-        is_approved_teacher: user.is_approved_teacher,
-        is_staff: user.is_staff,
-        is_superuser: user.is_superuser
-      }
-    })
+    return results.map((user: any) => ({
+      id: user.id,
+      first_name: user.first_name || 'Unknown',
+      last_name: user.last_name || 'User',
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role,
+      organization_name: user.organization_name,
+      organization: { name: user.organization_name },
+      is_active: user.is_active !== false,
+      date_joined: user.date_joined,
+      last_login: user.last_login,
+      profiles_count: user.profiles_count,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser
+    }))
   },
   retryAttempts: 3,
   onError: (error) => {
@@ -272,15 +321,44 @@ const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString()
 }
 
+const selectedUser = ref(null)
+const showUserModal = ref(false)
+
 const viewUser = (user: any) => {
-  // Navigate to user detail view
-  console.log('View user:', user)
+  selectedUser.value = user
+  showUserModal.value = true
+}
+
+const closeUserModal = () => {
+  showUserModal.value = false
+  selectedUser.value = null
 }
 
 const toggleUserStatus = async (user: any) => {
   const action = user.is_active ? 'suspend' : 'activate'
-  if (confirm(`Are you sure you want to ${action} ${user.first_name} ${user.last_name}?`)) {
-    await updateUser({ id: user.id, is_active: !user.is_active })
+  const userName = user.full_name || `${user.first_name} ${user.last_name}` || user.email
+  
+  if (confirm(`Are you sure you want to ${action} ${userName}?`)) {
+    try {
+      // Call the API to update user status
+      await api.patch(`/users/${user.id}/`, {
+        is_active: !user.is_active
+      })
+      
+      // Update the local data
+      user.is_active = !user.is_active
+      
+      // Refresh the data to ensure consistency
+      await refresh()
+      
+      // Show success message
+      const message = `User ${userName} has been ${user.is_active ? 'activated' : 'suspended'} successfully.`
+      console.log(message)
+      
+    } catch (err) {
+      console.error('Error toggling user status:', err)
+      handleApiError(err as APIError, { context: { action: 'toggle_user_status' } })
+    }
   }
 }
 
@@ -648,5 +726,130 @@ onMounted(() => {
 .retry-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.user-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-item label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.detail-item span {
+  color: #1f2937;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
 }
 </style>

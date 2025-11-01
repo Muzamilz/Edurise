@@ -224,63 +224,295 @@
       </div>
     </section>
 
+    <!-- How It Works for Organizations -->
+    <section class="how-it-works-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>How Edurise Works for Your Organization</h2>
+          <p class="section-subtitle">
+            Get your own branded LMS platform with complete control over users, content, and learning experiences
+          </p>
+        </div>
+
+        <div class="workflow-steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h3>Create Your Organization</h3>
+              <p>Set up your branded learning environment with custom domain, colors, and logo. Each organization gets its own isolated tenant with complete data separation.</p>
+              <div class="step-features">
+                <span class="feature-tag">🏢 Multi-Tenant Architecture</span>
+                <span class="feature-tag">🎨 Custom Branding</span>
+                <span class="feature-tag">🔒 Data Isolation</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h3>Manage Users & Permissions</h3>
+              <p>Add team members with role-based access. Admins control everything, teachers create content after approval, and students access assigned courses.</p>
+              <div class="step-features">
+                <span class="feature-tag">👥 Role-Based Access</span>
+                <span class="feature-tag">✅ Teacher Approvals</span>
+                <span class="feature-tag">📊 User Analytics</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h3>Create & Deliver Content</h3>
+              <p>Build courses with AI assistance, host live classes, create assignments, and track progress. Access marketplace content or create your own.</p>
+              <div class="step-features">
+                <span class="feature-tag">🎥 Live Classes</span>
+                <span class="feature-tag">🤖 AI-Powered Creation</span>
+                <span class="feature-tag">📚 Course Marketplace</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="org-benefits">
+          <h3>Why Organizations Choose Edurise</h3>
+          <div class="benefits-grid">
+            <div class="benefit">
+              <div class="benefit-icon">🏢</div>
+              <h4>Your Own LMS Platform</h4>
+              <p>Complete branded learning management system with your logo, colors, and domain</p>
+            </div>
+            <div class="benefit">
+              <div class="benefit-icon">👥</div>
+              <h4>Scalable User Management</h4>
+              <p>From 25 to 1,000+ users with role-based permissions and bulk management tools</p>
+            </div>
+            <div class="benefit">
+              <div class="benefit-icon">🤖</div>
+              <h4>AI-Enhanced Learning</h4>
+              <p>AI-powered course creation, personalized learning paths, and intelligent content recommendations</p>
+            </div>
+            <div class="benefit">
+              <div class="benefit-icon">📊</div>
+              <h4>Advanced Analytics</h4>
+              <p>Track learner progress, course effectiveness, and organizational learning metrics</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Pricing Section -->
     <section class="pricing-section">
       <div class="container">
-        <h2>Choose Your Success Plan</h2>
-        <p class="pricing-subtitle">Join thousands who transformed their careers</p>
+        <div class="section-header">
+          <h2>Choose Your Organization Plan</h2>
+          <p class="pricing-subtitle">
+            Flexible plans that grow with your organization. All plans include your own branded LMS platform.
+          </p>
+        </div>
+
+        <div class="billing-toggle">
+          <span class="billing-label" :class="{ active: billingCycle === 'monthly' }">Monthly</span>
+          <button @click="toggleBilling" class="toggle-switch" :class="{ yearly: billingCycle === 'yearly' }">
+            <div class="toggle-slider"></div>
+          </button>
+          <span class="billing-label" :class="{ active: billingCycle === 'yearly' }">
+            Yearly <span class="savings-badge">Save 17%</span>
+          </span>
+        </div>
         
         <div class="pricing-grid">
           <div class="pricing-card">
-            <h3>Starter</h3>
+            <div class="plan-header">
+              <h3>Basic Plan</h3>
+              <p class="plan-description">Perfect for small teams and individual educators getting started with online learning</p>
+            </div>
             <div class="price">
               <span class="currency">$</span>
-              <span class="amount">29</span>
+              <span class="amount">{{ billingCycle === 'yearly' ? '24' : '29' }}</span>
               <span class="period">/month</span>
             </div>
+            <div v-if="billingCycle === 'yearly'" class="yearly-price">
+              $290/year (save $58)
+            </div>
+            
+            <div class="plan-limits">
+              <div class="limit-item">
+                <i class="fas fa-users"></i>
+                <span>Up to 25 users</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-book"></i>
+                <span>10 courses</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-hdd"></i>
+                <span>50GB storage</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-robot"></i>
+                <span>500 AI requests/month</span>
+              </div>
+            </div>
+
             <ul class="features">
-              <li>✅ 50+ Courses</li>
-              <li>✅ Basic AI Recommendations</li>
-              <li>✅ Community Access</li>
-              <li>✅ Mobile App</li>
+              <li>✅ Your own branded LMS platform</li>
+              <li>✅ Live classes & recordings (100MB files)</li>
+              <li>✅ Assignments & certificates</li>
+              <li>✅ Basic reporting & analytics</li>
+              <li>✅ Email support</li>
+              <li>✅ Mobile app access</li>
+              <li>✅ 1,000 monthly downloads</li>
+              <li>✅ Multi-tenant data isolation</li>
             </ul>
-            <button class="pricing-btn">Get Started</button>
+            <button class="pricing-btn" @click="selectPlan('basic')">Get Started</button>
           </div>
 
           <div class="pricing-card popular">
             <div class="popular-badge">Most Popular</div>
-            <h3>Professional</h3>
+            <div class="plan-header">
+              <h3>Pro Plan</h3>
+              <p class="plan-description">Advanced features for growing organizations and professional educators</p>
+            </div>
             <div class="price">
               <span class="currency">$</span>
-              <span class="amount">79</span>
+              <span class="amount">{{ billingCycle === 'yearly' ? '66' : '79' }}</span>
               <span class="period">/month</span>
             </div>
+            <div v-if="billingCycle === 'yearly'" class="yearly-price">
+              $790/year (save $158)
+            </div>
+
+            <div class="plan-limits">
+              <div class="limit-item">
+                <i class="fas fa-users"></i>
+                <span>Up to 100 users</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-book"></i>
+                <span>50 courses</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-hdd"></i>
+                <span>200GB storage</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-robot"></i>
+                <span>2,000 AI requests/month</span>
+              </div>
+            </div>
+
             <ul class="features">
-              <li>✅ 200+ Premium Courses</li>
-              <li>✅ Advanced AI Learning Path</li>
-              <li>✅ 1-on-1 Mentorship</li>
-              <li>✅ Career Coaching</li>
-              <li>✅ Job Placement Support</li>
-              <li>✅ Certificates</li>
+              <li>✅ Everything in Basic</li>
+              <li>✅ Advanced analytics & reporting</li>
+              <li>✅ Priority support</li>
+              <li>✅ Custom branding options</li>
+              <li>✅ Advanced AI features</li>
+              <li>✅ Bulk user management</li>
+              <li>✅ Course marketplace access</li>
+              <li>✅ API access</li>
+              <li>✅ Premium content access</li>
+              <li>✅ 5,000 monthly downloads (500MB files)</li>
             </ul>
-            <button class="pricing-btn primary">Start Free Trial</button>
+            <button class="pricing-btn primary" @click="selectPlan('pro')">Start Free Trial</button>
           </div>
 
           <div class="pricing-card">
-            <h3>Enterprise</h3>
+            <div class="plan-header">
+              <h3>Enterprise Plan</h3>
+              <p class="plan-description">Complete solution for large organizations with advanced security and customization needs</p>
+            </div>
             <div class="price">
               <span class="currency">$</span>
-              <span class="amount">199</span>
+              <span class="amount">{{ billingCycle === 'yearly' ? '166' : '199' }}</span>
               <span class="period">/month</span>
             </div>
+            <div v-if="billingCycle === 'yearly'" class="yearly-price">
+              $1,990/year (save $398)
+            </div>
+
+            <div class="plan-limits">
+              <div class="limit-item">
+                <i class="fas fa-users"></i>
+                <span>Up to 1,000 users</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-book"></i>
+                <span>500 courses</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-hdd"></i>
+                <span>1TB storage</span>
+              </div>
+              <div class="limit-item">
+                <i class="fas fa-robot"></i>
+                <span>10,000 AI requests/month</span>
+              </div>
+            </div>
+
             <ul class="features">
-              <li>✅ Unlimited Access</li>
-              <li>✅ Custom Learning Paths</li>
-              <li>✅ Team Management</li>
-              <li>✅ Priority Support</li>
-              <li>✅ Analytics Dashboard</li>
+              <li>✅ Everything in Pro</li>
+              <li>✅ Full white labeling & custom domain</li>
+              <li>✅ SSO integration</li>
+              <li>✅ Advanced security features</li>
+              <li>✅ Custom integrations</li>
+              <li>✅ Dedicated account manager</li>
+              <li>✅ Custom development support</li>
+              <li>✅ Unlimited downloads (2GB files)</li>
+              <li>✅ 24/7 priority support</li>
+              <li>✅ Enterprise reporting & compliance</li>
             </ul>
-            <button class="pricing-btn">Contact Sales</button>
+            <button class="pricing-btn" @click="selectPlan('enterprise')">Contact Sales</button>
+          </div>
+        </div>
+
+        <div class="pricing-footer">
+          <div class="how-plans-work">
+            <h3>How Our Organization Plans Work</h3>
+            <div class="plan-explanation">
+              <div class="explanation-item">
+                <div class="explanation-icon">🏢</div>
+                <div class="explanation-content">
+                  <h4>One Organization, One Plan</h4>
+                  <p>Each organization gets its own isolated LMS platform with complete data separation and custom branding.</p>
+                </div>
+              </div>
+              <div class="explanation-item">
+                <div class="explanation-icon">👥</div>
+                <div class="explanation-content">
+                  <h4>User Limits Per Organization</h4>
+                  <p>Add admins, teachers, and students up to your plan limit. Role-based permissions control what each user can do.</p>
+                </div>
+              </div>
+              <div class="explanation-item">
+                <div class="explanation-icon">📚</div>
+                <div class="explanation-content">
+                  <h4>Unlimited Learning Features</h4>
+                  <p>Create unlimited assignments, certificates, and learning paths. Host live classes and track detailed progress.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <p class="pricing-note">
+            🎯 <strong>All plans include:</strong> Your own branded LMS platform, multi-tenant architecture, 
+            role-based access control, and mobile app access. No setup fees or hidden costs.
+          </p>
+          <div class="pricing-guarantees">
+            <div class="guarantee">
+              <i class="fas fa-shield-alt"></i>
+              <span>30-day money-back guarantee</span>
+            </div>
+            <div class="guarantee">
+              <i class="fas fa-sync-alt"></i>
+              <span>Cancel anytime</span>
+            </div>
+            <div class="guarantee">
+              <i class="fas fa-headset"></i>
+              <span>24/7 support included</span>
+            </div>
           </div>
         </div>
       </div>
@@ -289,21 +521,36 @@
     <!-- FAQ Section -->
     <section class="faq-section">
       <div class="container">
-        <h2>Common Questions</h2>
+        <h2>Frequently Asked Questions</h2>
         <div class="faq-grid">
           <div class="faq-item">
-            <h3>Will this actually help me get a better job?</h3>
-            <p>Yes! 94% of our graduates get promoted or land better jobs within 6 months. We track every success story and provide job placement support.</p>
+            <h3>How does the multi-tenant architecture work?</h3>
+            <p>Each organization gets its own isolated environment with complete data separation. Your users, courses, and content are completely private and secure from other organizations.</p>
           </div>
           
           <div class="faq-item">
-            <h3>What if I don't have time to study?</h3>
-            <p>Our AI creates personalized 15-minute daily lessons that fit your schedule. Most students see results studying just 30 minutes a day.</p>
+            <h3>Can we customize the platform with our branding?</h3>
+            <p>Yes! All plans include custom branding with your logo and colors. Pro and Enterprise plans offer advanced customization including custom domains and white labeling.</p>
           </div>
           
           <div class="faq-item">
-            <h3>Is this just another online course platform?</h3>
-            <p>No way! We use AI to personalize your learning, provide 1-on-1 mentorship, and guarantee results. If you don't advance your career in 6 months, we'll refund everything.</p>
+            <h3>What happens when we reach our user limit?</h3>
+            <p>You can easily upgrade to a higher plan at any time. We'll help you migrate seamlessly with no downtime or data loss.</p>
+          </div>
+
+          <div class="faq-item">
+            <h3>How do teacher approvals work?</h3>
+            <p>Organization admins can approve teachers who then gain access to create and manage courses. This ensures quality control while enabling distributed content creation.</p>
+          </div>
+
+          <div class="faq-item">
+            <h3>Can we integrate with our existing systems?</h3>
+            <p>Pro plans include API access for basic integrations. Enterprise plans offer SSO, custom integrations, and dedicated support for complex system connections.</p>
+          </div>
+
+          <div class="faq-item">
+            <h3>What kind of support do you provide?</h3>
+            <p>All plans include email support. Pro plans get priority support, and Enterprise plans include a dedicated account manager and 24/7 support.</p>
           </div>
         </div>
       </div>
@@ -313,13 +560,27 @@
     <section class="final-cta-section">
       <div class="container">
         <div class="cta-content">
-          <h2>Ready to Transform Your Career?</h2>
-          <p>Join 10,000+ professionals who chose success over settling</p>
+          <h2>Ready to Launch Your Organization's LMS?</h2>
+          <p>Join hundreds of organizations already transforming their learning programs</p>
           <div class="cta-buttons">
-            <button @click="startDemo" class="cta-button primary large">
-              🚀 Start Your Transformation
+            <button @click="selectPlan('pro')" class="cta-button primary large">
+              🚀 Start Your Free Trial
             </button>
-            <p class="guarantee">30-day money-back guarantee • No risk, all reward</p>
+            <p class="guarantee">30-day money-back guarantee • No setup fees • Cancel anytime</p>
+          </div>
+          <div class="final-features">
+            <div class="final-feature">
+              <span class="feature-icon">⚡</span>
+              <span>Setup in minutes</span>
+            </div>
+            <div class="final-feature">
+              <span class="feature-icon">🔒</span>
+              <span>Enterprise security</span>
+            </div>
+            <div class="final-feature">
+              <span class="feature-icon">📞</span>
+              <span>Expert support</span>
+            </div>
           </div>
         </div>
       </div>
@@ -341,6 +602,9 @@ const aiMessage = ref("Click 'Try Interactive Demo' to see your personalized lea
 // Testimonials state
 const testimonials = ref<Testimonial[]>([])
 const loadingTestimonials = ref(true)
+
+// Billing toggle state
+const billingCycle = ref<'monthly' | 'yearly'>('monthly')
 
 const aiMessages = [
   "Great progress! Let's focus on advanced JavaScript concepts next.",
@@ -392,6 +656,15 @@ const startDemo = () => {
         aiMessage.value = "Click 'Try Interactive Demo' to see your personalized learning path!"
     }
   }, 2000)
+}
+
+const toggleBilling = () => {
+  billingCycle.value = billingCycle.value === 'monthly' ? 'yearly' : 'monthly'
+}
+
+const selectPlan = (planType: string) => {
+  // Navigate to signup with selected plan
+  window.location.href = `/register?plan=${planType}&billing=${billingCycle.value}`
 }
 
 const getInitials = (name: string): string => {
@@ -1071,10 +1344,138 @@ onUnmounted(() => {
   color: #374151;
 }
 
+/* How It Works Section */
+.how-it-works-section {
+  padding: 4rem 0;
+  background: #f9fafb;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.section-subtitle {
+  color: #6b7280;
+  font-size: 1.125rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 3rem;
+  margin-bottom: 4rem;
+}
+
+.step {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  position: relative;
+}
+
+.step-number {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 auto 1.5rem;
+}
+
+.step-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.step-content p {
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.step-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.feature-tag {
+  background: #f0f9ff;
+  color: #0c4a6e;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.org-benefits {
+  text-align: center;
+  margin-top: 4rem;
+}
+
+.org-benefits h3 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 3rem;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.benefit {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.benefit-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.benefit h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.benefit p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 /* Pricing Section */
 .pricing-section {
   padding: 4rem 0;
-  background: #f9fafb;
+  background: white;
 }
 
 .pricing-section h2 {
@@ -1189,6 +1590,148 @@ onUnmounted(() => {
   transform: translateY(-2px);
 }
 
+.billing-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.billing-label {
+  font-weight: 600;
+  color: #6b7280;
+  transition: color 0.3s ease;
+}
+
+.billing-label.active {
+  color: #f59e0b;
+}
+
+.toggle-switch {
+  width: 60px;
+  height: 30px;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 15px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-switch.yearly {
+  background: #f59e0b;
+}
+
+.toggle-slider {
+  width: 26px;
+  height: 26px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch.yearly .toggle-slider {
+  transform: translateX(30px);
+}
+
+.savings-badge {
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.yearly-price {
+  font-size: 0.875rem;
+  color: #10b981;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.plan-limits {
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.limit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.limit-item:last-child {
+  margin-bottom: 0;
+}
+
+.limit-item i {
+  color: #f59e0b;
+  width: 16px;
+}
+
+.plan-description {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.how-plans-work {
+  background: #f9fafb;
+  padding: 2rem;
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+}
+
+.how-plans-work h3 {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 2rem;
+}
+
+.plan-explanation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.explanation-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.explanation-content h4 {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.explanation-content p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 /* FAQ Section */
 .faq-section {
   padding: 4rem 0;
@@ -1252,6 +1795,26 @@ onUnmounted(() => {
   font-size: 0.875rem;
   opacity: 0.8;
   margin-top: 1rem;
+}
+
+.final-features {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.final-feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.feature-icon {
+  font-size: 1rem;
 }
 
 /* Responsive Design */

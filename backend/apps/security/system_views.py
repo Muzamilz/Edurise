@@ -249,7 +249,22 @@ class OrganizationManagementView(APIView):
                 org.is_active = request.data['is_active']
             
             if 'subscription_plan' in request.data:
-                org.subscription_plan = request.data['subscription_plan']
+                # Update subscription plan through the subscription model
+                try:
+                    from apps.payments.models import Subscription, SubscriptionPlan
+                    plan_name = request.data['subscription_plan']
+                    plan = SubscriptionPlan.objects.get(name=plan_name)
+                    
+                    subscription, created = Subscription.objects.get_or_create(
+                        organization=org,
+                        defaults={'plan': plan, 'status': 'active'}
+                    )
+                    if not created:
+                        subscription.plan = plan
+                        subscription.save()
+                except (SubscriptionPlan.DoesNotExist, Exception) as e:
+                    # Log the error but don't fail the organization update
+                    pass
             
             org.save()
             

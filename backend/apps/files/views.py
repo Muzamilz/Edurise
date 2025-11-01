@@ -674,7 +674,16 @@ class FileUploadViewSet(viewsets.ModelViewSet):
         access_service = FileAccessControlService()
         user_org = getattr(request.user, 'tenant', None)
         
-        if user_org and user_org.subscription_plan == 'basic':
+        # Get subscription plan name
+        subscription_plan = 'basic'
+        if user_org:
+            try:
+                if hasattr(user_org, 'subscription') and user_org.subscription:
+                    subscription_plan = user_org.subscription.plan.name
+            except:
+                subscription_plan = 'basic'
+        
+        if user_org and subscription_plan == 'basic':
             # Basic plan restrictions
             if new_access_level in ['public', 'tenant']:
                 return StandardAPIResponse.error(

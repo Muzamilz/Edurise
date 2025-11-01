@@ -142,6 +142,15 @@ class APIDocumentationView(APIView):
                     'description': 'Organization/tenant management',
                     'methods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
                 },
+                'course_categories': {
+                    'list_create': f'{base_url}course-categories/',
+                    'detail': f'{base_url}course-categories/{{id}}/',
+                    'root_categories': f'{base_url}course-categories/root_categories/',
+                    'hierarchy': f'{base_url}course-categories/hierarchy/',
+                    'subcategories': f'{base_url}course-categories/{{id}}/subcategories/',
+                    'description': 'Course category management with hierarchy support',
+                    'methods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+                },
                 'courses': {
                     'list_create': f'{base_url}courses/',
                     'detail': f'{base_url}courses/{{id}}/',

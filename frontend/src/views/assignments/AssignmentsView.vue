@@ -184,7 +184,11 @@ const { fetchMySubmission, currentSubmission } = useAssignments()
 const courseId = computed(() => route.params.courseId as string)
 
 // User role
-const isTeacher = computed(() => user.value?.is_teacher || user.value?.is_staff)
+const isTeacher = computed(() => 
+  user.value?.current_profile?.role === 'teacher' || 
+  user.value?.current_profile?.role === 'admin' || 
+  user.value?.is_staff
+)
 
 // Modal states
 const showAssignmentForm = ref(false)

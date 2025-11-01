@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Q, Avg
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
@@ -231,13 +232,21 @@ class UserViewSet(viewsets.ModelViewSet, APIResponseMixin):
             # Generate new tokens with the new tenant context
             tokens = JWTAuthService.generate_tokens(request.user, tenant)
             
+            # Get subscription plan name
+            subscription_plan_name = 'basic'
+            try:
+                if hasattr(tenant, 'subscription') and tenant.subscription:
+                    subscription_plan_name = tenant.subscription.plan.name
+            except:
+                subscription_plan_name = 'basic'
+            
             response_data = {
                 'tenant': {
                     'id': str(tenant.id),
                     'name': tenant.name,
                     'subdomain': tenant.subdomain,
                     'role': profile.role,
-                    'subscription_plan': tenant.subscription_plan,
+                    'subscription_plan': subscription_plan_name,
                 },
                 **tokens
             }
@@ -492,6 +501,45 @@ class UserViewSet(viewsets.ModelViewSet, APIResponseMixin):
                 'error': 'Data export failed. Please try again later.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['get'])
+    def all_with_roles(self, request):
+        """Get all users with their roles (superuser only)"""
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message="Only super administrators can view all users"
+            )
+        
+        # Get all users with their profiles
+        users = User.objects.all().prefetch_related('profiles__tenant')
+        
+        users_data = []
+        for user in users:
+            # Get primary profile (first one or main organization)
+            primary_profile = user.profiles.first()
+            
+            user_data = {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'full_name': f"{user.first_name} {user.last_name}".strip() or user.email,
+                'is_active': user.is_active,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'date_joined': user.date_joined,
+                'last_login': user.last_login,
+                'role': 'superuser' if user.is_superuser else ('admin' if user.is_staff else (primary_profile.role if primary_profile else 'student')),
+                'organization_name': primary_profile.tenant.name if primary_profile else 'No Organization',
+                'organization_id': primary_profile.tenant.id if primary_profile else None,
+                'profiles_count': user.profiles.count(),
+            }
+            users_data.append(user_data)
+        
+        return StandardAPIResponse.success(
+            data=users_data,
+            message="All users retrieved successfully"
+        )
+
 
 class UserProfileViewSet(viewsets.ModelViewSet):
     """ViewSet for UserProfile model"""
@@ -637,6 +685,63 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         return Response({'error': 'Organization not found'}, 
                        status=status.HTTP_404_NOT_FOUND)
     
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get organization statistics"""
+        organization = self.get_object()
+        
+        # Get organization statistics
+        from apps.courses.models import Course, Enrollment
+        from apps.payments.models import Payment
+        from django.db.models import Count, Sum
+        
+        # User statistics
+        user_profiles = UserProfile.objects.filter(tenant=organization)
+        user_stats = user_profiles.aggregate(
+            total_users=Count('id'),
+            total_students=Count('id', filter=Q(role='student')),
+            total_teachers=Count('id', filter=Q(role='teacher')),
+            total_admins=Count('id', filter=Q(role='admin'))
+        )
+        
+        # Course statistics
+        courses = Course.objects.filter(tenant=organization)
+        course_stats = courses.aggregate(
+            total_courses=Count('id'),
+            published_courses=Count('id', filter=Q(is_public=True)),
+            avg_price=Avg('price')
+        )
+        
+        # Enrollment statistics
+        enrollments = Enrollment.objects.filter(tenant=organization)
+        enrollment_stats = enrollments.aggregate(
+            total_enrollments=Count('id'),
+            active_enrollments=Count('id', filter=Q(status='active')),
+            completed_enrollments=Count('id', filter=Q(status='completed'))
+        )
+        
+        # Revenue statistics
+        payments = Payment.objects.filter(tenant=organization, status='completed')
+        revenue_stats = payments.aggregate(
+            total_revenue=Sum('amount'),
+            total_payments=Count('id')
+        )
+        
+        stats_data = {
+            'user_stats': user_stats,
+            'course_stats': course_stats,
+            'enrollment_stats': enrollment_stats,
+            'revenue_stats': {
+                'total_revenue': float(revenue_stats['total_revenue'] or 0),
+                'total_payments': revenue_stats['total_payments']
+            }
+        }
+        
+        return StandardAPIResponse.success(
+            data=stats_data,
+            message="Organization statistics retrieved successfully"
+        )
+
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         """Join an organization (with invitation code or admin approval)"""
@@ -681,6 +786,248 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         except UserProfile.DoesNotExist:
             return Response({'error': 'You are not a member of this organization'}, 
                           status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def users(self, request, pk=None):
+        """Get users for this organization"""
+        organization = self.get_object()
+        
+        # Only superusers can view organization users
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message="Only super administrators can view organization users"
+            )
+        
+        # Get user profiles for this organization
+        profiles = UserProfile.objects.filter(tenant=organization).select_related('user')
+        
+        users_data = []
+        for profile in profiles:
+            user_data = {
+                'id': profile.user.id,
+                'email': profile.user.email,
+                'first_name': profile.user.first_name,
+                'last_name': profile.user.last_name,
+                'full_name': f"{profile.user.first_name} {profile.user.last_name}".strip() or profile.user.email,
+                'is_active': profile.user.is_active,
+                'role': profile.role,
+                'is_approved_teacher': profile.is_approved_teacher,
+                'avatar': profile.avatar.url if profile.avatar else None,
+                'last_seen': profile.last_seen,
+                'created_at': profile.created_at,
+                'updated_at': profile.updated_at,
+            }
+            users_data.append(user_data)
+        
+        return StandardAPIResponse.success(
+            data=users_data,
+            message="Organization users retrieved successfully"
+        )
+
+    @action(detail=True, methods=['get'])
+    def courses(self, request, pk=None):
+        """Get courses for this organization"""
+        organization = self.get_object()
+        
+        # Only superusers can view organization courses
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message="Only super administrators can view organization courses"
+            )
+        
+        # Get courses for this organization
+        from apps.courses.models import Course
+        courses = Course.objects.filter(tenant=organization).select_related(
+            'instructor', 'category'
+        ).prefetch_related('enrollments')
+        
+        courses_data = []
+        for course in courses:
+            course_data = {
+                'id': course.id,
+                'title': course.title,
+                'description': course.description,
+                'thumbnail': course.thumbnail.url if course.thumbnail else None,
+                'price': float(course.price) if course.price else 0,
+                'is_public': course.is_public,
+                'instructor_name': course.instructor.get_full_name() if course.instructor else 'Unknown',
+                'category_name': course.category.name if course.category else 'Uncategorized',
+                'category': course.category.id if course.category else None,
+                'enrollment_count': course.enrollments.count(),
+                'created_at': course.created_at,
+                'updated_at': course.updated_at,
+            }
+            courses_data.append(course_data)
+        
+        return StandardAPIResponse.success(
+            data=courses_data,
+            message="Organization courses retrieved successfully"
+        )
+
+    @action(detail=True, methods=['post'])
+    def change_subscription_plan(self, request, pk=None):
+        """Change organization subscription plan (super admin only)"""
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message="Only super administrators can change organization subscription plans"
+            )
+        
+        organization = self.get_object()
+        new_plan_id = request.data.get('plan_id')
+        
+        if not new_plan_id:
+            return StandardAPIResponse.validation_error(
+                message="plan_id is required",
+                errors={'plan_id': ['This field is required']}
+            )
+        
+        try:
+            from apps.payments.models import SubscriptionPlan, Subscription
+            
+            # Get the new plan
+            try:
+                new_plan = SubscriptionPlan.objects.get(id=new_plan_id, is_active=True)
+            except SubscriptionPlan.DoesNotExist:
+                return StandardAPIResponse.validation_error(
+                    message="Invalid or inactive subscription plan",
+                    errors={'plan_id': ['Invalid subscription plan']}
+                )
+            
+            # Get or create subscription for organization
+            subscription, created = Subscription.objects.get_or_create(
+                organization=organization,
+                defaults={
+                    'plan': new_plan,
+                    'billing_cycle': 'monthly',
+                    'amount': new_plan.price_monthly,
+                    'current_period_start': timezone.now(),
+                    'current_period_end': timezone.now() + timezone.timedelta(days=30),
+                    'tenant': organization
+                }
+            )
+            
+            if not created:
+                # Update existing subscription
+                old_plan = subscription.plan
+                subscription.plan = new_plan
+                subscription.amount = new_plan.price_monthly
+                subscription.save()
+                
+                # Log the change (simple logging for now)
+                import logging
+                logger = logging.getLogger('apps.accounts')
+                logger.info(f"Subscription plan changed for organization {organization.name} "
+                           f"from {old_plan.name} to {new_plan.name} by {request.user.email}")
+            
+            return StandardAPIResponse.success(
+                data={
+                    'organization_id': str(organization.id),
+                    'organization_name': organization.name,
+                    'old_plan': subscription.plan.name if not created else None,
+                    'new_plan': new_plan.name,
+                    'plan_details': {
+                        'id': str(new_plan.id),
+                        'name': new_plan.name,
+                        'display_name': new_plan.display_name,
+                        'price_monthly': float(new_plan.price_monthly),
+                        'price_yearly': float(new_plan.price_yearly),
+                        'max_users': new_plan.max_users,
+                        'max_courses': new_plan.max_courses,
+                        'max_storage_gb': new_plan.max_storage_gb,
+                        'ai_quota_monthly': new_plan.ai_quota_monthly,
+                    }
+                },
+                message=f"Subscription plan changed to {new_plan.display_name} successfully"
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message="Failed to change subscription plan",
+                error_code="SUBSCRIPTION_CHANGE_ERROR",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
+    def subscription_info(self, request, pk=None):
+        """Get organization subscription information (super admin only)"""
+        if not request.user.is_superuser:
+            return StandardAPIResponse.permission_denied(
+                message="Only super administrators can view organization subscription information"
+            )
+        
+        organization = self.get_object()
+        
+        try:
+            from apps.payments.models import Subscription, SubscriptionPlan
+            
+            # Get current subscription
+            try:
+                subscription = Subscription.objects.get(organization=organization)
+                current_plan = subscription.plan
+                
+                subscription_data = {
+                    'has_subscription': True,
+                    'subscription_id': str(subscription.id),
+                    'current_plan': {
+                        'id': str(current_plan.id),
+                        'name': current_plan.name,
+                        'display_name': current_plan.display_name,
+                        'price_monthly': float(current_plan.price_monthly),
+                        'price_yearly': float(current_plan.price_yearly),
+                        'max_users': current_plan.max_users,
+                        'max_courses': current_plan.max_courses,
+                        'max_storage_gb': current_plan.max_storage_gb,
+                        'ai_quota_monthly': current_plan.ai_quota_monthly,
+                    },
+                    'billing_cycle': subscription.billing_cycle,
+                    'status': subscription.status,
+                    'current_period_start': subscription.current_period_start,
+                    'current_period_end': subscription.current_period_end,
+                    'amount': float(subscription.amount),
+                }
+            except Subscription.DoesNotExist:
+                subscription_data = {
+                    'has_subscription': False,
+                    'current_plan': None,
+                }
+            
+            # Get all available plans
+            available_plans = SubscriptionPlan.objects.filter(is_active=True).order_by('price_monthly')
+            plans_data = []
+            
+            for plan in available_plans:
+                plans_data.append({
+                    'id': str(plan.id),
+                    'name': plan.name,
+                    'display_name': plan.display_name,
+                    'description': plan.description,
+                    'price_monthly': float(plan.price_monthly),
+                    'price_yearly': float(plan.price_yearly),
+                    'max_users': plan.max_users,
+                    'max_courses': plan.max_courses,
+                    'max_storage_gb': plan.max_storage_gb,
+                    'ai_quota_monthly': plan.ai_quota_monthly,
+                    'has_analytics': plan.has_analytics,
+                    'has_api_access': plan.has_api_access,
+                    'has_white_labeling': plan.has_white_labeling,
+                    'has_priority_support': plan.has_priority_support,
+                    'has_custom_integrations': plan.has_custom_integrations,
+                    'is_popular': plan.is_popular,
+                })
+            
+            subscription_data['available_plans'] = plans_data
+            
+            return StandardAPIResponse.success(
+                data=subscription_data,
+                message="Organization subscription information retrieved successfully"
+            )
+            
+        except Exception as e:
+            return StandardAPIResponse.error(
+                message="Failed to retrieve subscription information",
+                error_code="SUBSCRIPTION_INFO_ERROR",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class TokenRefreshWithTenantView(TokenRefreshView):

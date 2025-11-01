@@ -150,19 +150,108 @@ class SubscriptionPlan(models.Model):
     def __str__(self):
         return f"{self.display_name} - ${self.price_monthly}/month"
     
+    def clean(self):
+        """Validate subscription plan data"""
+        from django.core.exceptions import ValidationError
+        
+        # Validate pricing
+        if self.price_monthly <= 0:
+            raise ValidationError("Monthly price must be greater than 0")
+        
+        if self.price_yearly <= 0:
+            raise ValidationError("Yearly price must be greater than 0")
+        
+        # Validate yearly price is less than 12 months of monthly price
+        if self.price_yearly >= (self.price_monthly * 12):
+            raise ValidationError("Yearly price should be less than 12 months of monthly price")
+        
+        # Validate limits
+        if self.max_users <= 0:
+            raise ValidationError("Maximum users must be greater than 0")
+        
+        if self.max_courses <= 0:
+            raise ValidationError("Maximum courses must be greater than 0")
+        
+        if self.max_storage_gb <= 0:
+            raise ValidationError("Maximum storage must be greater than 0")
+        
+        if self.ai_quota_monthly < 0:
+            raise ValidationError("AI quota cannot be negative")
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     def get_price(self, billing_cycle='monthly'):
         """Get price for billing cycle"""
         return self.price_yearly if billing_cycle == 'yearly' else self.price_monthly
+    
+    def calculate_savings_percentage(self):
+        """Calculate percentage savings for yearly vs monthly billing"""
+        monthly_total = self.price_monthly * 12
+        if monthly_total > 0:
+            savings = ((monthly_total - self.price_yearly) / monthly_total) * 100
+            return max(0, round(savings, 1))
+        return 0
+    
+    def get_feature_list(self):
+        """Get list of enabled features"""
+        features = []
+        
+        if self.has_analytics:
+            features.append("Advanced Analytics")
+        if self.has_api_access:
+            features.append("API Access")
+        if self.has_white_labeling:
+            features.append("White Labeling")
+        if self.has_priority_support:
+            features.append("Priority Support")
+        if self.has_custom_integrations:
+            features.append("Custom Integrations")
+        if self.recording_access:
+            features.append("Recording Access")
+        if self.premium_content_access:
+            features.append("Premium Content Access")
+        
+        # Add features from JSON field
+        if self.features:
+            for key, value in self.features.items():
+                if value:
+                    features.append(key.replace('_', ' ').title())
+        
+        return features
+    
+    def is_upgrade_from(self, other_plan):
+        """Check if this plan is an upgrade from another plan"""
+        if not other_plan:
+            return True
+        
+        # Compare by price first
+        if self.price_monthly > other_plan.price_monthly:
+            return True
+        
+        # Compare by features
+        current_features = sum([
+            self.has_analytics,
+            self.has_api_access,
+            self.has_white_labeling,
+            self.has_priority_support,
+            self.has_custom_integrations
+        ])
+        
+        other_features = sum([
+            other_plan.has_analytics,
+            other_plan.has_api_access,
+            other_plan.has_white_labeling,
+            other_plan.has_priority_support,
+            other_plan.has_custom_integrations
+        ])
+        
+        return current_features > other_features
 
 
 class Subscription(TenantAwareModel):
     """Institutional subscription plans"""
-    
-    PLAN_CHOICES = [
-        ('basic', 'Basic'),
-        ('pro', 'Pro'),
-        ('enterprise', 'Enterprise'),
-    ]
     
     STATUS_CHOICES = [
         ('active', 'Active'),
@@ -184,7 +273,12 @@ class Subscription(TenantAwareModel):
         related_name='subscription'
     )
     
-    plan = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.PROTECT,
+        related_name='subscriptions',
+        help_text="Subscription plan - cannot be deleted if active subscriptions exist"
+    )
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES, default='monthly')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     
@@ -211,7 +305,7 @@ class Subscription(TenantAwareModel):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.organization.name} - {self.plan} ({self.status})"
+        return f"{self.organization.name} - {self.plan.display_name} ({self.status})"
     
     def is_active(self):
         """Check if subscription is currently active"""
@@ -225,10 +319,7 @@ class Subscription(TenantAwareModel):
     
     def get_plan_details(self):
         """Get subscription plan details with feature limits"""
-        try:
-            return SubscriptionPlan.objects.get(name=self.plan)
-        except SubscriptionPlan.DoesNotExist:
-            return None
+        return self.plan
     
     def can_add_user(self):
         """Check if organization can add more users"""

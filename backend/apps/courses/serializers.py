@@ -1,5 +1,31 @@
 from rest_framework import serializers
-from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment, Wishlist
+from .models import Course, LiveClass, CourseModule, CourseReview, CourseLicense, Enrollment, Wishlist, CourseCategory
+
+
+class CourseCategorySerializer(serializers.ModelSerializer):
+    """Serializer for CourseCategory model"""
+    
+    subcategories = serializers.SerializerMethodField()
+    parent_name = serializers.CharField(source='parent.name', read_only=True)
+    
+    class Meta:
+        model = CourseCategory
+        fields = [
+            'id', 'name', 'slug', 'description', 'icon', 'color',
+            'parent', 'parent_name', 'sort_order', 'is_active',
+            'full_path', 'subcategories', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'full_path', 'created_at', 'updated_at']
+    
+    def get_subcategories(self, obj):
+        """Get subcategories if this is a parent category"""
+        if obj.subcategories.exists():
+            return CourseCategorySerializer(
+                obj.subcategories.filter(is_active=True).order_by('sort_order', 'name'),
+                many=True,
+                context=self.context
+            ).data
+        return []
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -7,6 +33,8 @@ class CourseSerializer(serializers.ModelSerializer):
     
     instructor_name = serializers.CharField(source='instructor.get_full_name', read_only=True)
     organization_name = serializers.CharField(source='tenant.name', read_only=True)
+    category_details = CourseCategorySerializer(source='category', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_enrollments = serializers.ReadOnlyField()
     enrollment_count = serializers.SerializerMethodField()
@@ -15,7 +43,8 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             'id', 'title', 'description', 'instructor', 'instructor_name',
-            'organization_name', 'category', 'tags', 'thumbnail', 'price', 'is_public',
+            'organization_name', 'category', 'category_details', 'category_name',
+            'tags', 'thumbnail', 'price', 'is_public',
             'max_students', 'duration_weeks', 'difficulty_level',
             'average_rating', 'total_enrollments', 'enrollment_count', 'created_at', 'updated_at'
         ]
@@ -124,7 +153,7 @@ class WishlistSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source='course.title', read_only=True)
     course_price = serializers.DecimalField(source='course.price', max_digits=10, decimal_places=2, read_only=True)
     course_instructor = serializers.CharField(source='course.instructor.get_full_name', read_only=True)
-    course_category = serializers.CharField(source='course.category', read_only=True)
+    course_category = serializers.CharField(source='course.category.name', read_only=True)
     course_difficulty = serializers.CharField(source='course.difficulty_level', read_only=True)
     course_thumbnail = serializers.ImageField(source='course.thumbnail', read_only=True)
     course_average_rating = serializers.ReadOnlyField(source='course.average_rating')

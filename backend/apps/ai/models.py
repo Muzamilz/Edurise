@@ -217,40 +217,42 @@ class AIUsageQuota(TenantAwareModel):
     @staticmethod
     def _get_default_limits_for_tenant(tenant):
         """Get default limits based on tenant subscription plan"""
-        # This would be enhanced based on tenant subscription plans
-        plan_limits = {
-            'basic': {
-                'chat_messages_limit': 50,
-                'chat_tokens_limit': 25000,
-                'summaries_limit': 10,
-                'summary_tokens_limit': 50000,
-                'quizzes_limit': 5,
-                'quiz_tokens_limit': 25000,
-                'cost_limit_usd': 5.00,
-            },
-            'pro': {
-                'chat_messages_limit': 200,
-                'chat_tokens_limit': 100000,
-                'summaries_limit': 50,
-                'summary_tokens_limit': 200000,
-                'quizzes_limit': 25,
-                'quiz_tokens_limit': 100000,
-                'cost_limit_usd': 25.00,
-            },
-            'enterprise': {
-                'chat_messages_limit': 1000,
-                'chat_tokens_limit': 500000,
-                'summaries_limit': 200,
-                'summary_tokens_limit': 1000000,
-                'quizzes_limit': 100,
-                'quiz_tokens_limit': 500000,
-                'cost_limit_usd': 100.00,
-            }
-        }
+        from apps.payments.models import Subscription
         
-        # Default to basic plan if tenant doesn't have a plan set
-        plan = getattr(tenant, 'subscription_plan', 'basic')
-        return plan_limits.get(plan, plan_limits['basic'])
+        try:
+            # Get active subscription for tenant
+            subscription = Subscription.objects.filter(
+                organization=tenant,
+                status='active'
+            ).select_related('plan').first()
+            
+            if subscription and subscription.plan:
+                plan = subscription.plan
+                # Calculate AI limits based on subscription plan
+                base_quota = plan.ai_quota_monthly
+                
+                return {
+                    'chat_messages_limit': int(base_quota * 0.4),  # 40% for chat
+                    'chat_tokens_limit': int(base_quota * 50),     # 50 tokens per message avg
+                    'summaries_limit': int(base_quota * 0.2),     # 20% for summaries
+                    'summary_tokens_limit': int(base_quota * 100), # 100 tokens per summary avg
+                    'quizzes_limit': int(base_quota * 0.1),       # 10% for quizzes
+                    'quiz_tokens_limit': int(base_quota * 200),   # 200 tokens per quiz avg
+                    'cost_limit_usd': float(plan.price_monthly * 0.1),  # 10% of plan price
+                }
+        except Exception:
+            pass
+        
+        # Fallback to basic limits
+        return {
+            'chat_messages_limit': 50,
+            'chat_tokens_limit': 2500,
+            'summaries_limit': 10,
+            'summary_tokens_limit': 5000,
+            'quizzes_limit': 5,
+            'quiz_tokens_limit': 1000,
+            'cost_limit_usd': 5.00,
+        }
 
 
 class AIRateLimit(models.Model):

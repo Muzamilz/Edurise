@@ -111,6 +111,14 @@
             <span class="btn-icon">⚙️</span>
             System Settings
           </router-link>
+          <router-link to="/admin/categories" class="action-btn secondary">
+            <span class="btn-icon">📂</span>
+            Category Management
+          </router-link>
+          <router-link to="/admin/subscription-plans" class="action-btn secondary">
+            <span class="btn-icon">💳</span>
+            Subscription Plans
+          </router-link>
         </div>
       </div>
 

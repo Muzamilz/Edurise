@@ -1,13 +1,13 @@
 import django_filters
 from django.db import models
-from .models import Course, LiveClass, Enrollment
+from .models import Course, LiveClass, Enrollment, CourseCategory
 
 
 class CourseFilter(django_filters.FilterSet):
     """Filter for Course model"""
     
     title = django_filters.CharFilter(lookup_expr='icontains')
-    category = django_filters.ChoiceFilter(choices=Course.CATEGORY_CHOICES)
+    category = django_filters.ModelChoiceFilter(queryset=None)  # Will be set dynamically
     difficulty_level = django_filters.ChoiceFilter(choices=Course.DIFFICULTY_CHOICES)
     is_public = django_filters.BooleanFilter()
     instructor = django_filters.CharFilter(field_name='instructor__email', lookup_expr='icontains')
@@ -46,6 +46,11 @@ class CourseFilter(django_filters.FilterSet):
             'is_free', 'min_duration', 'max_duration', 'created_after', 
             'created_before', 'min_rating', 'has_spots', 'search', 'tags'
         ]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set category queryset to active categories
+        self.filters['category'].queryset = CourseCategory.objects.filter(is_active=True)
     
     def filter_search(self, queryset, name, value):
         """Search across title, description, and tags"""

@@ -7,6 +7,154 @@ from apps.common.models import TenantAwareModel
 User = get_user_model()
 
 
+class CourseCategory(models.Model):
+    """Course categories with hierarchy support"""
+    
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True)
+    
+    # Visual customization
+    icon = models.CharField(max_length=50, blank=True, help_text="CSS icon class (e.g., 'fas fa-laptop-code')")
+    color = models.CharField(max_length=7, blank=True, help_text="Hex color code (e.g., '#3B82F6')")
+    
+    # Hierarchy support
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='subcategories'
+    )
+    
+    # Organization and display
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    
+    # Optional: Tenant-specific categories (null = global category)
+    tenant = models.ForeignKey(
+        'accounts.Organization',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='custom_categories'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'course_categories'
+        verbose_name_plural = 'Course Categories'
+        ordering = ['sort_order', 'name']
+        unique_together = [
+            ['slug', 'tenant'],  # Unique slug per tenant (or globally if tenant is null)
+        ]
+    
+    def __str__(self):
+        if self.parent:
+            return f"{self.parent.name} > {self.name}"
+        return self.name
+    
+    def clean(self):
+        """Validate category data"""
+        from django.core.exceptions import ValidationError
+        
+        # Validate slug format
+        import re
+        if not re.match(r'^[a-z0-9-]+$', self.slug):
+            raise ValidationError("Slug can only contain lowercase letters, numbers, and hyphens")
+        
+        # Validate parent relationship
+        if self.parent:
+            # Prevent circular references
+            if self.parent == self:
+                raise ValidationError("Category cannot be its own parent")
+            
+            # Check for circular reference in hierarchy
+            current = self.parent
+            while current:
+                if current == self:
+                    raise ValidationError("Circular reference detected in category hierarchy")
+                current = current.parent
+            
+            # Validate tenant consistency
+            if self.tenant and self.parent.tenant and self.tenant != self.parent.tenant:
+                raise ValidationError("Child category must belong to the same tenant as parent")
+        
+        # Validate color format
+        if self.color and not re.match(r'^#[0-9A-Fa-f]{6}$', self.color):
+            raise ValidationError("Color must be a valid hex color code (e.g., #3B82F6)")
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def full_path(self):
+        """Get full category path"""
+        path = [self.name]
+        parent = self.parent
+        while parent:
+            path.insert(0, parent.name)
+            parent = parent.parent
+        return " > ".join(path)
+    
+    def get_descendants(self):
+        """Get all descendant categories"""
+        descendants = []
+        for child in self.subcategories.filter(is_active=True):
+            descendants.append(child)
+            descendants.extend(child.get_descendants())
+        return descendants
+    
+    @classmethod
+    def get_root_categories(cls, tenant=None):
+        """Get top-level categories for a tenant"""
+        return cls.objects.filter(
+            parent=None,
+            is_active=True,
+            tenant=tenant
+        ).order_by('sort_order', 'name')
+    
+    def get_course_count(self):
+        """Get number of courses in this category and its subcategories"""
+        from django.db.models import Q
+        
+        # Get all descendant category IDs
+        descendant_ids = [self.id]
+        for descendant in self.get_descendants():
+            descendant_ids.append(descendant.id)
+        
+        return Course.objects.filter(category_id__in=descendant_ids).count()
+    
+    def can_be_deleted(self):
+        """Check if category can be safely deleted"""
+        # Cannot delete if it has courses
+        if self.courses.exists():
+            return False, "Category has courses assigned to it"
+        
+        # Cannot delete if it has subcategories
+        if self.subcategories.exists():
+            return False, "Category has subcategories"
+        
+        return True, "Category can be deleted"
+    
+    def move_to_parent(self, new_parent):
+        """Move category to a new parent with validation"""
+        if new_parent:
+            # Validate the move won't create circular reference
+            current = new_parent
+            while current:
+                if current == self:
+                    raise ValueError("Cannot move category: would create circular reference")
+                current = current.parent
+        
+        self.parent = new_parent
+        self.save()
+
+
 class Course(TenantAwareModel):
     """Course model for both marketplace and institutional courses"""
     
@@ -16,15 +164,7 @@ class Course(TenantAwareModel):
         ('advanced', 'Advanced'),
     ]
     
-    CATEGORY_CHOICES = [
-        ('technology', 'Technology'),
-        ('business', 'Business'),
-        ('design', 'Design'),
-        ('marketing', 'Marketing'),
-        ('language', 'Language'),
-        ('science', 'Science'),
-        ('other', 'Other'),
-    ]
+
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
@@ -32,7 +172,12 @@ class Course(TenantAwareModel):
     instructor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses')
     
     # Course metadata
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='other')
+    category = models.ForeignKey(
+        CourseCategory,
+        on_delete=models.PROTECT,
+        related_name='courses',
+        help_text="Course category - cannot be deleted if courses exist"
+    )
     tags = models.JSONField(default=list, blank=True)
     thumbnail = models.ImageField(upload_to='course_thumbnails/', blank=True, null=True)
     # New centralized file reference
@@ -63,6 +208,29 @@ class Course(TenantAwareModel):
     
     def __str__(self):
         return self.title
+    
+    def save(self, *args, **kwargs):
+        # Validate category belongs to same tenant or is global
+        if self.category and self.category.tenant and self.category.tenant != self.tenant:
+            raise ValueError("Course category must belong to the same tenant or be global")
+        
+        super().save(*args, **kwargs)
+    
+    def clean(self):
+        """Validate model data"""
+        from django.core.exceptions import ValidationError
+        
+        # Validate price for public courses
+        if self.is_public and self.price is None:
+            raise ValidationError("Public courses must have a price set")
+        
+        # Validate max students
+        if self.max_students is not None and self.max_students <= 0:
+            raise ValidationError("Maximum students must be greater than 0")
+        
+        # Validate duration
+        if self.duration_weeks <= 0:
+            raise ValidationError("Duration must be greater than 0 weeks")
     
     @property
     def average_rating(self):

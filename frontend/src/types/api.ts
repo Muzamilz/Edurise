@@ -4,12 +4,11 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  is_teacher: boolean
-  is_approved_teacher: boolean
   is_staff: boolean
   is_superuser: boolean
   date_joined: string
   last_login: string
+  is_approved_teacher?: boolean
 }
 
 export interface UserProfile {
@@ -22,6 +21,14 @@ export interface UserProfile {
   date_of_birth?: string
   timezone: string
   language: string
+  role: 'student' | 'teacher' | 'admin'
+  is_approved_teacher: boolean
+  teacher_approval_status: 'not_applied' | 'pending' | 'approved' | 'rejected'
+  teacher_approved_at?: string
+  teacher_approved_by?: User
+  notification_preferences: Record<string, any>
+  is_online: boolean
+  last_seen?: string
   created_at: string
   updated_at: string
 }
@@ -31,12 +38,83 @@ export interface Organization {
   name: string
   subdomain: string
   logo?: string
+  description?: string
   primary_color: string
   secondary_color: string
-  subscription_plan: 'basic' | 'pro' | 'enterprise'
   is_active: boolean
   created_at: string
   updated_at: string
+  // Additional properties for enhanced courses view
+  course_count?: number
+  total_students?: number
+  avg_rating?: number
+  user_count?: number
+  // Legacy subscription plan field (still used in some views)
+  subscription_plan?: 'basic' | 'pro' | 'enterprise'
+  // Subscription is now a separate relationship
+  subscription?: Subscription
+}
+
+export interface SubscriptionPlan {
+  id: string
+  name: 'basic' | 'pro' | 'enterprise'
+  display_name: string
+  description: string
+  price_monthly: number
+  price_yearly: number
+  max_users: number
+  max_courses: number
+  max_storage_gb: number
+  ai_quota_monthly: number
+  has_analytics: boolean
+  has_api_access: boolean
+  has_white_labeling: boolean
+  has_priority_support: boolean
+  has_custom_integrations: boolean
+  max_file_size_mb: number
+  monthly_download_limit: number | null
+  recording_access: boolean
+  premium_content_access: boolean
+  features: Record<string, any>
+  is_popular: boolean
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Subscription {
+  id: string
+  organization: string
+  plan: SubscriptionPlan
+  billing_cycle: 'monthly' | 'yearly'
+  status: 'active' | 'cancelled' | 'past_due' | 'unpaid' | 'trialing'
+  amount: number
+  currency: string
+  current_period_start: string
+  current_period_end: string
+  trial_end: string | null
+  created_at: string
+  updated_at: string
+  cancelled_at: string | null
+}
+
+export interface CourseCategory {
+  id: string
+  name: string
+  slug: string
+  description: string
+  icon: string
+  color: string
+  parent: string | null
+  sort_order: number
+  is_active: boolean
+  tenant: string | null
+  created_at: string
+  updated_at: string
+  // Computed properties
+  full_path?: string
+  subcategories?: CourseCategory[]
 }
 
 export interface LoginRequest {
@@ -67,7 +145,9 @@ export interface Course {
   title: string
   description: string
   instructor: User
-  category: string
+  category: string // Category ID
+  category_details?: CourseCategory
+  category_name?: string
   tags: string[]
   thumbnail?: string
   price?: number
@@ -262,6 +342,55 @@ export interface DashboardStats {
   active_users_today: number
   new_enrollments_today: number
   completion_rate: number
+}
+
+export interface FinancialData {
+  total_revenue: number
+  current_month_revenue: number
+  last_month_revenue: number
+  growth_rate: number
+  total_transactions: number
+  average_transaction: number
+  total_commission: number
+  total_payouts: number
+  revenue_trend: Array<{
+    date: string
+    revenue: number
+  }>
+  revenue_by_organization: Array<{
+    organization_id: string
+    organization_name: string
+    revenue: number
+  }>
+}
+
+export interface Transaction {
+  id: string
+  user: {
+    name: string
+    email: string
+  }
+  course: {
+    title: string
+  }
+  amount: number
+  status: string
+  payment_method: string
+  created_at: string
+  organization?: {
+    name: string
+  }
+  student?: {
+    first_name: string
+    last_name: string
+  }
+  commission?: number
+}
+
+export interface OrganizationPayout {
+  id: string
+  name: string
+  pending_payout: number
 }
 
 // Notification Types
