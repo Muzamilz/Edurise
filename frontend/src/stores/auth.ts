@@ -23,6 +23,34 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value) return ''
     return `${user.value.first_name} ${user.value.last_name}`.trim()
   })
+  
+  // Primary role for routing (hierarchy: superuser > admin > teacher > student)
+  const userRole = computed(() => {
+    if (!user.value) return 'guest'
+    if (user.value.is_superuser) return 'superuser'
+    if (user.value.is_staff) return 'admin'
+    if (user.value.is_approved_teacher) return 'teacher'
+    if (user.value.is_teacher) return 'teacher-pending'
+    return 'student'
+  })
+  
+  // Get dashboard route based on role
+  const dashboardRoute = computed(() => {
+    const role = userRole.value
+    switch (role) {
+      case 'superuser':
+        return '/super-admin/organizations'
+      case 'admin':
+        return '/admin/users'
+      case 'teacher':
+        return '/teacher/courses'
+      case 'teacher-pending':
+        return '/teacher/application-status'
+      case 'student':
+      default:
+        return '/dashboard'
+    }
+  })
 
   // Actions
   const login = async (credentials: LoginRequest): Promise<void> => {
@@ -411,6 +439,8 @@ export const useAuthStore = defineStore('auth', () => {
     isStaff,
     isSuperuser,
     fullName,
+    userRole,
+    dashboardRoute,
 
     // Actions
     login,

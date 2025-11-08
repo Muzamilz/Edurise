@@ -40,6 +40,16 @@ class User(AbstractUser):
     
     def __str__(self):
         return self.email
+    
+    @property
+    def is_teacher(self):
+        """Check if user has teacher role in any tenant"""
+        return self.profiles.filter(role='teacher').exists()
+    
+    @property
+    def is_approved_teacher(self):
+        """Check if user is an approved teacher in any tenant"""
+        return self.profiles.filter(role='teacher', is_approved_teacher=True).exists()
 
 
 class Organization(models.Model):

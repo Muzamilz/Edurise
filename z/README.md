@@ -64,59 +64,23 @@ edurise/
 
 ## 📚 Documentation
 
-**📖 [Complete Documentation Index](docs/INDEX.md)** - Browse all documentation
+All documentation is organized in the `docs/` directory:
 
-### Quick Links
-
-#### 🚀 Getting Started
 - **[Setup Guide](docs/REPOSITORY_SETUP.md)** - Initial project setup
 - **[Data Setup](docs/DATA_SETUP_README.md)** - Database configuration
 - **[Redis Setup](docs/REDIS_SETUP.md)** - Redis configuration
-- **[Email Setup](docs/EMAIL_SETUP.md)** - Email configuration
-
-#### 🔐 Authentication
-- **[Auth System Guide](docs/auth/README_AUTH_SYSTEM.md)** - Complete auth documentation
-- **[Quick Reference](docs/auth/QUICK_AUTH_REFERENCE.md)** - Auth quick reference
-- **[Testing Checklist](docs/auth/AUTH_TESTING_CHECKLIST.md)** - Auth testing guide
-
-#### 💳 Payments
-- **[Payment Setup](docs/payments/PAYMENT_SETUP.md)** - Payment gateway setup
-- **[Subscription Management](docs/payments/SUBSCRIPTION_MANAGEMENT_IMPLEMENTATION.md)** - Subscription system
-- **[Payment API](docs/payments/API_DOCUMENTATION.md)** - Payment endpoints
-
-#### 📚 Courses
-- **[Course Features](docs/courses/COURSES_ENHANCEMENT_README.md)** - Course management
-- **[3D Enhancements](docs/courses/3D_COURSES_ENHANCEMENT_SUMMARY.md)** - 3D course features
-- **[Wishlist](docs/courses/WISHLIST_IMPLEMENTATION_SUMMARY.md)** - Wishlist system
-
-#### 🤖 AI & Recommendations
-- **[AI System](docs/ai/AI_SYSTEM_STATUS.md)** - AI features overview
-- **[Recommendations](docs/ai/RECOMMENDATION_SYSTEM_SUMMARY.md)** - Recommendation engine
-
-#### 🔌 API
-- **[API Overview](docs/api/API_README.md)** - API documentation
-- **[API Mapping](docs/api/FRONTEND_BACKEND_API_MAPPING_REPORT.md)** - Frontend-Backend mapping
-- **[Centralized API](docs/api/CENTRALIZED_API_SUMMARY.md)** - API architecture
-
-#### ⚙️ Setup & Configuration
-- **[API Keys Guide](docs/setup/GET_API_KEYS_GUIDE.md)** - API keys configuration
-- **[Zoom Setup](docs/setup/ZOOM_SETUP_GUIDE.md)** - Zoom integration
-- **[Database Setup](docs/setup/DATABASE_IMPROVEMENTS.md)** - Database optimization
-
-#### 🧪 Testing
-- **[E2E Tests](docs/testing/E2E_WORKFLOW_TEST_DOCUMENTATION.md)** - End-to-end testing
-- **[Test Results](docs/testing/TESTING_RESULTS.md)** - Test coverage
-- **[Backend Tests](docs/testing/BACKEND_TESTS_README.md)** - Backend testing guide
-
-#### 🎨 Frontend
-- **[Integration Status](docs/frontend/INTEGRATION_STATUS.md)** - Current integration status
-- **[Troubleshooting](docs/frontend/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Notifications](docs/frontend/NOTIFICATIONS_README.md)** - Notifications system
-
-#### 📋 Project Info
+- **[Zoom Integration](docs/ZOOM_API_SETUP.md)** - Zoom API setup
 - **[Contributing](docs/CONTRIBUTING.md)** - Contribution guidelines
-- **[Project Organization](docs/PROJECT_ORGANIZATION.md)** - Project structure
-- **[Repository Analysis](docs/REPOSITORY_ANALYSIS_REPORT.md)** - Code analysis
+
+### Backend Documentation
+- **[API Summary](docs/backend/CENTRALIZED_API_SUMMARY.md)** - API endpoints overview
+- **[Recommendation System](docs/backend/RECOMMENDATION_SYSTEM_SUMMARY.md)** - AI recommendations
+- **[Wishlist Implementation](docs/backend/WISHLIST_IMPLEMENTATION_SUMMARY.md)** - Wishlist features
+
+### Frontend Documentation
+- **[Integration Status](docs/frontend/INTEGRATION_STATUS.md)** - Current integration status
+- **[API Integration](docs/frontend/FRONTEND_API_INTEGRATION_STATUS.md)** - Frontend API usage
+- **[Troubleshooting](docs/frontend/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## 🔧 Scripts & Utilities
 

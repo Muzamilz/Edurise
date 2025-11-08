@@ -4,17 +4,18 @@ from .models import User, UserProfile, TeacherApproval, Organization
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer for User model"""
+    """Serializer for User model with enhanced role information"""
     organization_name = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     current_profile = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'full_name',
-            'is_staff', 'is_superuser', 'date_joined', 'last_login', 
-            'organization_name', 'current_profile'
+            'is_staff', 'is_superuser', 'is_teacher', 'is_approved_teacher',
+            'date_joined', 'last_login', 'organization_name', 'current_profile', 'role'
         ]
         read_only_fields = ['id', 'is_staff', 'is_superuser', 'date_joined', 'last_login']
     
@@ -30,6 +31,28 @@ class UserSerializer(serializers.ModelSerializer):
         """Get the user's full name"""
         return f"{obj.first_name} {obj.last_name}".strip() or obj.email
     
+    def get_role(self, obj):
+        """Get the user's primary role"""
+        if obj.is_superuser:
+            return 'superuser'
+        if obj.is_staff:
+            return 'admin'
+        
+        request = self.context.get('request')
+        if request and hasattr(request, 'tenant'):
+            try:
+                profile = obj.profiles.get(tenant=request.tenant)
+                return profile.role
+            except UserProfile.DoesNotExist:
+                pass
+        
+        # Fallback to first profile role
+        try:
+            profile = obj.profiles.first()
+            return profile.role if profile else 'student'
+        except:
+            return 'student'
+    
     def get_current_profile(self, obj):
         """Get the user's profile for the current tenant"""
         request = self.context.get('request')
@@ -37,7 +60,7 @@ class UserSerializer(serializers.ModelSerializer):
             try:
                 profile = obj.profiles.get(tenant=request.tenant)
                 return {
-                    'id': profile.id,
+                    'id': str(profile.id),
                     'role': profile.role,
                     'is_approved_teacher': profile.is_approved_teacher,
                     'teacher_approval_status': profile.teacher_approval_status,

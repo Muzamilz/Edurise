@@ -6,9 +6,10 @@ export interface User {
   last_name: string
   is_staff: boolean
   is_superuser: boolean
+  is_teacher: boolean
+  is_approved_teacher: boolean
   date_joined: string
   last_login: string
-  is_approved_teacher?: boolean
 }
 
 export interface UserProfile {

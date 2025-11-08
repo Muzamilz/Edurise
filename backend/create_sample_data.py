@@ -44,9 +44,7 @@ def create_sample_content():
             'first_name': 'Admin',
             'last_name': 'User',
             'is_staff': True,
-            'is_superuser': True,
-            'is_teacher': True,
-            'is_approved_teacher': True
+            'is_superuser': True
         }
     )
     if created:
@@ -63,14 +61,24 @@ def create_sample_content():
             defaults={
                 'username': email,
                 'first_name': f'User{i+1}',
-                'last_name': 'Test',
-                'is_teacher': i < 2,  # First 2 users are teachers
-                'is_approved_teacher': i < 2
+                'last_name': 'Test'
             }
         )
         if created:
             user.set_password('password123')
             user.save()
+            
+            # Create user profile with appropriate role
+            role = 'teacher' if i < 2 else 'student'  # First 2 users are teachers
+            is_approved_teacher = i < 2  # First 2 users are approved teachers
+            
+            UserProfile.objects.create(
+                user=user,
+                tenant=organization,
+                role=role,
+                is_approved_teacher=is_approved_teacher
+            )
+            
         sample_users.append(user)
     
     # Create contact info

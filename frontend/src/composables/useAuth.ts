@@ -25,9 +25,13 @@ export const useAuth = () => {
     try {
       await authStore.login(credentials)
       
-      // Redirect after successful login
-      const redirect = redirectTo || '/dashboard'
-      await router.push(redirect)
+      // Redirect after successful login based on user role
+      if (redirectTo) {
+        await router.push(redirectTo)
+      } else {
+        // Use role-based dashboard route
+        await router.push(authStore.dashboardRoute)
+      }
     } catch (error) {
       // Error is handled by the store
       throw error
@@ -38,9 +42,13 @@ export const useAuth = () => {
     try {
       await authStore.register(userData)
       
-      // Redirect after successful registration
-      const redirect = redirectTo || '/dashboard'
-      await router.push(redirect)
+      // Redirect after successful registration based on user role
+      if (redirectTo) {
+        await router.push(redirectTo)
+      } else {
+        // Use role-based dashboard route
+        await router.push(authStore.dashboardRoute)
+      }
     } catch (error) {
       // Error is handled by the store
       throw error
@@ -83,9 +91,13 @@ export const useAuth = () => {
     try {
       await authStore.googleLogin(accessToken)
       
-      // Redirect after successful login
-      const redirect = redirectTo || '/dashboard'
-      await router.push(redirect)
+      // Redirect after successful login based on user role
+      if (redirectTo) {
+        await router.push(redirectTo)
+      } else {
+        // Use role-based dashboard route
+        await router.push(authStore.dashboardRoute)
+      }
     } catch (error) {
       throw error
     }

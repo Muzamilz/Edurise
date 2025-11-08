@@ -28,7 +28,8 @@ export const guestGuard = (
   const authStore = useAuthStore()
   
   if (authStore.isAuthenticated) {
-    next('/dashboard')
+    // Redirect to role-specific dashboard
+    next(authStore.dashboardRoute)
   } else {
     next()
   }
