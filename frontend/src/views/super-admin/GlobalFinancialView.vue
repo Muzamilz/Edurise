@@ -363,12 +363,14 @@ const { mutate: processPayoutMutation } = useApiMutation(
 )
 
 // Mock transactions data (until payments endpoint is properly integrated)
-const transactions = ref([
+const transactions = ref<any[]>([
   {
     id: 'txn_001',
     user: { name: 'John Doe', email: 'john@example.com' },
     course: { title: 'Web Development Bootcamp' },
+    organization: { name: 'Tech Academy' },
     amount: 199,
+    commission: 19.9,
     status: 'completed',
     payment_method: 'stripe',
     created_at: new Date().toISOString()
@@ -377,7 +379,9 @@ const transactions = ref([
     id: 'txn_002', 
     user: { name: 'Jane Smith', email: 'jane@example.com' },
     course: { title: 'Python for Data Science' },
+    organization: { name: 'Data School' },
     amount: 149,
+    commission: 14.9,
     status: 'completed',
     payment_method: 'paypal',
     created_at: new Date(Date.now() - 86400000).toISOString()
@@ -497,6 +501,8 @@ const initializeChart = () => {
   
   const canvas = revenueChart.value as HTMLCanvasElement
   const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
   const trend = financialData.value.revenue_trend
   
   // Clear canvas

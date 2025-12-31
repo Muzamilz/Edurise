@@ -206,10 +206,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 // import { useRouter } from 'vue-router'
-import { useApiData, useApiMutation } from '@/composables/useApiData'
+import { useApiData } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { AdminService } from '@/services/admin'
 
 // const router = useRouter() // Unused for now
 const { handleApiError } = useErrorHandler()
@@ -277,14 +277,14 @@ const totalStudents = computed(() => users.value.filter((u: any) => u.role === '
 const totalTeachers = computed(() => users.value.filter((u: any) => u.role === 'teacher').length)
 const totalAdmins = computed(() => users.value.filter((u: any) => u.role === 'admin').length)
 
-// Mutations
-const { mutate: updateUser } = useApiMutation(
-  ({ id, ...data }) => api.patch(`/users/${id}/`, data),
-  {
-    onSuccess: () => refresh(),
-    onError: (error) => handleApiError(error as APIError, { context: { action: 'update_user' } })
-  }
-)
+// Mutations - updateUser is available for future use
+// const { mutate: updateUser } = useApiMutation(
+//   ({ id, ...data }) => api.patch(`/users/${id}/`, data),
+//   {
+//     onSuccess: () => refresh(),
+//     onError: (error) => handleApiError(error as APIError, { context: { action: 'update_user' } })
+//   }
+// )
 
 const filteredUsers = computed(() => {
   return users.value.filter((user: any) => {
@@ -321,7 +321,7 @@ const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString()
 }
 
-const selectedUser = ref(null)
+const selectedUser = ref<any>(null)
 const showUserModal = ref(false)
 
 const viewUser = (user: any) => {
@@ -341,7 +341,7 @@ const toggleUserStatus = async (user: any) => {
   if (confirm(`Are you sure you want to ${action} ${userName}?`)) {
     try {
       // Call the API to update user status
-      await api.patch(`/users/${user.id}/`, {
+      await AdminService.updateUser(user.id, {
         is_active: !user.is_active
       })
       

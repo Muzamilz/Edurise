@@ -102,6 +102,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { AdminService } from '@/services/admin'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,7 +117,7 @@ const { data: teacher, loading, error, refresh } = useApiData<any>(`/api/v1/teac
 
 // Mutations
 const { mutate: approveTeacherMutation } = useApiMutation(
-  () => ({ method: 'POST', url: `/api/v1/teacher-approvals/${teacherId}/approve/` }),
+  () => AdminService.approveTeacher(teacherId as string),
   {
     onSuccess: () => {
       router.push('/admin/teachers/pending')
@@ -126,11 +127,7 @@ const { mutate: approveTeacherMutation } = useApiMutation(
 )
 
 const { mutate: rejectTeacherMutation } = useApiMutation(
-  (reason) => ({ 
-    method: 'POST', 
-    url: `/api/v1/teacher-approvals/${teacherId}/reject/`,
-    data: { notes: reason }
-  }),
+  (reason) => AdminService.rejectTeacher(teacherId as string, reason),
   {
     onSuccess: () => {
       router.push('/admin/teachers/pending')

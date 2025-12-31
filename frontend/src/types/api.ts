@@ -1,15 +1,23 @@
 // User and Authentication Types
 export interface User {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  is_staff: boolean
-  is_superuser: boolean
-  is_teacher: boolean
-  is_approved_teacher: boolean
-  date_joined: string
-  last_login: string
+  readonly id: string
+  readonly email: string
+  readonly first_name: string
+  readonly last_name: string
+  readonly is_staff: boolean
+  readonly is_superuser: boolean
+  readonly is_teacher: boolean
+  readonly is_approved_teacher: boolean
+  readonly date_joined: string
+  readonly last_login: string
+  readonly current_profile?: UserProfile
+  readonly full_name?: string
+  readonly avatar?: string
+  readonly role?: 'student' | 'teacher' | 'admin'
+  readonly organization_name?: string
+  readonly profiles_count?: number
+  readonly is_active?: boolean
+  readonly last_seen?: string
 }
 
 export interface UserProfile {
@@ -116,6 +124,8 @@ export interface CourseCategory {
   // Computed properties
   full_path?: string
   subcategories?: CourseCategory[]
+  course_count?: number
+  usage_count?: number
 }
 
 export interface LoginRequest {
@@ -137,6 +147,168 @@ export interface AuthResponse {
   tokens: {
     access: string
     refresh: string
+  }
+}
+
+/**
+ * Teacher Approval entity
+ */
+export interface TeacherApproval {
+  id: string
+  user: User
+  status: 'pending' | 'approved' | 'rejected'
+  application_date: string
+  reviewed_date?: string
+  reviewed_by?: User
+  notes?: string
+  qualifications?: string
+  experience?: string
+  teaching_subjects?: string[]
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Audit Log Filters
+ */
+export interface AuditLogFilters {
+  user_id?: string
+  action?: string
+  resource_type?: string
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
+}
+
+/**
+ * Security Event Filters
+ */
+export interface SecurityEventFilters {
+  type?: string
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+  user_id?: string
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
+}
+
+/**
+ * User Analytics Data
+ */
+export interface UserAnalytics {
+  total_users: number
+  active_users: number
+  new_users: number
+  user_growth_rate: number
+  users_by_role: {
+    students: number
+    teachers: number
+    admins: number
+  }
+  users_by_status: {
+    active: number
+    inactive: number
+    suspended: number
+  }
+  registration_trend: Array<{
+    date: string
+    count: number
+  }>
+  engagement_metrics: {
+    avg_session_duration: number
+    avg_courses_per_user: number
+    daily_active_users: number
+    weekly_active_users: number
+    monthly_active_users: number
+  }
+}
+
+/**
+ * Course Analytics Data
+ */
+export interface CourseAnalyticsData {
+  total_courses: number
+  published_courses: number
+  draft_courses: number
+  course_growth_rate: number
+  courses_by_category: Array<{
+    category: string
+    count: number
+  }>
+  courses_by_status: {
+    published: number
+    draft: number
+    archived: number
+  }
+  enrollment_trend: Array<{
+    date: string
+    count: number
+  }>
+  completion_metrics: {
+    avg_completion_rate: number
+    total_completions: number
+    in_progress: number
+  }
+}
+
+/**
+ * Revenue Analytics Data
+ */
+export interface RevenueAnalytics {
+  total_revenue: number
+  revenue_growth_rate: number
+  revenue_by_period: Array<{
+    period: string
+    revenue: number
+  }>
+  revenue_by_course: Array<{
+    course_id: string
+    course_title: string
+    revenue: number
+  }>
+  revenue_by_payment_method: Array<{
+    method: string
+    revenue: number
+    count: number
+  }>
+  average_transaction_value: number
+  total_transactions: number
+}
+
+/**
+ * Enrollment Filters
+ */
+export interface EnrollmentFilters {
+  course_id?: string
+  student_id?: string
+  status?: 'active' | 'completed' | 'dropped' | 'paused'
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
+}
+
+/**
+ * Course Statistics
+ */
+export interface CourseStatistics {
+  total_enrollments: number
+  active_enrollments: number
+  completed_enrollments: number
+  average_progress: number
+  completion_rate: number
+  average_rating: number
+  total_reviews: number
+  total_revenue: number
+  enrollment_trend: Array<{
+    date: string
+    count: number
+  }>
+  student_demographics: {
+    by_country: Record<string, number>
+    by_age_group: Record<string, number>
   }
 }
 
@@ -321,6 +493,52 @@ export interface Payment {
   transaction_id?: string
   created_at: string
   updated_at: string
+}
+
+export interface PaymentCapture {
+  payment_id: string
+  status: 'completed' | 'failed'
+  transaction_id: string
+  amount: number
+  currency: string
+  payer_email?: string
+  payer_name?: string
+  captured_at: string
+  message?: string
+}
+
+export interface PayPalOrder {
+  order_id: string
+  approval_url: string
+  status: 'created' | 'approved' | 'completed'
+  amount: number
+  currency: string
+  created_at: string
+}
+
+/**
+ * Report Generation Response
+ */
+export interface ReportGenerationResponse {
+  report_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  message: string
+  estimated_completion?: string
+  download_url?: string
+}
+
+/**
+ * Export Data Response
+ */
+export interface ExportDataResponse {
+  export_id: string
+  format: 'csv' | 'xlsx' | 'json' | 'pdf'
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  file_url?: string
+  file_size?: number
+  record_count?: number
+  created_at: string
+  expires_at?: string
 }
 
 // Admin Types
@@ -516,6 +734,11 @@ export interface AIMessage {
 }
 
 // API Request/Response Types
+
+/**
+ * Standard API response wrapper
+ * All API endpoints return data wrapped in this structure
+ */
 export interface APIResponse<T> {
   success: boolean
   data: T
@@ -523,6 +746,10 @@ export interface APIResponse<T> {
   timestamp: string
 }
 
+/**
+ * Paginated API response
+ * Used for list endpoints that support pagination
+ */
 export interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -530,10 +757,27 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
+/**
+ * API Error response
+ * Standardized error structure returned by the API
+ */
 export interface ApiError {
   message: string
+  code?: string
   errors?: Record<string, string[]>
   status: number
+  timestamp?: string
+  detail?: string
+}
+
+/**
+ * Error response from API
+ * Used when API returns an error status
+ */
+export interface ErrorResponse {
+  error: ApiError
+  success: false
+  timestamp: string
 }
 
 // Filter and Search Types
@@ -557,11 +801,13 @@ export interface UserFilters {
 }
 
 export interface EnrollmentFilters {
-  status?: string
-  course?: string
-  student?: string
-  search?: string
-  ordering?: string
+  course_id?: string
+  student_id?: string
+  status?: 'active' | 'completed' | 'dropped' | 'paused'
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
 }
 
 // Wishlist Types

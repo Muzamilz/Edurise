@@ -224,12 +224,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useApiData } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useDashboardData } from '@/composables/useDashboardData'
 import AnalyticsChart from '@/components/analytics/AnalyticsChart.vue'
+import { AnalyticsService } from '@/services/analytics'
 
 const { handleApiError } = useErrorHandler()
+const { adminData } = useDashboardData()
 
 // Date range state
 const selectedPeriod = ref('30d')
@@ -240,15 +242,32 @@ const endDate = ref('')
 const userChartType = ref('total')
 const enrollmentChartType = ref('daily')
 
-// Data fetching
-const { data: analyticsData, loading, error, refresh } = useApiData<any>(() => {
-  const params = new URLSearchParams({
-    period: selectedPeriod.value,
-    start_date: startDate.value || '',
-    end_date: endDate.value || ''
-  })
-  return `/analytics/?${params.toString()}`
+const analyticsData = computed(() => {
+  const dashboard = adminData.data.value
+  if (!dashboard) return null
+  
+  return {
+    totalUsers: dashboard.userStats?.totalUsers || 0,
+    activeCourses: dashboard.courseStats?.publishedCourses || 0,
+    totalEnrollments: dashboard.enrollmentStats?.totalEnrollments || 0,
+    totalRevenue: dashboard.revenueStats?.totalRevenue || 0,
+    userGrowth: dashboard.userStats?.userGrowthRate || 0,
+    courseGrowth: 0, // Calculate from dashboard data
+    enrollmentGrowth: 0, // Calculate from dashboard data
+    revenueGrowth: dashboard.revenueStats?.revenueGrowthRate || 0,
+    userGrowthTrend: dashboard.userGrowthTrend || [],
+    enrollmentTrend: dashboard.enrollmentStats || [],
+    topCourses: dashboard.popularCourses || [],
+    avgSessionDuration: '0m', // Not provided by backend yet
+    dailyActiveUsers: dashboard.userStats?.activeUsers || 0,
+    overallCompletionRate: dashboard.enrollmentStats?.completionRate || 0,
+    userRetention: 0 // Not provided by backend yet
+  }
 })
+
+const loading = computed(() => adminData.loading.value)
+const error = computed(() => adminData.error.value)
+const refresh = () => adminData.refresh()
 
 // Computed properties
 const typedAnalyticsData = computed(() => analyticsData.value as any)
@@ -272,7 +291,7 @@ const enrollmentData = computed(() => {
 })
 
 const topCourses = computed(() => {
-  return analyticsData.value?.topCourses || []
+  return (analyticsData.value?.topCourses || []) as any[]
 })
 
 // Methods
@@ -284,7 +303,8 @@ const updateDateRange = () => {
   refresh()
 }
 
-const formatNumber = (num: number) => {
+const formatNumber = (num: number | undefined) => {
+  if (!num) return '0'
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + 'M'
   } else if (num >= 1000) {
@@ -293,37 +313,33 @@ const formatNumber = (num: number) => {
   return num.toString()
 }
 
-const formatChange = (change: number) => {
+const formatChange = (change: number | undefined) => {
   if (!change) return '0%'
   const sign = change > 0 ? '+' : ''
   return `${sign}${change.toFixed(1)}%`
 }
 
-const getChangeClass = (change: number) => {
+const getChangeClass = (change: number | undefined) => {
   if (!change) return 'neutral'
   return change > 0 ? 'positive' : 'negative'
 }
 
 const exportData = async (format: string) => {
   try {
-    const response = await fetch(`/api/v1/analytics/export/?format=${format}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      }
+    const blob = await AnalyticsService.exportData(format as 'csv' | 'xlsx', {
+      period: selectedPeriod.value,
+      start_date: startDate.value,
+      end_date: endDate.value
     })
     
-    if (response.ok) {
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `analytics-${new Date().toISOString().split('T')[0]}.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    }
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `analytics-${new Date().toISOString().split('T')[0]}.${format}`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
   } catch (error) {
     handleApiError(error as APIError, { context: { action: 'export_analytics' } })
   }
@@ -331,25 +347,16 @@ const exportData = async (format: string) => {
 
 const generateReport = async () => {
   try {
-    const response = await fetch('/reports/generate/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      },
-      body: JSON.stringify({
-        type: 'analytics',
-        period: selectedPeriod.value,
-        start_date: startDate.value,
-        end_date: endDate.value
-      })
+    await AnalyticsService.generateReport({
+      type: 'engagement',
+      timeframe: selectedPeriod.value as any,
+      date_from: startDate.value,
+      date_to: endDate.value,
+      format: 'pdf'
     })
     
-    if (response.ok) {
-      await response.json() // Parse response but don't store unused data
-      // Handle report generation success
-      alert('Report generation started. You will receive an email when it\'s ready.')
-    }
+    // Handle report generation success
+    alert('Report generation started. You will receive an email when it\'s ready.')
   } catch (error) {
     handleApiError(error as APIError, { context: { action: 'generate_report' } })
   }

@@ -1,19 +1,12 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import (
-    TestimonialViewSet, TeamMemberViewSet, AnnouncementViewSet,
-    FAQViewSet, ContactInfoViewSet
-)
+from django.urls import path
 
-router = DefaultRouter()
-router.register(r'testimonials', TestimonialViewSet)
-router.register(r'team-members', TeamMemberViewSet)
-router.register(r'announcements', AnnouncementViewSet)
-router.register(r'faqs', FAQViewSet)
-router.register(r'contact-info', ContactInfoViewSet)
+# All ViewSets for this app are registered in apps/api/urls.py
+# This file is reserved for custom non-ViewSet endpoints only
 
 app_name = 'content'
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Custom non-ViewSet endpoints can be added here if needed
+    # Example:
+    # path('custom-endpoint/', CustomView.as_view(), name='custom-endpoint'),
 ]

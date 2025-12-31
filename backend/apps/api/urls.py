@@ -25,7 +25,8 @@ from apps.security.system_views import (
 from apps.accounts.views import UserViewSet, UserProfileViewSet, TeacherApprovalViewSet, OrganizationViewSet
 from apps.courses.views import (
     CourseCategoryViewSet, CourseViewSet, LiveClassViewSet, CourseModuleViewSet, 
-    CourseReviewViewSet, EnrollmentViewSet
+    CourseReviewViewSet, EnrollmentViewSet, WishlistViewSet as CourseWishlistViewSet, 
+    RecommendationViewSet
 )
 from apps.classes.views import ClassAttendanceViewSet, ClassRecordingViewSet
 from apps.payments.views import PaymentViewSet, SubscriptionViewSet, InvoiceViewSet, SubscriptionPlanViewSet
@@ -40,6 +41,10 @@ from apps.files.views import (
     FileCategoryViewSet, FileUploadViewSet, FileAccessLogViewSet, FileProcessingJobViewSet,
     SecureFileDownloadView, FilePermissionsView
 )
+from apps.content.views import (
+    TestimonialViewSet, TeamMemberViewSet, AnnouncementViewSet,
+    FAQViewSet, ContactInfoViewSet
+)
 
 # Create API router
 router = DefaultRouter()
@@ -50,8 +55,8 @@ router = DefaultRouter()
 router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 router.register(r'scheduled-reports', ScheduledReportViewSet, basename='scheduledreport')
 
-# Additional ViewSets
-router.register(r'wishlist', WishlistViewSet, basename='wishlist')
+# Additional ViewSets (from additional_views.py)
+router.register(r'wishlist', WishlistViewSet, basename='wishlist')  # From additional_views
 
 # Accounts app ViewSets
 router.register(r'users', UserViewSet, basename='user')
@@ -66,6 +71,7 @@ router.register(r'live-classes', LiveClassViewSet, basename='liveclass')
 router.register(r'course-modules', CourseModuleViewSet, basename='coursemodule')
 router.register(r'course-reviews', CourseReviewViewSet, basename='coursereview')
 router.register(r'enrollments', EnrollmentViewSet, basename='enrollment')
+router.register(r'recommendations', RecommendationViewSet, basename='recommendation')
 
 # Classes app ViewSets
 router.register(r'attendance', ClassAttendanceViewSet, basename='attendance')
@@ -104,6 +110,13 @@ router.register(r'file-categories', FileCategoryViewSet, basename='filecategory'
 router.register(r'file-uploads', FileUploadViewSet, basename='fileupload')
 router.register(r'file-access-logs', FileAccessLogViewSet, basename='fileaccesslog')
 router.register(r'file-processing-jobs', FileProcessingJobViewSet, basename='fileprocessingjob')
+
+# Content app ViewSets
+router.register(r'testimonials', TestimonialViewSet, basename='testimonial')
+router.register(r'team-members', TeamMemberViewSet, basename='teammember')
+router.register(r'announcements', AnnouncementViewSet, basename='announcement')
+router.register(r'faqs', FAQViewSet, basename='faq')
+router.register(r'contact-info', ContactInfoViewSet, basename='contactinfo')
 
 urlpatterns = [
     # API health check and documentation

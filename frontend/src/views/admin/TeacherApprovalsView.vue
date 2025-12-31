@@ -174,6 +174,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { AdminService } from '@/services/admin'
 
 const { handleApiError } = useErrorHandler()
 
@@ -191,7 +192,7 @@ const rejectionReason = ref('')
 
 // Mutations
 const { mutate: approveTeacher } = useApiMutation(
-  (applicationId) => ({ method: 'POST', url: `/api/v1/teacher-approvals/${applicationId}/approve/` }),
+  (applicationId) => AdminService.approveTeacher(applicationId),
   {
     onSuccess: () => {
       refresh()
@@ -201,11 +202,7 @@ const { mutate: approveTeacher } = useApiMutation(
 )
 
 const { mutate: rejectTeacher } = useApiMutation(
-  ({ applicationId, reason }) => ({ 
-    method: 'POST', 
-    url: `/api/v1/teacher-approvals/${applicationId}/reject/`,
-    data: { notes: reason }
-  }),
+  ({ applicationId, reason }) => AdminService.rejectTeacher(applicationId, reason),
   {
     onSuccess: () => {
       closeRejectModal()

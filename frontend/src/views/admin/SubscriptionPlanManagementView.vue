@@ -223,12 +223,12 @@ const calculateYearlySavings = (plan: SubscriptionPlan): number => {
   return Math.round(yearlySavings)
 }
 
-const getActiveSubscriptions = (plan: SubscriptionPlan): number => {
+const getActiveSubscriptions = (_plan: SubscriptionPlan): number => {
   // This would come from the API with subscription counts
   return 0 // Placeholder
 }
 
-const getMonthlyRevenue = (plan: SubscriptionPlan): number => {
+const getMonthlyRevenue = (_plan: SubscriptionPlan): number => {
   // This would come from the API with revenue data
   return 0 // Placeholder
 }

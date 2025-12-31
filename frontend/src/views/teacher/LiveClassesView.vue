@@ -271,9 +271,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
-// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { CourseService } from '@/services/courses'
 
 const { handleApiError } = useErrorHandler()
 
@@ -450,10 +449,10 @@ const applyFilters = () => {
 
 const startClass = async (liveClass: any) => {
   try {
-    const response = await api.post(`/live-classes/${liveClass.id}/start_class/`)
+    const updatedClass = await CourseService.startLiveClass(liveClass.id)
     // Open Zoom meeting
-    if ((response.data as any).join_url) {
-      window.open((response.data as any).join_url, '_blank')
+    if (updatedClass.join_url) {
+      window.open(updatedClass.join_url, '_blank')
     }
     await refresh()
   } catch (error) {
@@ -469,7 +468,7 @@ const joinClass = (liveClass: any) => {
 
 const endClass = async (liveClass: any) => {
   try {
-    await api.post(`/live-classes/${liveClass.id}/end_class/`)
+    await CourseService.endLiveClass(liveClass.id)
     await refresh()
   } catch (error) {
     handleApiError(error as any, { context: { action: 'end_live_class' } })
@@ -492,7 +491,7 @@ const editClass = (liveClass: any) => {
 const cancelClass = async (liveClass: any) => {
   if (confirm('Are you sure you want to cancel this class?')) {
     try {
-      await api.patch(`/live-classes/${liveClass.id}/`, { status: 'cancelled' })
+      await CourseService.cancelLiveClass(liveClass.id)
       await refresh()
     } catch (error) {
       handleApiError(error as any, { context: { action: 'cancel_live_class' } })
@@ -551,9 +550,9 @@ const saveClass = async () => {
     }
 
     if (editingClass.value) {
-      await api.patch(`/live-classes/${editingClass.value.id}/`, classData)
+      await CourseService.updateLiveClass(editingClass.value.id, classData)
     } else {
-      await api.post('/live-classes/', classData)
+      await CourseService.createLiveClass(classData)
     }
 
     await refresh()

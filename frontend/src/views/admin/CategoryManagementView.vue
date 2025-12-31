@@ -149,7 +149,7 @@ const totalCategories = computed(() => {
       return count + 1 + (cat.subcategories ? countCategories(cat.subcategories) : 0)
     }, 0)
   }
-  return countCategories(categories.value)
+  return countCategories(categories.value as CourseCategory[])
 })
 
 const categoriesWithCourses = computed(() => {
@@ -165,7 +165,7 @@ const inactiveCategories = computed(() => {
       return count + inactive + subInactive
     }, 0)
   }
-  return countInactive(categories.value)
+  return countInactive(categories.value as CourseCategory[])
 })
 
 // Methods
@@ -186,7 +186,7 @@ const expandAll = () => {
       }
     })
   }
-  addAllIds(categories.value)
+  addAllIds(categories.value as CourseCategory[])
 }
 
 const collapseAll = () => {

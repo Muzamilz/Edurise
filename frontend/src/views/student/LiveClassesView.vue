@@ -174,7 +174,8 @@ import { ref, computed } from 'vue'
 import { useApiData } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { NotificationService } from '@/services/notifications'
+import { CourseService } from '@/services/courses'
 
 const { handleApiError } = useErrorHandler()
 
@@ -314,7 +315,7 @@ const addToCalendar = (liveClass: any) => {
 
 const setReminder = async (liveClass: any) => {
   try {
-    await api.post('/api/v1/notifications/', {
+    await NotificationService.createNotification({
       type: 'class_reminder',
       class_id: liveClass.id,
       scheduled_for: new Date(new Date(liveClass.scheduled_at).getTime() - 15 * 60000) // 15 min before
@@ -333,11 +334,9 @@ const viewRecording = (liveClass: any) => {
 
 const downloadMaterials = async (liveClass: any) => {
   try {
-    const response = await api.get(`/api/v1/live-classes/${liveClass.id}/materials/`, {
-      responseType: 'blob'
-    })
+    const blob = await CourseService.downloadClassMaterials(liveClass.id)
     
-    const url = window.URL.createObjectURL(new Blob([response.data as any]))
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `${liveClass.title}-materials.zip`)

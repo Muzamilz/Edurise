@@ -1028,7 +1028,7 @@ const calculateYearlySavings = (plan: SubscriptionPlan): number => {
 const getActiveSubscriptions = (plan: SubscriptionPlan): number => {
   // Try to get from subscription stats first
   const revenueByPlan = subscriptionStats.value.revenue_by_plan || []
-  const planStats = revenueByPlan.find(p => p.plan_id === plan.id)
+  const planStats = revenueByPlan.find((p: any) => p.plan_id === plan.id)
   if (planStats) {
     return planStats.subscriber_count
   }
@@ -1040,7 +1040,7 @@ const getActiveSubscriptions = (plan: SubscriptionPlan): number => {
 const getMonthlyRevenue = (plan: SubscriptionPlan): number => {
   // Try to get from subscription stats first
   const revenueByPlan = subscriptionStats.value.revenue_by_plan || []
-  const planStats = revenueByPlan.find(p => p.plan_id === plan.id)
+  const planStats = revenueByPlan.find((p: any) => p.plan_id === plan.id)
   if (planStats && planStats.monthly_revenue > 0) {
     return planStats.monthly_revenue
   }
@@ -1125,11 +1125,12 @@ const togglePlanStatus = async (plan: SubscriptionPlan) => {
 //   }
 // }
 
-const closeModals = () => {
-  showCreateModal.value = false
-  showEditModal.value = false
-  selectedPlan.value = null
-}
+// Unused function - modals are closed directly in handlers
+// const closeModals = () => {
+//   showCreateModal.value = false
+//   showEditModal.value = false
+//   selectedPlan.value = null
+// }
 
 const exportPlans = () => {
   // Export functionality

@@ -2,6 +2,7 @@ import { ref, computed, onMounted, readonly } from 'vue'
 import { useApiData } from './useApiData'
 import { useAuth } from './useAuth'
 import { useErrorHandler } from './useErrorHandler'
+import { AnalyticsService } from '@/services/analytics'
 import type { Ref } from 'vue'
 
 // Analytics types
@@ -326,30 +327,12 @@ export const useReportGeneration = () => {
     error.value = null
     
     try {
-      const params = new URLSearchParams({
-        type,
-        format,
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => 
-            value !== undefined && value !== null && value !== ''
-          ).map(([key, value]) => [key, value.toString()])
-        )
+      const data = await AnalyticsService.generateReport({
+        type: type as any,
+        timeframe: 'custom',
+        format: format as any,
+        filters
       })
-      
-      const response = await fetch(`/api/v1/reports/generate/?${params}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-          'X-Tenant': localStorage.getItem('tenant') || ''
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to generate report: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
       return data
       
     } catch (err) {
@@ -376,26 +359,14 @@ export const useReportGeneration = () => {
     error.value = null
     
     try {
-      const response = await fetch('/api/v1/scheduled-reports/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-          'X-Tenant': localStorage.getItem('tenant') || ''
-        },
-        body: JSON.stringify({
-          report_type: type,
-          email,
-          filters,
-          format
-        })
+      const data = await AnalyticsService.createScheduledReport({
+        name: `${type} Report`,
+        report_type: type,
+        schedule: '0 0 * * *', // Daily at midnight
+        recipients: [email],
+        format: format as any,
+        filters
       })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to schedule report: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
       
       // Refresh scheduled reports list
       await fetchScheduledReports()
@@ -416,22 +387,8 @@ export const useReportGeneration = () => {
     if (!user.value) return
     
     try {
-      const response = await fetch('/api/v1/scheduled-reports/', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-          'X-Tenant': localStorage.getItem('tenant') || ''
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch scheduled reports: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      scheduledReports.value = data.data || []
-      
+      const data = await AnalyticsService.getScheduledReports()
+      scheduledReports.value = data.results || []
     } catch (err) {
       handleApiError(err as any)
     }
@@ -443,31 +400,15 @@ export const useReportGeneration = () => {
     }
     
     try {
-      const response = await fetch(`/api/v1/reports/download/${reportId}/`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'X-Tenant': localStorage.getItem('tenant') || ''
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download report: ${response.statusText}`)
-      }
+      const blob = await AnalyticsService.downloadReport(reportId)
       
       // Handle file download
-      const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       
-      // Extract filename from response headers or use default
-      const contentDisposition = response.headers.get('content-disposition')
-      let filename = `report_${reportId}.csv`
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
-        if (filenameMatch) {
-          filename = filenameMatch[1]
+      // Use default filename
+      const filename = `report_${reportId}.csv`
         }
       }
       

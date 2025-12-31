@@ -59,11 +59,11 @@ export const useProfile = () => {
 
       // Update user basic info if provided
       if (profileData.first_name || profileData.last_name) {
-        const userData: Partial<User> = {}
+        const userData: Record<string, any> = {}
         if (profileData.first_name) userData.first_name = profileData.first_name
         if (profileData.last_name) userData.last_name = profileData.last_name
         
-        await userService.updateCurrentUser(userData)
+        await userService.updateCurrentUser(userData as Partial<User>)
         
         // Update auth store
         await authStore.getCurrentUser()
@@ -91,11 +91,11 @@ export const useProfile = () => {
 
       // Update user basic info if provided
       if (profileData.first_name || profileData.last_name) {
-        const userData: Partial<User> = {}
+        const userData: Record<string, any> = {}
         if (profileData.first_name) userData.first_name = profileData.first_name
         if (profileData.last_name) userData.last_name = profileData.last_name
         
-        await userService.updateCurrentUser(userData)
+        await userService.updateCurrentUser(userData as Partial<User>)
         
         // Update auth store
         await authStore.getCurrentUser()

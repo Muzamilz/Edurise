@@ -237,17 +237,17 @@
 
     <!-- Create/Edit Category Modal -->
     <GlobalCategoryModal
-      v-if="showCreateModal || showEditModal"
+      :show="showCreateModal || showEditModal"
       :category="selectedCategory"
-      :parent-options="globalCategoryOptions"
-      :is-editing="showEditModal"
-      @save="saveCategory"
-      @cancel="closeModals"
+      :categories="categories as any"
+      :loading="loading"
+      @submit="saveCategory"
+      @close="closeModals"
     />
 
     <!-- Category Usage Modal -->
     <CategoryUsageModal
-      v-if="showUsageModal"
+      :show="showUsageModal"
       :category="selectedCategory"
       @close="showUsageModal = false"
     />
@@ -321,34 +321,35 @@ const tabs = computed(() => [
 
 // Computed
 const globalCategories = computed(() => 
-  categories.value.filter(cat => !cat.tenant)
+  categories.value.filter(cat => !cat.tenant) as CourseCategory[]
 )
 
 const tenantCategories = computed(() => 
-  categories.value.filter(cat => cat.tenant)
+  categories.value.filter(cat => cat.tenant) as CourseCategory[]
 )
 
-const globalCategoryOptions = computed(() => {
-  const options: Array<{ value: string; label: string }> = []
-  
-  const addOptions = (cats: CourseCategory[], prefix = '') => {
-    cats.forEach(category => {
-      if (!category.tenant) { // Only global categories as parent options
-        options.push({
-          value: category.id,
-          label: prefix + category.name
-        })
-        
-        if (category.subcategories && category.subcategories.length > 0) {
-          addOptions(category.subcategories, prefix + '  ')
-        }
-      }
-    })
-  }
-  
-  addOptions(globalCategories.value)
-  return options
-})
+// Unused - categories are passed directly to modal
+// const globalCategoryOptions = computed(() => {
+//   const options: Array<{ value: string; label: string }> = []
+//   
+//   const addOptions = (cats: CourseCategory[], prefix = '') => {
+//     cats.forEach(category => {
+//       if (!category.tenant) { // Only global categories as parent options
+//         options.push({
+//           value: category.id,
+//           label: prefix + category.name
+//         })
+//         
+//         if (category.subcategories && category.subcategories.length > 0) {
+//           addOptions(category.subcategories, prefix + '  ')
+//         }
+//       }
+//     })
+//   }
+//   
+//   addOptions(globalCategories.value)
+//   return options
+// })
 
 const filteredGlobalCategories = computed(() => {
   let filtered = globalCategories.value.filter(cat => !cat.parent)

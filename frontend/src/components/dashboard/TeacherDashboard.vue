@@ -124,6 +124,10 @@
               <span class="btn-icon">🎥</span>
               Live Classes
             </router-link>
+            <router-link to="/assignments" class="action-btn secondary">
+              <span class="btn-icon">📝</span>
+              Assignments
+            </router-link>
             <router-link to="/teacher/students" class="action-btn secondary">
               <span class="btn-icon">👥</span>
               My Students
@@ -135,6 +139,14 @@
             <router-link to="/teacher/earnings" class="action-btn secondary">
               <span class="btn-icon">💳</span>
               Earnings
+            </router-link>
+            <router-link to="/teacher/resources" class="action-btn secondary">
+              <span class="btn-icon">📚</span>
+              Resources
+            </router-link>
+            <router-link to="/teacher/ai-assistant" class="action-btn ai-assistant">
+              <span class="btn-icon">🤖</span>
+              AI Assistant
             </router-link>
           </template>
           

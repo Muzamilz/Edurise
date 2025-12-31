@@ -151,7 +151,7 @@ import { useRoute } from 'vue-router'
 import { useApiData } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { CourseService } from '@/services/courses'
 
 const route = useRoute()
 const { handleApiError } = useErrorHandler()
@@ -246,7 +246,7 @@ const markLessonComplete = async () => {
   if (!currentLesson.value) return
 
   try {
-    await api.patch(`/course-modules/${currentLesson.value.id}/complete/`)
+    await CourseService.markModuleComplete(currentLesson.value.id)
     currentLesson.value.completed = true
     await refresh()
   } catch (error) {

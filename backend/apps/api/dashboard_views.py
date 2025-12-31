@@ -24,149 +24,201 @@ class StudentDashboardView(APIView):
     
     def get(self, request):
         """Get student dashboard data"""
-        user = request.user
-        tenant = getattr(request, 'tenant', None)
+        try:
+            user = request.user
+            tenant = getattr(request, 'tenant', None)
+            
+            # Check if tenant exists
+            if not tenant:
+                return StandardAPIResponse.error(
+                    message="Tenant information is required",
+                    status_code=400
+                )
+            
+            # Get user's enrollments with optimized queries
+            try:
+                enrollments = Enrollment.objects.filter(
+                    student=user,
+                    tenant=tenant
+                ).select_related('course', 'course__instructor', 'course__tenant').prefetch_related(
+                    'course__reviews', 'course__live_classes', 'course__modules'
+                )
+            except Exception as e:
+                import traceback
+                print(f"Error fetching student enrollments: {str(e)}")
+                print(traceback.format_exc())
+                return StandardAPIResponse.error(
+                    message=f"Error fetching enrollment data: {str(e)}",
+                    status_code=500
+                )
+            
+            try:
+                # Basic enrollment statistics
+                total_enrollments = enrollments.count()
+                active_enrollments = enrollments.filter(status='active')
+                completed_enrollments = enrollments.filter(status='completed')
+                
+                # Calculate progress metrics
+                average_progress = enrollments.aggregate(
+                    avg_progress=Avg('progress_percentage')
+                )['avg_progress'] or 0
+                
+                # Get courses in progress (not completed, with some progress)
+                courses_in_progress = active_enrollments.filter(
+                    progress_percentage__gt=0,
+                    progress_percentage__lt=100
+                ).order_by('-last_accessed')[:5]
+                
+                # Get recently enrolled courses
+                recent_enrollments = enrollments.order_by('-enrolled_at')[:5]
+                
+                # Get upcoming live classes
+                upcoming_classes = LiveClass.objects.filter(
+                    course__in=enrollments.values_list('course', flat=True),
+                    scheduled_at__gte=timezone.now(),
+                    status='scheduled'
+                ).select_related('course').order_by('scheduled_at')[:5]
+                
+                # Get recommendations with enhanced logic
+                from apps.courses.services import CourseService
+                recommendations = CourseService.get_recommended_courses(
+                    user=user,
+                    tenant=tenant,
+                    limit=6
+                )
+                
+                # Get recent notifications
+                recent_notifications = Notification.objects.filter(
+                    user=user,
+                    tenant=tenant
+                ).order_by('-created_at')[:5]
+                
+                # Calculate learning streak (simplified)
+                learning_streak = self.calculate_learning_streak(user, tenant)
+                
+                # Get certificates earned
+                certificates_earned = completed_enrollments.count()  # Simplified
+                
+                # Total learning hours (simplified calculation)
+                total_hours = sum(
+                    enrollment.course.duration_weeks * 5  # Assume 5 hours per week
+                    for enrollment in completed_enrollments
+                )
+            except Exception as e:
+                import traceback
+                print(f"Error calculating student dashboard statistics: {str(e)}")
+                print(traceback.format_exc())
+                return StandardAPIResponse.error(
+                    message=f"Error calculating dashboard statistics: {str(e)}",
+                    status_code=500
+                )
+        except Exception as e:
+            import traceback
+            print(f"Error in student dashboard: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error loading dashboard: {str(e)}",
+                status_code=500
+            )
         
-        # Get user's enrollments with optimized queries
-        enrollments = Enrollment.objects.filter(
-            student=user,
-            tenant=tenant
-        ).select_related('course', 'course__instructor', 'course__tenant').prefetch_related(
-            'course__reviews', 'course__live_classes', 'course__modules'
-        )
-        
-        # Basic enrollment statistics
-        total_enrollments = enrollments.count()
-        active_enrollments = enrollments.filter(status='active')
-        completed_enrollments = enrollments.filter(status='completed')
-        
-        # Calculate progress metrics
-        average_progress = enrollments.aggregate(
-            avg_progress=Avg('progress_percentage')
-        )['avg_progress'] or 0
-        
-        # Get courses in progress (not completed, with some progress)
-        courses_in_progress = active_enrollments.filter(
-            progress_percentage__gt=0,
-            progress_percentage__lt=100
-        ).order_by('-last_accessed')[:5]
-        
-        # Get recently enrolled courses
-        recent_enrollments = enrollments.order_by('-enrolled_at')[:5]
-        
-        # Get upcoming live classes
-        upcoming_classes = LiveClass.objects.filter(
-            course__in=enrollments.values_list('course', flat=True),
-            scheduled_at__gte=timezone.now(),
-            status='scheduled'
-        ).select_related('course').order_by('scheduled_at')[:5]
-        
-        # Get recommendations with enhanced logic
-        from apps.courses.services import CourseService
-        recommendations = CourseService.get_recommended_courses(
-            user=user,
-            tenant=tenant,
-            limit=6
-        )
-        
-        # Get recent notifications
-        recent_notifications = Notification.objects.filter(
-            user=user,
-            tenant=tenant
-        ).order_by('-created_at')[:5]
-        
-        # Calculate learning streak (simplified)
-        learning_streak = self.calculate_learning_streak(user, tenant)
-        
-        # Get certificates earned
-        certificates_earned = completed_enrollments.count()  # Simplified
-        
-        # Total learning hours (simplified calculation)
-        total_hours = sum(
-            enrollment.course.duration_weeks * 5  # Assume 5 hours per week
-            for enrollment in completed_enrollments
-        )
-        
-        dashboard_data = {
-            'user_info': {
-                'name': f"{user.first_name} {user.last_name}",
-                'email': user.email,
-                'avatar': getattr(user.profiles.filter(tenant=tenant).first(), 'avatar', None)
-            },
-            'enrollment_stats': {
-                'total_enrollments': total_enrollments,
-                'active_courses': active_enrollments.count(),
-                'completed_courses': completed_enrollments.count(),
-                'average_progress': round(average_progress, 1),
-                'certificates_earned': certificates_earned,
-                'total_learning_hours': total_hours,
-                'learning_streak_days': learning_streak
-            },
-            'courses_in_progress': [
-                {
-                    'id': enrollment.course.id,
-                    'title': enrollment.course.title,
-                    'progress_percentage': enrollment.progress_percentage,
-                    'last_accessed': enrollment.last_accessed,
-                    'instructor_name': f"{enrollment.course.instructor.first_name} {enrollment.course.instructor.last_name}",
-                    'thumbnail': enrollment.course.thumbnail.url if enrollment.course.thumbnail else None
-                }
-                for enrollment in courses_in_progress
-            ],
-            'recent_enrollments': [
-                {
-                    'id': enrollment.course.id,
-                    'title': enrollment.course.title,
-                    'enrolled_at': enrollment.enrolled_at,
-                    'status': enrollment.status,
-                    'progress_percentage': enrollment.progress_percentage,
-                    'instructor_name': f"{enrollment.course.instructor.first_name} {enrollment.course.instructor.last_name}"
-                }
-                for enrollment in recent_enrollments
-            ],
-            'upcoming_classes': [
-                {
-                    'id': live_class.id,
-                    'title': live_class.title,
-                    'course_title': live_class.course.title,
-                    'scheduled_at': live_class.scheduled_at,
-                    'duration_minutes': live_class.duration_minutes,
-                    'join_url': live_class.join_url if live_class.join_url else None
-                }
-                for live_class in upcoming_classes
-            ],
-            'recommendations': [
-                {
-                    'id': course.id,
-                    'title': course.title,
-                    'description': course.description[:200] + '...' if len(course.description) > 200 else course.description,
-                    'price': float(course.price) if course.price else 0,
-                    'instructor_name': f"{course.instructor.first_name} {course.instructor.last_name}",
-                    'average_rating': course.reviews.filter(is_approved=True).aggregate(
-                        avg_rating=Avg('rating')
-                    )['avg_rating'] or 0,
-                    'enrollment_count': course.enrollments.count(),
-                    'thumbnail': course.thumbnail.url if course.thumbnail else None
-                }
-                for course in recommendations
-            ],
-            'recent_notifications': [
-                {
-                    'id': notification.id,
-                    'title': notification.title,
-                    'message': notification.message,
-                    'created_at': notification.created_at,
-                    'is_read': notification.is_read,
-                    'notification_type': notification.notification_type
-                }
-                for notification in recent_notifications
-            ]
-        }
-        
-        return StandardAPIResponse.success(
-            data=dashboard_data,
-            message="Student dashboard data retrieved successfully"
-        )
+        try:
+            # Get user profile info safely
+            user_profile = user.profiles.filter(tenant=tenant).first()
+            avatar_url = None
+            if user_profile and hasattr(user_profile, 'avatar') and user_profile.avatar:
+                try:
+                    avatar_url = user_profile.avatar.url
+                except:
+                    avatar_url = None
+            
+            dashboard_data = {
+                'user_info': {
+                    'name': f"{user.first_name} {user.last_name}",
+                    'email': user.email,
+                    'avatar': avatar_url
+                },
+                'enrollment_stats': {
+                    'total_enrollments': total_enrollments,
+                    'active_courses': active_enrollments.count(),
+                    'completed_courses': completed_enrollments.count(),
+                    'average_progress': round(average_progress, 1),
+                    'certificates_earned': certificates_earned,
+                    'total_learning_hours': total_hours,
+                    'learning_streak_days': learning_streak
+                },
+                'courses_in_progress': [
+                    {
+                        'id': enrollment.course.id,
+                        'title': enrollment.course.title,
+                        'progress_percentage': enrollment.progress_percentage,
+                        'last_accessed': enrollment.last_accessed,
+                        'instructor_name': f"{enrollment.course.instructor.first_name} {enrollment.course.instructor.last_name}",
+                        'thumbnail': enrollment.course.thumbnail.url if enrollment.course.thumbnail else None
+                    }
+                    for enrollment in courses_in_progress
+                ],
+                'recent_enrollments': [
+                    {
+                        'id': enrollment.course.id,
+                        'title': enrollment.course.title,
+                        'enrolled_at': enrollment.enrolled_at,
+                        'status': enrollment.status,
+                        'progress_percentage': enrollment.progress_percentage,
+                        'instructor_name': f"{enrollment.course.instructor.first_name} {enrollment.course.instructor.last_name}"
+                    }
+                    for enrollment in recent_enrollments
+                ],
+                'upcoming_classes': [
+                    {
+                        'id': live_class.id,
+                        'title': live_class.title,
+                        'course_title': live_class.course.title,
+                        'scheduled_at': live_class.scheduled_at,
+                        'duration_minutes': live_class.duration_minutes,
+                        'join_url': live_class.join_url if live_class.join_url else None
+                    }
+                    for live_class in upcoming_classes
+                ],
+                'recommendations': [
+                    {
+                        'id': course.id,
+                        'title': course.title,
+                        'description': course.description[:200] + '...' if len(course.description) > 200 else course.description,
+                        'price': float(course.price) if course.price else 0,
+                        'instructor_name': f"{course.instructor.first_name} {course.instructor.last_name}",
+                        'average_rating': course.reviews.filter(is_approved=True).aggregate(
+                            avg_rating=Avg('rating')
+                        )['avg_rating'] or 0,
+                        'enrollment_count': course.enrollments.count(),
+                        'thumbnail': course.thumbnail.url if course.thumbnail else None
+                    }
+                    for course in recommendations
+                ],
+                'recent_notifications': [
+                    {
+                        'id': notification.id,
+                        'title': notification.title,
+                        'message': notification.message,
+                        'created_at': notification.created_at,
+                        'is_read': notification.is_read,
+                        'notification_type': notification.notification_type
+                    }
+                    for notification in recent_notifications
+                ]
+            }
+            
+            return StandardAPIResponse.success(
+                data=dashboard_data,
+                message="Student dashboard data retrieved successfully"
+            )
+        except Exception as e:
+            import traceback
+            print(f"Error serializing student dashboard data: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error preparing dashboard data: {str(e)}",
+                status_code=500
+            )
     
     def calculate_learning_streak(self, user, tenant):
         """Calculate learning streak in days (simplified implementation)"""
@@ -189,116 +241,160 @@ class TeacherDashboardView(APIView):
     
     def get(self, request):
         """Get teacher dashboard data"""
-        user = request.user
-        tenant = getattr(request, 'tenant', None)
-        
-        # Check if user is a teacher in the current tenant
         try:
-            profile = UserProfile.objects.get(user=user, tenant=tenant)
-            if profile.role != 'teacher':
+            user = request.user
+            tenant = getattr(request, 'tenant', None)
+            
+            # Check if tenant exists
+            if not tenant:
+                return StandardAPIResponse.error(
+                    message="Tenant information is required",
+                    status_code=400
+                )
+            
+            # Check if user is a teacher - either by profile role or by having courses
+            try:
+                profile = UserProfile.objects.get(user=user, tenant=tenant)
+                is_teacher = profile.role == 'teacher' or profile.is_approved_teacher
+            except UserProfile.DoesNotExist:
+                # If no profile exists, check if user has any courses (fallback)
+                is_teacher = Course.objects.filter(instructor=user, tenant=tenant).exists()
+                
+            if not is_teacher:
                 return StandardAPIResponse.permission_denied(
                     message="Only teachers can access this dashboard"
                 )
-        except UserProfile.DoesNotExist:
-            return StandardAPIResponse.permission_denied(
-                message="User profile not found for this tenant"
+        except Exception as e:
+            import traceback
+            print(f"Error in teacher dashboard permission check: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error checking permissions: {str(e)}",
+                status_code=500
             )
         
-        # Get teacher's courses with optimized queries
-        courses = Course.objects.filter(
-            instructor=user,
-            tenant=tenant
-        ).select_related('instructor', 'tenant').prefetch_related(
-            'enrollments__student', 'reviews', 'live_classes', 'modules'
-        )
-        
-        # Get all enrollments for teacher's courses
-        enrollments = Enrollment.objects.filter(
-            course__in=courses
-        ).select_related('student', 'course')
-        
-        # Basic statistics
-        total_courses = courses.count()
-        published_courses = courses.filter(is_public=True).count()
-        total_students = enrollments.values('student').distinct().count()
-        total_enrollments = enrollments.count()
-        
-        # Revenue calculation
-        total_revenue = sum(
-            float(course.price or 0) * course.enrollments.count()
-            for course in courses
-        )
-        
-        # Average rating
-        average_rating = CourseReview.objects.filter(
-            course__in=courses,
-            is_approved=True
-        ).aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
-        
-        # Recent enrollments
-        recent_enrollments = enrollments.order_by('-enrolled_at')[:10]
-        
-        # Course performance
-        course_performance = []
-        for course in courses:
-            course_enrollments = course.enrollments.all()
-            course_reviews = course.reviews.filter(is_approved=True)
+        try:
+            # Get teacher's courses with optimized queries
+            courses = Course.objects.filter(
+                instructor=user,
+                tenant=tenant
+            ).select_related('instructor', 'tenant').prefetch_related(
+                'enrollments__student', 'reviews', 'live_classes', 'modules'
+            )
             
-            performance = {
-                'id': course.id,
-                'title': course.title,
-                'total_enrollments': course_enrollments.count(),
-                'active_enrollments': course_enrollments.filter(status='active').count(),
-                'completed_enrollments': course_enrollments.filter(status='completed').count(),
-                'average_progress': course_enrollments.aggregate(
-                    avg_progress=Avg('progress_percentage')
-                )['avg_progress'] or 0,
-                'average_rating': course_reviews.aggregate(
-                    avg_rating=Avg('rating')
-                )['avg_rating'] or 0,
-                'total_reviews': course_reviews.count(),
-                'revenue': float(course.price or 0) * course_enrollments.count(),
-                'completion_rate': (
-                    course_enrollments.filter(status='completed').count() / 
-                    max(course_enrollments.count(), 1) * 100
-                )
-            }
-            course_performance.append(performance)
+            # Get all enrollments for teacher's courses
+            enrollments = Enrollment.objects.filter(
+                course__in=courses
+            ).select_related('student', 'course')
+        except Exception as e:
+            import traceback
+            print(f"Error fetching teacher courses: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error fetching course data: {str(e)}",
+                status_code=500
+            )
         
-        # Upcoming live classes
-        upcoming_classes = LiveClass.objects.filter(
-            course__in=courses,
-            scheduled_at__gte=timezone.now(),
-            status='scheduled'
-        ).select_related('course').order_by('scheduled_at')[:5]
-        
-        # Monthly enrollment trend (last 6 months)
-        enrollment_trend = []
-        for i in range(6):
-            month_start = timezone.now().replace(day=1) - timedelta(days=32*i)
-            month_start = month_start.replace(day=1)
-            if month_start.month == 12:
-                month_end = month_start.replace(year=month_start.year + 1, month=1) - timedelta(days=1)
-            else:
-                month_end = month_start.replace(month=month_start.month + 1) - timedelta(days=1)
+        try:
+            # Basic statistics
+            total_courses = courses.count()
+            published_courses = courses.filter(is_public=True).count()
+            total_students = enrollments.values('student').distinct().count()
+            total_enrollments = enrollments.count()
             
-            monthly_enrollments = enrollments.filter(
-                enrolled_at__gte=month_start,
-                enrolled_at__lte=month_end
-            ).count()
+            # Revenue calculation
+            total_revenue = sum(
+                float(course.price or 0) * course.enrollments.count()
+                for course in courses
+            )
             
-            enrollment_trend.append({
-                'month': month_start.strftime('%Y-%m'),
-                'enrollments': monthly_enrollments
-            })
+            # Average rating
+            average_rating = CourseReview.objects.filter(
+                course__in=courses,
+                is_approved=True
+            ).aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
+            
+            # Recent enrollments
+            recent_enrollments = enrollments.order_by('-enrolled_at')[:10]
+            
+            # Course performance
+            course_performance = []
+            for course in courses:
+                course_enrollments = course.enrollments.all()
+                course_reviews = course.reviews.filter(is_approved=True)
+                
+                performance = {
+                    'id': course.id,
+                    'title': course.title,
+                    'total_enrollments': course_enrollments.count(),
+                    'active_enrollments': course_enrollments.filter(status='active').count(),
+                    'completed_enrollments': course_enrollments.filter(status='completed').count(),
+                    'average_progress': course_enrollments.aggregate(
+                        avg_progress=Avg('progress_percentage')
+                    )['avg_progress'] or 0,
+                    'average_rating': course_reviews.aggregate(
+                        avg_rating=Avg('rating')
+                    )['avg_rating'] or 0,
+                    'total_reviews': course_reviews.count(),
+                    'revenue': float(course.price or 0) * course_enrollments.count(),
+                    'completion_rate': (
+                        course_enrollments.filter(status='completed').count() / 
+                        max(course_enrollments.count(), 1) * 100
+                    )
+                }
+                course_performance.append(performance)
+            
+            # Upcoming live classes
+            upcoming_classes = LiveClass.objects.filter(
+                course__in=courses,
+                scheduled_at__gte=timezone.now(),
+                status='scheduled'
+            ).select_related('course').order_by('scheduled_at')[:5]
+            
+            # Monthly enrollment trend (last 6 months)
+            enrollment_trend = []
+            for i in range(6):
+                month_start = timezone.now().replace(day=1) - timedelta(days=32*i)
+                month_start = month_start.replace(day=1)
+                if month_start.month == 12:
+                    month_end = month_start.replace(year=month_start.year + 1, month=1) - timedelta(days=1)
+                else:
+                    month_end = month_start.replace(month=month_start.month + 1) - timedelta(days=1)
+                
+                monthly_enrollments = enrollments.filter(
+                    enrolled_at__gte=month_start,
+                    enrolled_at__lte=month_end
+                ).count()
+                
+                enrollment_trend.append({
+                    'month': month_start.strftime('%Y-%m'),
+                    'enrollments': monthly_enrollments
+                })
+            
+            enrollment_trend.reverse()
+        except Exception as e:
+            import traceback
+            print(f"Error calculating teacher dashboard statistics: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error calculating dashboard statistics: {str(e)}",
+                status_code=500
+            )
         
-        enrollment_trend.reverse()
+        # Get instructor profile info safely
+        instructor_profile = user.profiles.filter(tenant=tenant).first()
+        avatar_url = None
+        if instructor_profile and hasattr(instructor_profile, 'avatar') and instructor_profile.avatar:
+            try:
+                avatar_url = instructor_profile.avatar.url
+            except:
+                avatar_url = None
         
         dashboard_data = {
             'instructor_info': {
                 'name': f"{user.first_name} {user.last_name}",
                 'email': user.email,
-                'avatar': getattr(user.profiles.filter(tenant=tenant).first(), 'avatar', None)
+                'avatar': avatar_url
             },
             'overview_stats': {
                 'total_courses': total_courses,
@@ -348,64 +444,89 @@ class AdminDashboardView(APIView):
     
     def get(self, request):
         """Get admin dashboard data"""
-        user = request.user
-        tenant = getattr(request, 'tenant', None)
-        
-        if not user.is_staff:
-            return StandardAPIResponse.permission_denied(
-                message="Only administrators can access this dashboard"
+        try:
+            user = request.user
+            tenant = getattr(request, 'tenant', None)
+            
+            # Check if tenant exists
+            if not tenant:
+                return StandardAPIResponse.error(
+                    message="Tenant information is required",
+                    status_code=400
+                )
+            
+            if not user.is_staff:
+                return StandardAPIResponse.permission_denied(
+                    message="Only administrators can access this dashboard"
+                )
+            
+            # Optimized statistics with single queries
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+        except Exception as e:
+            import traceback
+            print(f"Error in admin dashboard initialization: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error initializing dashboard: {str(e)}",
+                status_code=500
             )
         
-        # Optimized statistics with single queries
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        
-        # User statistics with single query
-        users = User.objects.filter(profiles__tenant=tenant)
-        user_stats = users.aggregate(
-            total_users=Count('id'),
-            active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
-            new_users_this_month=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
-        )
-        
-        # Teacher statistics from UserProfile for this tenant
-        teacher_profiles = UserProfile.objects.filter(tenant=tenant)
-        teacher_stats = teacher_profiles.aggregate(
-            total_teachers=Count('id', filter=Q(role='teacher')),
-            approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
-        )
-        
-        # Merge teacher stats into user stats
-        user_stats.update(teacher_stats)
-        
-        # Course statistics with single query
-        courses = Course.objects.filter(tenant=tenant)
-        course_stats = courses.aggregate(
-            total_courses=Count('id'),
-            published_courses=Count('id', filter=Q(is_public=True)),
-            courses_this_month=Count('id', filter=Q(created_at__gte=thirty_days_ago)),
-            avg_price=Avg('price'),
-            total_modules=Count('modules')
-        )
-        
-        # Enrollment statistics with single query
-        enrollments = Enrollment.objects.filter(tenant=tenant)
-        enrollment_stats = enrollments.aggregate(
-            total_enrollments=Count('id'),
-            active_enrollments=Count('id', filter=Q(status='active')),
-            completed_enrollments=Count('id', filter=Q(status='completed')),
-            dropped_enrollments=Count('id', filter=Q(status='dropped')),
-            enrollments_this_month=Count('id', filter=Q(enrolled_at__gte=thirty_days_ago)),
-            avg_progress=Avg('progress_percentage')
-        )
-        
-        # Revenue statistics with single query
-        payments = Payment.objects.filter(tenant=tenant, status='completed')
-        revenue_stats = payments.aggregate(
-            total_revenue=Sum('amount'),
-            revenue_this_month=Sum('amount', filter=Q(created_at__gte=thirty_days_ago)),
-            total_payments=Count('id'),
-            avg_payment=Avg('amount')
-        )
+        try:
+            # User statistics with single query
+            users = User.objects.filter(profiles__tenant=tenant)
+            user_stats = users.aggregate(
+                total_users=Count('id'),
+                active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
+                new_users_this_month=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
+            )
+            
+            # Teacher statistics from UserProfile for this tenant
+            teacher_profiles = UserProfile.objects.filter(tenant=tenant)
+            teacher_stats = teacher_profiles.aggregate(
+                total_teachers=Count('id', filter=Q(role='teacher')),
+                approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
+            )
+            
+            # Merge teacher stats into user stats
+            user_stats.update(teacher_stats)
+            
+            # Course statistics with single query
+            courses = Course.objects.filter(tenant=tenant)
+            course_stats = courses.aggregate(
+                total_courses=Count('id'),
+                published_courses=Count('id', filter=Q(is_public=True)),
+                courses_this_month=Count('id', filter=Q(created_at__gte=thirty_days_ago)),
+                avg_price=Avg('price'),
+                total_modules=Count('modules')
+            )
+            
+            # Enrollment statistics with single query
+            enrollments = Enrollment.objects.filter(tenant=tenant)
+            enrollment_stats = enrollments.aggregate(
+                total_enrollments=Count('id'),
+                active_enrollments=Count('id', filter=Q(status='active')),
+                completed_enrollments=Count('id', filter=Q(status='completed')),
+                dropped_enrollments=Count('id', filter=Q(status='dropped')),
+                enrollments_this_month=Count('id', filter=Q(enrolled_at__gte=thirty_days_ago)),
+                avg_progress=Avg('progress_percentage')
+            )
+            
+            # Revenue statistics with single query
+            payments = Payment.objects.filter(tenant=tenant, status='completed')
+            revenue_stats = payments.aggregate(
+                total_revenue=Sum('amount'),
+                revenue_this_month=Sum('amount', filter=Q(created_at__gte=thirty_days_ago)),
+                total_payments=Count('id'),
+                avg_payment=Avg('amount')
+            )
+        except Exception as e:
+            import traceback
+            print(f"Error calculating admin dashboard statistics: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error calculating dashboard statistics: {str(e)}",
+                status_code=500
+            )
         
         # Live class statistics with single query
         live_classes = LiveClass.objects.filter(course__tenant=tenant)
@@ -458,11 +579,27 @@ class AdminDashboardView(APIView):
             'last_backup': timezone.now() - timedelta(days=1)  # Mock data
         }
         
+        # Get organization info safely
+        org_name = tenant.name if tenant else 'System'
+        subscription_plan = 'enterprise'
+        if tenant and hasattr(tenant, 'subscription') and tenant.subscription:
+            try:
+                subscription_plan = tenant.subscription.plan.name
+            except:
+                subscription_plan = 'enterprise'
+        
+        logo_url = None
+        if tenant and hasattr(tenant, 'logo') and tenant.logo:
+            try:
+                logo_url = tenant.logo.url
+            except:
+                logo_url = None
+        
         dashboard_data = {
             'organization_info': {
-                'name': tenant.name if tenant else 'System',
-                'subscription_plan': (tenant.subscription.plan.name if tenant and hasattr(tenant, 'subscription') and tenant.subscription else 'enterprise'),
-                'logo': tenant.logo.url if tenant and tenant.logo else None
+                'name': org_name,
+                'subscription_plan': subscription_plan,
+                'logo': logo_url
             },
             'user_stats': {
                 **user_stats,
@@ -553,61 +690,79 @@ class SuperAdminDashboardView(APIView):
     
     def get(self, request):
         """Get super admin dashboard data"""
-        user = request.user
-        
-        if not user.is_superuser:
-            return StandardAPIResponse.permission_denied(
-                message="Only super administrators can access this dashboard"
+        try:
+            user = request.user
+            
+            if not user.is_superuser:
+                return StandardAPIResponse.permission_denied(
+                    message="Only super administrators can access this dashboard"
+                )
+            
+            # Platform-wide statistics with optimized queries
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+        except Exception as e:
+            import traceback
+            print(f"Error in super admin dashboard initialization: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error initializing dashboard: {str(e)}",
+                status_code=500
             )
         
-        # Platform-wide statistics with optimized queries
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        
-        # Organization statistics
-        org_stats = Organization.objects.aggregate(
-            total_organizations=Count('id'),
-            active_organizations=Count('id', filter=Q(is_active=True)),
-            new_organizations=Count('id', filter=Q(created_at__gte=thirty_days_ago))
-        )
-        
-        # User statistics across all tenants
-        user_stats = User.objects.aggregate(
-            total_users=Count('id'),
-            active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
-            new_users=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
-        )
-        
-        # Teacher statistics from UserProfile
-        teacher_stats = UserProfile.objects.aggregate(
-            total_teachers=Count('id', filter=Q(role='teacher')),
-            approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
-        )
-        
-        # Merge teacher stats into user stats
-        user_stats.update(teacher_stats)
-        
-        # Course statistics across all tenants
-        course_stats = Course.objects.aggregate(
-            total_courses=Count('id'),
-            published_courses=Count('id', filter=Q(is_public=True)),
-            new_courses=Count('id', filter=Q(created_at__gte=thirty_days_ago)),
-            avg_price=Avg('price')
-        )
-        
-        # Enrollment statistics across all tenants
-        enrollment_stats = Enrollment.objects.aggregate(
-            total_enrollments=Count('id'),
-            completed_enrollments=Count('id', filter=Q(status='completed')),
-            active_enrollments=Count('id', filter=Q(status='active')),
-            new_enrollments=Count('id', filter=Q(enrolled_at__gte=thirty_days_ago))
-        )
-        
-        # Revenue statistics across all tenants
-        revenue_stats = Payment.objects.filter(status='completed').aggregate(
-            total_revenue=Sum('amount'),
-            revenue_this_month=Sum('amount', filter=Q(created_at__gte=thirty_days_ago)),
-            total_payments=Count('id')
-        )
+        try:
+            # Organization statistics
+            org_stats = Organization.objects.aggregate(
+                total_organizations=Count('id'),
+                active_organizations=Count('id', filter=Q(is_active=True)),
+                new_organizations=Count('id', filter=Q(created_at__gte=thirty_days_ago))
+            )
+            
+            # User statistics across all tenants
+            user_stats = User.objects.aggregate(
+                total_users=Count('id'),
+                active_users=Count('id', filter=Q(last_login__gte=thirty_days_ago)),
+                new_users=Count('id', filter=Q(date_joined__gte=thirty_days_ago))
+            )
+            
+            # Teacher statistics from UserProfile
+            teacher_stats = UserProfile.objects.aggregate(
+                total_teachers=Count('id', filter=Q(role='teacher')),
+                approved_teachers=Count('id', filter=Q(role='teacher', is_approved_teacher=True))
+            )
+            
+            # Merge teacher stats into user stats
+            user_stats.update(teacher_stats)
+            
+            # Course statistics across all tenants
+            course_stats = Course.objects.aggregate(
+                total_courses=Count('id'),
+                published_courses=Count('id', filter=Q(is_public=True)),
+                new_courses=Count('id', filter=Q(created_at__gte=thirty_days_ago)),
+                avg_price=Avg('price')
+            )
+            
+            # Enrollment statistics across all tenants
+            enrollment_stats = Enrollment.objects.aggregate(
+                total_enrollments=Count('id'),
+                completed_enrollments=Count('id', filter=Q(status='completed')),
+                active_enrollments=Count('id', filter=Q(status='active')),
+                new_enrollments=Count('id', filter=Q(enrolled_at__gte=thirty_days_ago))
+            )
+            
+            # Revenue statistics across all tenants
+            revenue_stats = Payment.objects.filter(status='completed').aggregate(
+                total_revenue=Sum('amount'),
+                revenue_this_month=Sum('amount', filter=Q(created_at__gte=thirty_days_ago)),
+                total_payments=Count('id')
+            )
+        except Exception as e:
+            import traceback
+            print(f"Error calculating super admin dashboard statistics: {str(e)}")
+            print(traceback.format_exc())
+            return StandardAPIResponse.error(
+                message=f"Error calculating dashboard statistics: {str(e)}",
+                status_code=500
+            )
         
         # Organization performance
         org_performance = []

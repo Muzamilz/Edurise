@@ -174,6 +174,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { AdminService } from '@/services/admin'
 
 const { handleApiError } = useErrorHandler()
 
@@ -210,7 +211,7 @@ const { mutate: createUser } = useApiMutation(
 )
 
 const { mutate: updateUser } = useApiMutation(
-  ({ id, ...userData }) => ({ method: 'PATCH', url: `/api/v1/users/${id}/`, data: userData }),
+  ({ id, ...userData }) => AdminService.updateUser(id, userData),
   {
     onSuccess: () => {
       closeModal()
@@ -221,7 +222,7 @@ const { mutate: updateUser } = useApiMutation(
 )
 
 const { mutate: deleteUserMutation } = useApiMutation(
-  (userId) => ({ method: 'DELETE', url: `/api/v1/users/${userId}/` }),
+  (userId) => AdminService.deleteUser(userId),
   {
     onSuccess: () => refresh(),
     onError: (error) => handleApiError(error as APIError, { context: { action: 'delete_user' } })

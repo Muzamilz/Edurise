@@ -338,7 +338,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { SecurityService } from '@/services/security'
 
 const { handleApiError } = useErrorHandler()
 
@@ -395,7 +395,7 @@ const itemsPerPage = 20
 // Modal state
 const selectedAlert = ref<any>(null)
 const showPolicyModal = ref(false)
-const editingPolicy = ref(null)
+const editingPolicy = ref<any>(null)
 const policyForm = ref({
   name: '',
   type: 'password',
@@ -406,7 +406,7 @@ const policyForm = ref({
 
 // Mutations
 const { mutate: resolveAlertMutation } = useApiMutation(
-  (alertId) => api.patch(`/api/v1/security/alerts/${alertId}/`, { resolved: true }),
+  (alertId) => SecurityService.resolveAlert(alertId),
   {
     onSuccess: () => refresh(),
     onError: (error) => handleApiError(error as APIError, { context: { action: 'resolve_alert' } })
@@ -414,7 +414,7 @@ const { mutate: resolveAlertMutation } = useApiMutation(
 )
 
 const { mutate: createPolicy } = useApiMutation(
-  (policyData) => api.post('/api/v1/security/policies/', policyData),
+  (policyData) => SecurityService.createPolicy(policyData),
   {
     onSuccess: () => {
       closePolicyModal()
@@ -425,7 +425,7 @@ const { mutate: createPolicy } = useApiMutation(
 )
 
 const { mutate: updatePolicy } = useApiMutation(
-  ({ id, ...policyData }) => api.patch(`/api/v1/security/policies/${id}/`, policyData),
+  ({ id, ...policyData }) => SecurityService.updatePolicy(id, policyData),
   {
     onSuccess: () => {
       closePolicyModal()
@@ -523,12 +523,12 @@ const markAllAsRead = async () => {
   console.log('Mark all alerts as read')
 }
 
-const viewLogDetails = (log) => {
+const viewLogDetails = (log: any) => {
   // Implement log details view
   console.log('View log details:', log)
 }
 
-const editPolicy = (policy) => {
+const editPolicy = (policy: any) => {
   editingPolicy.value = policy
   policyForm.value = {
     name: policy.name,
@@ -564,7 +564,7 @@ const savePolicy = async () => {
   }
 }
 
-const togglePolicy = async (policy) => {
+const togglePolicy = async (policy: any) => {
   await updatePolicy({ id: policy.id, enabled: !policy.enabled })
 }
 

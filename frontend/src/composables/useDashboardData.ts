@@ -52,10 +52,13 @@ export interface AdminDashboardData {
     newUsersThisMonth: number
     teacherCount: number
     studentCount: number
+    pendingTeacherApprovals: number
+    userGrowthRate: number
   }
   courseStats: {
     totalCourses: number
     publishedCourses: number
+    privateCourses: number
     totalEnrollments: number
     completionRate: number
   }
@@ -64,6 +67,24 @@ export interface AdminDashboardData {
     monthlyRevenue: number
     revenueGrowth: number
     subscriptionRevenue: number
+    revenueGrowthRate: number
+  }
+  classStats: {
+    totalClasses: number
+    completedClasses: number
+    upcomingClasses: number
+    avgDuration: number
+    classCompletionRate: number
+  }
+  enrollmentStats: {
+    totalEnrollments: number
+    activeEnrollments: number
+    completedEnrollments: number
+    droppedEnrollments: number
+    enrollmentsThisMonth: number
+    avgProgress: number
+    completionRate: number
+    dropoutRate: number
   }
   systemHealth: {
     serverStatus: string
@@ -73,6 +94,11 @@ export interface AdminDashboardData {
   }
   recentActivity: Activity[]
   topPerformingCourses: Course[]
+  userGrowthTrend: Array<{
+    month: string
+    newUsers: number
+  }>
+  popularCourses: Course[]
 }
 
 export interface SuperAdminDashboardData {
@@ -169,7 +195,7 @@ export const useDashboardData = () => {
 
   // Student Dashboard Data
   const studentData = useApiData<StudentDashboardData>('/dashboard/student/', {
-    immediate: !!(user.value && !user.value.is_teacher && !user.value.is_staff),
+    immediate: !!(user.value && !user.value.is_teacher && !user.value.is_staff && !user.value.is_superuser),
     transform: (data) => ({
       enrolledCourses: data.recent_enrollments || [],
       completedCourses: [], // Will be calculated from enrollment stats
@@ -192,7 +218,7 @@ export const useDashboardData = () => {
 
   // Teacher Dashboard Data
   const teacherData = useApiData<TeacherDashboardData>('/dashboard/teacher/', {
-    immediate: !!(user.value?.is_teacher && !user.value.is_staff),
+    immediate: !!(user.value?.is_teacher && !user.value.is_staff && !user.value.is_superuser),
     transform: (data) => ({
       totalCourses: data.overview_stats?.total_courses || 0,
       totalStudents: data.overview_stats?.total_students || 0,
@@ -230,11 +256,14 @@ export const useDashboardData = () => {
         activeUsers: data.user_stats?.active_users || 0,
         newUsersThisMonth: data.user_stats?.new_users_this_month || 0,
         teacherCount: data.user_stats?.total_teachers || 0,
-        studentCount: (data.user_stats?.total_users || 0) - (data.user_stats?.total_teachers || 0)
+        studentCount: (data.user_stats?.total_users || 0) - (data.user_stats?.total_teachers || 0),
+        pendingTeacherApprovals: data.user_stats?.pending_teacher_approvals || 0,
+        userGrowthRate: data.user_stats?.user_growth_rate || 0
       },
       courseStats: {
         totalCourses: data.course_stats?.total_courses || 0,
         publishedCourses: data.course_stats?.published_courses || 0,
+        privateCourses: data.course_stats?.private_courses || 0,
         totalEnrollments: data.enrollment_stats?.total_enrollments || 0,
         completionRate: data.enrollment_stats?.completion_rate || 0
       },
@@ -242,7 +271,25 @@ export const useDashboardData = () => {
         totalRevenue: data.revenue_stats?.total_revenue || 0,
         monthlyRevenue: data.revenue_stats?.revenue_this_month || 0,
         revenueGrowth: data.revenue_stats?.revenue_growth_rate || 0,
-        subscriptionRevenue: data.revenue_stats?.total_revenue || 0 // Backend doesn't separate subscription revenue yet
+        subscriptionRevenue: data.revenue_stats?.total_revenue || 0, // Backend doesn't separate subscription revenue yet
+        revenueGrowthRate: data.revenue_stats?.revenue_growth_rate || 0
+      },
+      classStats: {
+        totalClasses: data.class_stats?.total_classes || 0,
+        completedClasses: data.class_stats?.completed_classes || 0,
+        upcomingClasses: data.class_stats?.upcoming_classes || 0,
+        avgDuration: data.class_stats?.avg_duration || 0,
+        classCompletionRate: data.class_stats?.class_completion_rate || 0
+      },
+      enrollmentStats: {
+        totalEnrollments: data.enrollment_stats?.total_enrollments || 0,
+        activeEnrollments: data.enrollment_stats?.active_enrollments || 0,
+        completedEnrollments: data.enrollment_stats?.completed_enrollments || 0,
+        droppedEnrollments: data.enrollment_stats?.dropped_enrollments || 0,
+        enrollmentsThisMonth: data.enrollment_stats?.enrollments_this_month || 0,
+        avgProgress: data.enrollment_stats?.avg_progress || 0,
+        completionRate: data.enrollment_stats?.completion_rate || 0,
+        dropoutRate: data.enrollment_stats?.dropout_rate || 0
       },
       systemHealth: {
         serverStatus: data.system_health?.database_status || 'healthy',
@@ -251,7 +298,9 @@ export const useDashboardData = () => {
         apiResponseTime: 0 // Backend doesn't provide this yet
       },
       recentActivity: data.recent_activity || [],
-      topPerformingCourses: data.popular_courses || []
+      topPerformingCourses: data.popular_courses || [],
+      userGrowthTrend: data.user_growth_trend || [],
+      popularCourses: data.popular_courses || []
     }),
     cacheKey: 'admin-dashboard',
     // Cache for 3 minutes for admin data

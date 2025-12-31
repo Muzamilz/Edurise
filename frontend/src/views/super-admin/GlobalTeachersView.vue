@@ -105,7 +105,7 @@ import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { AdminService } from '@/services/admin'
 
 const router = useRouter()
 const { handleApiError } = useErrorHandler()
@@ -170,7 +170,7 @@ const organizationsCount = computed(() => {
 
 // Mutations
 const { mutate: approveApplicationMutation } = useApiMutation(
-  (id: string) => api.post(`/teacher-approvals/${id}/approve/`),
+  (id: string) => AdminService.approveTeacher(id),
   {
     onSuccess: () => {
       console.log('✅ Teacher application approved successfully')
@@ -181,7 +181,7 @@ const { mutate: approveApplicationMutation } = useApiMutation(
 )
 
 const { mutate: rejectApplicationMutation } = useApiMutation(
-  ({ id, notes }: { id: string; notes: string }) => api.post(`/teacher-approvals/${id}/reject/`, { notes }),
+  ({ id, notes }: { id: string; notes: string }) => AdminService.rejectTeacher(id, notes),
   {
     onSuccess: () => {
       console.log('❌ Teacher application rejected successfully')

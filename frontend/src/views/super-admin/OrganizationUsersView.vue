@@ -191,20 +191,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { api } from '@/services/api'
-import type { APIError } from '@/services/api'
+import { useRoute } from 'vue-router'
+import { type APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { OrganizationService } from '@/services/organizations'
+import { AdminService } from '@/services/admin'
 
 const route = useRoute()
-const router = useRouter()
 const { handleApiError } = useErrorHandler()
 
 const organizationId = route.params.id as string
-const organization = ref(null)
-const users = ref([])
+const organization = ref<any>(null)
+const users = ref<any[]>([])
 const loading = ref(true)
-const error = ref(null)
+const error = ref<any>(null)
 
 // Filters
 const searchQuery = ref('')
@@ -261,12 +261,10 @@ const loadUsers = async () => {
     error.value = null
 
     // Load organization info
-    const orgResponse = await api.get(`/organizations/${organizationId}/`)
-    organization.value = orgResponse.data.data || orgResponse.data
+    organization.value = await OrganizationService.getOrganization(organizationId)
 
     // Load users for this organization
-    const usersResponse = await api.get(`/organizations/${organizationId}/users/`)
-    users.value = usersResponse.data.data || usersResponse.data || []
+    users.value = await OrganizationService.getOrganizationUsers(organizationId)
 
   } catch (err) {
     error.value = err
@@ -297,7 +295,7 @@ const editUser = (user: any) => {
 const toggleUserStatus = async (user: any) => {
   try {
     const newStatus = !user.is_active
-    await api.patch(`/users/${user.id}/`, {
+    await AdminService.updateUser(user.id, {
       is_active: newStatus
     })
     

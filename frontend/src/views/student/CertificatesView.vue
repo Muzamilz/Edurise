@@ -160,7 +160,7 @@ import { useAuth } from '@/composables/useAuth'
 import type { APIError } from '@/services/api'
 import { useApiData } from '@/composables/useApiData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { AssignmentService } from '@/services/assignments'
 
 const { fullName } = useAuth()
 const { handleApiError } = useErrorHandler()
@@ -245,12 +245,10 @@ const closeCertificateModal = () => {
 
 const downloadCertificate = async (certificate: any) => {
   try {
-    const response = await api.get(`/certificates/${certificate.id}/download/`, {
-      responseType: 'blob'
-    })
+    const blob = await AssignmentService.downloadCertificateBlob(certificate.id)
     
     // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data as any]))
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `certificate-${certificate.course_title}.pdf`)

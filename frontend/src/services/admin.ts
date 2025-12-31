@@ -5,7 +5,12 @@ import type {
   AuditLog, 
   DashboardStats,
   PaginatedResponse,
-  UserFilters 
+  UserFilters,
+  TeacherApproval,
+  AuditLogFilters,
+  UserAnalytics,
+  CourseAnalyticsData,
+  RevenueAnalytics
 } from '../types/api'
 
 export class AdminService {
@@ -48,8 +53,12 @@ export class AdminService {
   }
 
   // Teacher approval management
-  static async getTeacherApprovals(): Promise<PaginatedResponse<any>> {
-    const response = await api.get<PaginatedResponse<any>>('/accounts/teacher-approvals/')
+  /**
+   * Get teacher approval requests
+   * @returns Paginated list of teacher approval requests
+   */
+  static async getTeacherApprovals(): Promise<PaginatedResponse<TeacherApproval>> {
+    const response = await api.get<PaginatedResponse<TeacherApproval>>('/accounts/teacher-approvals/')
     return response.data.data
   }
 
@@ -87,7 +96,12 @@ export class AdminService {
   }
 
   // Audit logs
-  static async getAuditLogs(filters?: any): Promise<PaginatedResponse<AuditLog>> {
+  /**
+   * Get audit logs with optional filtering
+   * @param filters - Optional filters for audit logs
+   * @returns Paginated list of audit logs
+   */
+  static async getAuditLogs(filters?: AuditLogFilters): Promise<PaginatedResponse<AuditLog>> {
     const response = await api.get<PaginatedResponse<AuditLog>>('/admin/audit-logs/', {
       params: filters
     })
@@ -95,35 +109,59 @@ export class AdminService {
   }
 
   // Analytics and reporting
-  static async getUserAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
-    const response = await api.get('/admin/analytics/users/', {
+  /**
+   * Get user analytics for specified timeframe
+   * @param timeframe - Time period for analytics
+   * @returns User analytics data
+   */
+  static async getUserAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<UserAnalytics> {
+    const response = await api.get<UserAnalytics>('/admin/analytics/users/', {
       params: { timeframe }
     })
     return response.data.data
   }
 
-  static async getCourseAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
-    const response = await api.get('/admin/analytics/courses/', {
+  /**
+   * Get course analytics for specified timeframe
+   * @param timeframe - Time period for analytics
+   * @returns Course analytics data
+   */
+  static async getCourseAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<CourseAnalyticsData> {
+    const response = await api.get<CourseAnalyticsData>('/admin/analytics/courses/', {
       params: { timeframe }
     })
     return response.data.data
   }
 
-  static async getRevenueAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<any> {
-    const response = await api.get('/admin/analytics/revenue/', {
+  /**
+   * Get revenue analytics for specified timeframe
+   * @param timeframe - Time period for analytics
+   * @returns Revenue analytics data
+   */
+  static async getRevenueAnalytics(timeframe: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<RevenueAnalytics> {
+    const response = await api.get<RevenueAnalytics>('/admin/analytics/revenue/', {
       params: { timeframe }
     })
     return response.data.data
   }
 
   // System settings
-  static async getSystemSettings(): Promise<any> {
-    const response = await api.get('/admin/settings/')
+  /**
+   * Get system settings
+   * @returns System settings configuration
+   */
+  static async getSystemSettings(): Promise<Record<string, unknown>> {
+    const response = await api.get<Record<string, unknown>>('/admin/settings/')
     return response.data.data
   }
 
-  static async updateSystemSettings(settings: any): Promise<any> {
-    const response = await api.patch('/admin/settings/', settings)
+  /**
+   * Update system settings
+   * @param settings - Settings to update
+   * @returns Updated system settings
+   */
+  static async updateSystemSettings(settings: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const response = await api.patch<Record<string, unknown>>('/admin/settings/', settings)
     return response.data.data
   }
 
@@ -151,7 +189,7 @@ export class AdminService {
   }
 
   static async exportCourses(format: 'csv' | 'xlsx' = 'csv'): Promise<Blob> {
-    const response = await api.get('/courses/courses/export/', {
+    const response = await api.get('/courses/export/', {
       params: { format },
       responseType: 'blob'
     })
@@ -159,7 +197,7 @@ export class AdminService {
   }
 
   static async exportEnrollments(format: 'csv' | 'xlsx' = 'csv'): Promise<Blob> {
-    const response = await api.get('/courses/enrollments/export/', {
+    const response = await api.get('/enrollments/export/', {
       params: { format },
       responseType: 'blob'
     })
@@ -183,8 +221,13 @@ export class AdminService {
   }
 
   // Organization statistics
-  static async getOrganizationStats(orgId: string): Promise<any> {
-    const response = await api.get(`/accounts/organizations/${orgId}/stats/`)
+  /**
+   * Get organization statistics
+   * @param orgId - Organization ID
+   * @returns Organization statistics
+   */
+  static async getOrganizationStats(orgId: string): Promise<Record<string, unknown>> {
+    const response = await api.get<Record<string, unknown>>(`/accounts/organizations/${orgId}/stats/`)
     return response.data.data
   }
 
@@ -223,5 +266,57 @@ export class AdminService {
     target_roles?: string[]
   }): Promise<void> {
     await api.post('/admin/announcements/', announcement)
+  }
+
+  // User profile management
+  /**
+   * Upload user avatar
+   * @param file - Avatar image file
+   * @returns URL of uploaded avatar
+   */
+  static async uploadAvatar(file: File): Promise<string> {
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      
+      const response = await api.post('/user-profiles/upload_avatar/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      return (response.data as any).data?.avatar_url || (response.data as any).avatar_url
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get current user's profile
+   * @returns Current user profile
+   */
+  static async getCurrentUserProfile(): Promise<any> {
+    try {
+      const response = await api.get('/user-profiles/me/')
+      return (response.data as any).data || response.data
+    } catch (error) {
+      console.error('Error fetching current user profile:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Update current user's profile
+   * @param profileData - Profile data to update
+   * @returns Updated profile
+   */
+  static async updateCurrentUserProfile(profileData: any): Promise<any> {
+    try {
+      const response = await api.patch('/user-profiles/me/', profileData)
+      return (response.data as any).data || response.data
+    } catch (error) {
+      console.error('Error updating current user profile:', error)
+      throw error
+    }
   }
 }

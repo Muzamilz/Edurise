@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Category } from '@/types'
+import type { CourseCategory as Category } from '@/types/api'
 
 interface Props {
   show: boolean
@@ -113,10 +113,11 @@ const availableParents = computed(() => {
   )
 })
 
-const isDescendant = (category: Category, potentialAncestor: Category): boolean => {
-  if (category.parent_id === potentialAncestor.id) return true
+const isDescendant = (category: Category | null, potentialAncestor: Category | null): boolean => {
+  if (!category || !potentialAncestor) return false
+  if (category.parent === potentialAncestor.id) return true
   
-  const parent = props.categories.find(c => c.id === category.parent_id)
+  const parent = props.categories.find(c => c.id === category.parent)
   if (!parent) return false
   
   return isDescendant(parent, potentialAncestor)
@@ -130,7 +131,7 @@ const handleSubmit = () => {
   const submitData: Partial<Category> = {
     name: formData.value.name,
     description: formData.value.description,
-    parent_id: formData.value.parent_id || null,
+    parent: formData.value.parent_id || null,
     is_active: formData.value.is_active
   }
   
@@ -143,7 +144,7 @@ watch(() => props.category, (newCategory) => {
     formData.value = {
       name: newCategory.name,
       description: newCategory.description || '',
-      parent_id: newCategory.parent_id || '',
+      parent_id: newCategory.parent || '',
       is_active: newCategory.is_active
     }
   } else {

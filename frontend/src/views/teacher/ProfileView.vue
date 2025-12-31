@@ -182,7 +182,7 @@ import { useAuth } from '@/composables/useAuth'
 import type { APIError } from '@/services/api'
 import { useApiData } from '@/composables/useApiData'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { AdminService } from '@/services/admin'
 
 const { user } = useAuth()
 const { handleApiError } = useErrorHandler()
@@ -242,15 +242,7 @@ const handleAvatarUpload = async (event: Event) => {
   if (!file) return
 
   try {
-    const formData = new FormData()
-    formData.append('avatar', file)
-
-    await api.post('/user-profiles/upload_avatar/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
+    await AdminService.uploadAvatar(file)
     await refresh()
   } catch (error) {
     handleApiError(error as APIError, { context: { action: 'upload_avatar' } })
@@ -287,7 +279,7 @@ const saveProfile = async () => {
       }
     }
 
-    await api.patch('/user-profiles/me/', profileData)
+    await AdminService.updateCurrentUserProfile(profileData)
     await refresh()
     
     // Show success message

@@ -169,6 +169,7 @@ import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { CourseService } from '@/services/courses'
 
 const router = useRouter()
 const { handleApiError } = useErrorHandler()
@@ -186,7 +187,7 @@ const itemsPerPage = 12
 
 // Mutations
 const { mutate: updateCourse } = useApiMutation(
-  ({ id, ...data }) => ({ method: 'PATCH', url: `/api/v1/courses/${id}/`, data }),
+  ({ id, ...data }) => CourseService.updateCourse(id, data),
   {
     onSuccess: () => refresh(),
     onError: (error) => handleApiError(error as APIError, { context: { action: 'update_course' } })
@@ -194,7 +195,7 @@ const { mutate: updateCourse } = useApiMutation(
 )
 
 const { mutate: deleteCourseApi } = useApiMutation(
-  (courseId) => ({ method: 'DELETE', url: `/api/v1/courses/${courseId}/` }),
+  (courseId) => CourseService.deleteCourse(courseId),
   {
     onSuccess: () => refresh(),
     onError: (error) => handleApiError(error as APIError, { context: { action: 'delete_course' } })

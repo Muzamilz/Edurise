@@ -136,7 +136,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Category } from '@/types'
+import type { CourseCategory as Category } from '@/types/api'
 
 interface UsageData {
   total_courses: number

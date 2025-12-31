@@ -1,11 +1,23 @@
 import { api } from './api'
 import type { AnalyticsFilters } from '@/composables/useAnalytics'
+import type {
+  Report,
+  ReportParams,
+  ReportStatus,
+  ScheduledReport,
+  ScheduledReportConfig,
+  PlatformAnalytics,
+  TeacherAnalytics,
+  StudentAnalytics,
+  CourseAnalytics
+} from '../types/analytics'
+import type { PaginatedResponse } from '../types/api'
 
 export interface ChartDataPoint {
   label: string
   value: number
   date?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, string | number | boolean>
 }
 
 export interface ChartConfig {
@@ -20,9 +32,320 @@ export interface ChartConfig {
 }
 
 /**
+ * Enrollment trend data item
+ */
+export interface EnrollmentTrendItem {
+  period: string
+  date: string
+  total_enrollments: number
+  active_enrollments: number
+  completed_enrollments: number
+  dropped_enrollments: number
+  completion_rate: number
+  dropout_rate: number
+}
+
+/**
+ * Enrollment trends with summary
+ */
+export interface EnrollmentTrends {
+  summary: {
+    total_enrollments: number
+    growth_rate: number
+    completion_rate: number
+  }
+  trends: EnrollmentTrendItem[]
+}
+
+/**
+ * User engagement data structure
+ */
+export interface UserEngagementData {
+  engagement_overview: {
+    total_active_users: number
+    engagement_rate: number
+    active_users: number
+    new_users: number
+  }
+  daily_active_users: Array<{
+    date: string
+    active_users: number
+  }>
+  engagement_metrics: Record<string, number>
+  course_engagement: {
+    total_interactions: number
+    courses_completed: number
+    engagement_rate: number
+  }
+  live_class_engagement: {
+    total_attendances: number
+  }
+}
+
+/**
+ * Financial data structure
+ */
+export interface FinancialData {
+  revenue_overview: {
+    currency: string
+    total_revenue: number
+    success_rate: number
+  }
+  revenue_trend: Array<{
+    period: string
+    date: string
+    revenue: number
+    transaction_count: number
+    unique_customers: number
+    avg_transaction: number
+  }>
+  payment_methods: Array<{
+    method: string
+    revenue: number
+    transaction_count: number
+    percentage: number
+  }>
+  top_courses_by_revenue: Array<{
+    course_title: string
+    revenue: number
+    enrollment_count: number
+    avg_revenue_per_enrollment: number
+  }>
+}
+
+/**
+ * Course performance data structure
+ */
+export interface CoursePerformanceData {
+  summary: {
+    avg_completion_rate: number
+    total_courses: number
+    avg_rating: number
+  }
+  course_performance: Array<{
+    course_title: string
+    completion_rate: number
+    enrollments: number
+    rating: number
+    metrics: {
+      completion_rate: number
+      total_enrollments: number
+      completed_enrollments: number
+      avg_rating: number
+      engagement_score: number
+      revenue: number
+    }
+    performance_indicators: {
+      is_high_performing: boolean
+      needs_attention: boolean
+      trending_up: boolean
+    }
+  }>
+}
+
+/**
  * Analytics service for centralized API data processing and visualization
  */
 export class AnalyticsService {
+  
+  // ===== Export Functionality =====
+  
+  /**
+   * Export analytics data in specified format
+   * @param format - Export format (csv or xlsx)
+   * @param filters - Optional filters to apply to the export
+   * @returns Blob containing the exported data
+   */
+  static async exportData(format: 'csv' | 'xlsx', filters?: Record<string, string | number | boolean>): Promise<Blob> {
+    try {
+      const params = new URLSearchParams({ format, ...filters as Record<string, string> })
+      const response = await api.get(`/analytics/export/?${params}`, {
+        responseType: 'blob'
+      })
+      return response.data as unknown as Blob
+    } catch (error) {
+      console.error('Failed to export analytics data:', error)
+      throw error
+    }
+  }
+  
+  // ===== Report Generation =====
+  
+  /**
+   * Generate a custom report
+   * @param params - Report parameters including type, timeframe, and format
+   * @returns Generated report
+   */
+  static async generateReport(params: ReportParams): Promise<Report> {
+    try {
+      const response = await api.post<Report>('/reports/generate/', params)
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to generate report:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get the status of a report generation
+   * @param reportId - ID of the report
+   * @returns Report status with progress information
+   */
+  static async getReportStatus(reportId: string): Promise<ReportStatus> {
+    try {
+      const response = await api.get<ReportStatus>(`/reports/${reportId}/status/`)
+      return response.data.data
+    } catch (error) {
+      console.error(`Failed to get report status for ${reportId}:`, error)
+      throw error
+    }
+  }
+  
+  /**
+   * Download a completed report
+   * @param reportId - ID of the report to download
+   * @returns Blob containing the report file
+   */
+  static async downloadReport(reportId: string): Promise<Blob> {
+    try {
+      const response = await api.get(`/reports/download/${reportId}/`, {
+        responseType: 'blob'
+      })
+      return response.data as unknown as Blob
+    } catch (error) {
+      console.error(`Failed to download report ${reportId}:`, error)
+      throw error
+    }
+  }
+  
+  // ===== Scheduled Reports =====
+  
+  /**
+   * Create a scheduled report
+   * @param config - Scheduled report configuration
+   * @returns Created scheduled report
+   */
+  static async createScheduledReport(config: ScheduledReportConfig): Promise<ScheduledReport> {
+    try {
+      const response = await api.post<ScheduledReport>('/scheduled-reports/', config)
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to create scheduled report:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get all scheduled reports
+   * @returns Paginated list of scheduled reports
+   */
+  static async getScheduledReports(): Promise<PaginatedResponse<ScheduledReport>> {
+    try {
+      const response = await api.get<PaginatedResponse<ScheduledReport>>('/scheduled-reports/')
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to fetch scheduled reports:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Update a scheduled report
+   * @param id - Scheduled report ID
+   * @param config - Updated configuration
+   * @returns Updated scheduled report
+   */
+  static async updateScheduledReport(id: string, config: Partial<ScheduledReportConfig>): Promise<ScheduledReport> {
+    try {
+      const response = await api.patch<ScheduledReport>(`/scheduled-reports/${id}/`, config)
+      return response.data.data
+    } catch (error) {
+      console.error(`Failed to update scheduled report ${id}:`, error)
+      throw error
+    }
+  }
+  
+  /**
+   * Delete a scheduled report
+   * @param id - Scheduled report ID to delete
+   */
+  static async deleteScheduledReport(id: string): Promise<void> {
+    try {
+      await api.delete(`/scheduled-reports/${id}/`)
+    } catch (error) {
+      console.error(`Failed to delete scheduled report ${id}:`, error)
+      throw error
+    }
+  }
+  
+  // ===== Analytics Overview Methods =====
+  
+  /**
+   * Get platform-wide analytics
+   * @param timeframe - Optional timeframe filter
+   * @returns Platform analytics data
+   */
+  static async getPlatformAnalytics(timeframe?: string): Promise<PlatformAnalytics> {
+    try {
+      const params = timeframe ? { timeframe } : {}
+      const response = await api.get<PlatformAnalytics>('/analytics/platform-overview/', { params })
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to fetch platform analytics:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get teacher-specific analytics
+   * @param teacherId - Optional teacher ID (defaults to current user if teacher)
+   * @returns Teacher analytics data
+   */
+  static async getTeacherAnalytics(teacherId?: string): Promise<TeacherAnalytics> {
+    try {
+      const endpoint = teacherId 
+        ? `/analytics/teacher/${teacherId}/` 
+        : '/analytics/teacher/'
+      const response = await api.get<TeacherAnalytics>(endpoint)
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to fetch teacher analytics:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get student-specific analytics
+   * @param studentId - Optional student ID (defaults to current user if student)
+   * @returns Student analytics data
+   */
+  static async getStudentAnalytics(studentId?: string): Promise<StudentAnalytics> {
+    try {
+      const endpoint = studentId 
+        ? `/analytics/student/${studentId}/` 
+        : '/analytics/student/'
+      const response = await api.get<StudentAnalytics>(endpoint)
+      return response.data.data
+    } catch (error) {
+      console.error('Failed to fetch student analytics:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get course-specific analytics
+   * @param courseId - Course ID
+   * @returns Course analytics data
+   */
+  static async getCourseAnalytics(courseId: string): Promise<CourseAnalytics> {
+    try {
+      const response = await api.get<CourseAnalytics>(`/analytics/course/${courseId}/`)
+      return response.data.data
+    } catch (error) {
+      console.error(`Failed to fetch course analytics for ${courseId}:`, error)
+      throw error
+    }
+  }
   
   /**
    * Fetch enrollment trends data
@@ -84,97 +407,55 @@ export class AnalyticsService {
     return response.data
   }
   
-  /**
-   * Generate comprehensive report
-   */
-  static async generateReport(
-    type: 'overview' | 'enrollment' | 'financial' | 'course',
-    filters: AnalyticsFilters = {},
-    format: 'json' | 'csv' | 'pdf' = 'json'
-  ) {
-    const params = new URLSearchParams({
-      type,
-      format,
-      ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => 
-          value !== undefined && value !== null && value !== ''
-        ).map(([key, value]) => [key, value.toString()])
-      )
-    })
-    
-    const response = await api.get(`/reports/generate/?${params}`)
-    return response.data
-  }
+
   
-  /**
-   * Schedule a report for background generation
-   */
-  static async scheduleReport(
-    type: 'overview' | 'enrollment' | 'financial' | 'course',
-    email: string,
-    filters: AnalyticsFilters = {},
-    format: 'json' | 'csv' | 'pdf' = 'pdf'
-  ) {
-    const response = await api.post('/scheduled-reports/', {
-      report_type: type,
-      email,
-      filters,
-      format
-    })
-    return response.data
-  }
-  
-  /**
-   * Get list of scheduled reports
-   */
-  static async getScheduledReports() {
-    const response = await api.get('/scheduled-reports/')
-    return response.data
-  }
+
   
   /**
    * Get details of a specific scheduled report
+   * @param reportId - Scheduled report ID
+   * @returns Scheduled report details
    */
-  static async getScheduledReport(reportId: string) {
-    const response = await api.get(`/scheduled-reports/${reportId}/`)
-    return response.data
+  static async getScheduledReport(reportId: string): Promise<ScheduledReport> {
+    try {
+      const response = await api.get<ScheduledReport>(`/scheduled-reports/${reportId}/`)
+      return response.data.data
+    } catch (error) {
+      console.error(`Failed to fetch scheduled report ${reportId}:`, error)
+      throw error
+    }
   }
   
   /**
-   * Download a completed report
+   * Download a completed report and trigger browser download
+   * @param reportId - ID of the report to download
+   * @param filename - Optional custom filename
    */
-  static async downloadReport(reportId: string) {
-    const response = await api.get(`/reports/download/${reportId}/`, {
-      responseType: 'blob'
-    })
-    
-    // Create download link
-    const blob = new Blob([response.data.data || response.data], { type: 'application/pdf' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    
-    // Extract filename from response headers or use default
-    const contentDisposition = response.headers['content-disposition']
-    let filename = `report_${reportId}.csv`
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="(.+)"/)
-      if (filenameMatch) {
-        filename = filenameMatch[1]
-      }
+  static async downloadReportFile(reportId: string, filename?: string) {
+    try {
+      const blob = await this.downloadReport(reportId)
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename || `report_${reportId}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error(`Failed to download report file ${reportId}:`, error)
+      throw error
     }
-    
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
   }
   
   /**
    * Transform enrollment trend data for chart visualization
+   * @param data - Array of enrollment trend items
+   * @returns Chart data and configuration
    */
-  static transformEnrollmentTrendData(data: any[]): {
+  static transformEnrollmentTrendData(data: EnrollmentTrendItem[]): {
     chartData: ChartDataPoint[]
     config: ChartConfig
   } {
@@ -206,14 +487,16 @@ export class AnalyticsService {
   
   /**
    * Transform user engagement data for chart visualization
+   * @param data - User engagement data
+   * @returns Chart data and configuration for daily active users and engagement metrics
    */
-  static transformUserEngagementData(data: any): {
+  static transformUserEngagementData(data: UserEngagementData): {
     dailyActiveUsers: { chartData: ChartDataPoint[], config: ChartConfig }
     engagementMetrics: { chartData: ChartDataPoint[], config: ChartConfig }
   } {
     // Daily active users chart
     const dailyActiveUsers = {
-      chartData: data.daily_active_users.map((item: any) => ({
+      chartData: data.daily_active_users.map(item => ({
         label: new Date(item.date).toLocaleDateString(),
         value: item.active_users,
         date: item.date
@@ -259,15 +542,17 @@ export class AnalyticsService {
   
   /**
    * Transform financial data for chart visualization
+   * @param data - Financial data
+   * @returns Chart data and configuration for revenue trends, payment methods, and top courses
    */
-  static transformFinancialData(data: any): {
+  static transformFinancialData(data: FinancialData): {
     revenueTrend: { chartData: ChartDataPoint[], config: ChartConfig }
     paymentMethods: { chartData: ChartDataPoint[], config: ChartConfig }
     topCourses: { chartData: ChartDataPoint[], config: ChartConfig }
   } {
     // Revenue trend chart
     const revenueTrend = {
-      chartData: data.revenue_trend.map((item: any) => ({
+      chartData: data.revenue_trend.map(item => ({
         label: item.period,
         value: item.revenue,
         date: item.date,
@@ -290,7 +575,7 @@ export class AnalyticsService {
     
     // Payment methods pie chart
     const paymentMethods = {
-      chartData: data.payment_methods.map((item: any) => ({
+      chartData: data.payment_methods.map(item => ({
         label: item.method,
         value: item.revenue,
         metadata: {
@@ -309,7 +594,7 @@ export class AnalyticsService {
     
     // Top courses by revenue
     const topCourses = {
-      chartData: data.top_courses_by_revenue.slice(0, 10).map((item: any) => ({
+      chartData: data.top_courses_by_revenue.slice(0, 10).map(item => ({
         label: item.course_title.length > 30 
           ? item.course_title.substring(0, 30) + '...' 
           : item.course_title,
@@ -335,15 +620,17 @@ export class AnalyticsService {
   
   /**
    * Transform course performance data for chart visualization
+   * @param data - Course performance data
+   * @returns Chart data and configuration for completion rates, enrollment vs rating, and performance indicators
    */
-  static transformCoursePerformanceData(data: any): {
+  static transformCoursePerformanceData(data: CoursePerformanceData): {
     completionRates: { chartData: ChartDataPoint[], config: ChartConfig }
     enrollmentVsRating: { chartData: ChartDataPoint[], config: ChartConfig }
     performanceIndicators: { chartData: ChartDataPoint[], config: ChartConfig }
   } {
     // Completion rates chart
     const completionRates = {
-      chartData: data.course_performance.slice(0, 15).map((item: any) => ({
+      chartData: data.course_performance.slice(0, 15).map(item => ({
         label: item.course_title.length > 25 
           ? item.course_title.substring(0, 25) + '...' 
           : item.course_title,
@@ -367,7 +654,7 @@ export class AnalyticsService {
     
     // Enrollment vs Rating scatter plot (represented as bar chart)
     const enrollmentVsRating = {
-      chartData: data.course_performance.slice(0, 10).map((item: any) => ({
+      chartData: data.course_performance.slice(0, 10).map(item => ({
         label: item.course_title.length > 20 
           ? item.course_title.substring(0, 20) + '...' 
           : item.course_title,
@@ -390,15 +677,15 @@ export class AnalyticsService {
     }
     
     // Performance indicators
-    const highPerforming = data.course_performance.filter((item: any) => 
+    const highPerforming = data.course_performance.filter(item => 
       item.performance_indicators.is_high_performing
     ).length
     
-    const needsAttention = data.course_performance.filter((item: any) => 
+    const needsAttention = data.course_performance.filter(item => 
       item.performance_indicators.needs_attention
     ).length
     
-    const trending = data.course_performance.filter((item: any) => 
+    const trending = data.course_performance.filter(item => 
       item.performance_indicators.trending_up
     ).length
     
@@ -425,12 +712,14 @@ export class AnalyticsService {
   
   /**
    * Calculate key performance indicators
+   * @param data - Analytics data from various sources
+   * @returns Array of KPI objects
    */
   static calculateKPIs(data: {
-    enrollmentTrends?: any
-    userEngagement?: any
-    financialAnalytics?: any
-    coursePerformance?: any
+    enrollmentTrends?: EnrollmentTrends
+    userEngagement?: UserEngagementData
+    financialAnalytics?: FinancialData
+    coursePerformance?: CoursePerformanceData
   }) {
     const kpis = []
     
@@ -523,8 +812,10 @@ export class AnalyticsService {
   
   /**
    * Export data to CSV format
+   * @param data - Array of data objects to export
+   * @param filename - Name of the CSV file
    */
-  static exportToCSV(data: any[], filename: string) {
+  static exportToCSV(data: Record<string, unknown>[], filename: string) {
     if (!data.length) return
     
     const headers = Object.keys(data[0])

@@ -171,7 +171,7 @@ const emit = defineEmits<Emits>()
 
 const { handleApiError } = useErrorHandler()
 
-const subscriptionInfo = ref(null)
+const subscriptionInfo = ref<any>(null)
 const selectedPlanId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)

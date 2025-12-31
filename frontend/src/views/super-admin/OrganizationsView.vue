@@ -191,9 +191,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApiData, useApiMutation } from '@/composables/useApiData'
-import type { APIError } from '@/services/api'
+import { type APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { OrganizationService } from '@/services/organizations'
 
 const router = useRouter()
 const { handleApiError } = useErrorHandler()
@@ -242,7 +242,7 @@ const orgForm = ref({
 })
 
 // Real stats from dashboard API
-const { data: dashboardData } = useApiData('/dashboard/superadmin/', {
+const { data: dashboardData } = useApiData<any>('/dashboard/superadmin/', {
   immediate: true,
   onError: (error) => {
     console.error('Failed to load dashboard stats:', error)
@@ -256,7 +256,7 @@ const totalRevenue = computed(() => dashboardData.value?.platform_stats?.total_r
 
 // Mutations
 const { mutate: createOrg } = useApiMutation(
-  (orgData: any) => api.post('/organizations/', orgData),
+  (orgData: any) => OrganizationService.createOrganization(orgData),
   {
     onSuccess: () => {
       closeCreateModal()
@@ -267,7 +267,7 @@ const { mutate: createOrg } = useApiMutation(
 )
 
 const { mutate: updateOrg } = useApiMutation(
-  ({ id, ...data }: any) => api.patch(`/organizations/${id}/`, data),
+  ({ id, ...data }: any) => OrganizationService.updateOrganization(id, data),
   {
     onSuccess: () => refresh(),
     onError: (error) => handleApiError(error as APIError, { context: { action: 'update_organization' } })
@@ -278,7 +278,7 @@ const { mutate: updateOrg } = useApiMutation(
 const filteredOrganizations = computed(() => {
   if (!organizations.value) return []
   
-  return organizations.value.filter(org => {
+  return organizations.value.filter((org: any) => {
     const matchesSearch = !searchQuery.value || 
       org.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       org.subdomain.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -302,30 +302,29 @@ const paginatedOrganizations = computed(() => {
 })
 
 // Methods
-const formatNumber = (num) => {
+const formatNumber = (num: number) => {
   return new Intl.NumberFormat().format(num)
 }
 
-const formatPlan = (plan) => {
+const formatPlan = (plan: string) => {
   return plan.charAt(0).toUpperCase() + plan.slice(1)
 }
 
-const formatDate = (date) => {
+const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString()
 }
 
-const viewOrganization = (org) => {
+const viewOrganization = (org: any) => {
   router.push(`/super-admin/organizations/${org.id}`)
 }
 
-const switchToOrg = async (org) => {
+const switchToOrg = async (org: any) => {
   try {
-    const response = await api.post('/users/switch_tenant/', { tenant_id: org.id })
+    const result = await OrganizationService.switchTenant(org.id)
     
-    if (response.data) {
+    if (result.token) {
       // Update tokens and redirect
-      localStorage.setItem('access_token', response.data.tokens.access)
-      localStorage.setItem('refresh_token', response.data.tokens.refresh)
+      localStorage.setItem('access_token', result.token)
       window.location.href = '/dashboard'
     }
   } catch (error) {
@@ -333,7 +332,7 @@ const switchToOrg = async (org) => {
   }
 }
 
-const toggleOrgStatus = async (org) => {
+const toggleOrgStatus = async (org: any) => {
   const action = org.is_active ? 'suspend' : 'activate'
   if (confirm(`Are you sure you want to ${action} ${org.name}?`)) {
     await updateOrg({ id: org.id, is_active: !org.is_active })

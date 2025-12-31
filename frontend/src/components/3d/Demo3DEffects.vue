@@ -1,14 +1,7 @@
 <template>
   <div class="demo-container">
     <h2>3D Effects Demo</h2>
-    <p>Scroll down to see the 3D shapes and books animate with parallax effects!</p>
-    
-    <div class="demo-section">
-      <h3>Floating Books</h3>
-      <div class="demo-area books-demo">
-        <FloatingBooks />
-      </div>
-    </div>
+    <p>Scroll down to see the 3D shapes animate with parallax effects!</p>
     
     <div class="demo-section">
       <h3>Educational Items (Anime Style)</h3>
@@ -16,24 +9,11 @@
         <GeometricShapes />
       </div>
     </div>
-    
-    <div class="demo-section">
-      <h3>Full Parallax Background</h3>
-      <div class="demo-area parallax-demo">
-        <ParallaxBackground />
-        <div class="demo-content">
-          <h4>Interactive 3D Environment</h4>
-          <p>This combines all 3D elements with scroll-based animations</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import FloatingBooks from './FloatingBooks.vue'
 import GeometricShapes from './GeometricShapes.vue'
-import ParallaxBackground from './ParallaxBackground.vue'
 </script>
 
 <style scoped>

@@ -246,9 +246,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useApiData } from '@/composables/useApiData'
-// Removed unused import
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { EnrollmentService } from '@/services/enrollments'
 
 const { handleApiError } = useErrorHandler()
 
@@ -495,12 +494,10 @@ const viewProgress = (student: any) => {
 
 const generateReport = async (student: any) => {
   try {
-    const response = await api.get(`/enrollments/${student.id}/report/`, {
-      responseType: 'blob'
-    })
+    const blob = await EnrollmentService.downloadStudentReport(student.id)
     
     // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data as any]))
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `${student.name}-progress-report.pdf`)

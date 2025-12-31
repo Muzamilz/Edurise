@@ -132,6 +132,117 @@ export interface SystemConfig {
   }
 }
 
+/**
+ * System Health Overview
+ */
+export interface SystemHealth {
+  status: 'healthy' | 'degraded' | 'down'
+  uptime_seconds: number
+  uptime_formatted: string
+  database: DatabaseStatus
+  cache: CacheStatus
+  storage: StorageStatus
+  memory: MemoryStatus
+  cpu: CPUStatus
+  services: ServiceStatus[]
+  last_check: string
+  version: string
+  environment: 'development' | 'staging' | 'production'
+}
+
+/**
+ * Database Status
+ */
+export interface DatabaseStatus {
+  status: 'connected' | 'disconnected' | 'error'
+  connection_count: number
+  max_connections: number
+  response_time_ms: number
+  size_mb: number
+  tables_count: number
+  last_backup?: string
+  replication_lag_ms?: number
+}
+
+/**
+ * Cache Status
+ */
+export interface CacheStatus {
+  status: 'connected' | 'disconnected' | 'error'
+  hit_rate: number
+  miss_rate: number
+  memory_used_mb: number
+  memory_max_mb: number
+  keys_count: number
+  evictions: number
+  response_time_ms: number
+}
+
+/**
+ * Storage Status
+ */
+export interface StorageStatus {
+  status: 'healthy' | 'warning' | 'critical'
+  total_gb: number
+  used_gb: number
+  available_gb: number
+  usage_percentage: number
+  files_count: number
+  provider: 'local' | 's3' | 'azure' | 'gcs'
+}
+
+/**
+ * Memory Status
+ */
+export interface MemoryStatus {
+  total_mb: number
+  used_mb: number
+  free_mb: number
+  usage_percentage: number
+  swap_total_mb: number
+  swap_used_mb: number
+}
+
+/**
+ * CPU Status
+ */
+export interface CPUStatus {
+  cores: number
+  usage_percentage: number
+  load_average: number[]
+  processes: number
+}
+
+/**
+ * Service Status
+ */
+export interface ServiceStatus {
+  name: string
+  status: 'running' | 'stopped' | 'error'
+  uptime_seconds?: number
+  response_time_ms?: number
+  last_check: string
+  error_message?: string
+}
+
+/**
+ * System Metrics for monitoring
+ */
+export interface SystemMetrics {
+  timestamp: string
+  cpu_usage: number
+  memory_usage: number
+  disk_usage: number
+  network_in_mbps: number
+  network_out_mbps: number
+  active_connections: number
+  request_rate: number
+  error_rate: number
+  response_time_p50: number
+  response_time_p95: number
+  response_time_p99: number
+}
+
 // Analytics Types
 export interface Analytics {
   total_revenue?: number
@@ -144,9 +255,7 @@ export interface Analytics {
   total_reviews?: number
 }
 
-export interface TeacherAnalytics extends Analytics {
-  // Additional teacher-specific analytics
-}
+
 
 // Course and Content Types
 export interface Course {
@@ -382,24 +491,114 @@ export interface DashboardStats {
   revenue_growth?: number
 }
 
-// Security Types
-export interface SecurityAlert {
-  id: string
-  type: 'login_attempt' | 'password_change' | 'suspicious_activity'
-  message: string
-  severity: 'low' | 'medium' | 'high' | 'critical'
-  created_at: string
-  resolved: boolean
-  user?: User
+// Admin Dashboard Data (from backend API)
+export interface AdminDashboardData {
+  organization_info: {
+    name: string
+    subscription_plan: string
+    logo?: string
+  }
+  user_stats: {
+    total_users: number
+    active_users: number
+    newUsersThisMonth: number
+    teacherCount: number
+    studentCount: number
+    total_teachers: number
+    approved_teachers: number
+    pending_teacher_approvals: number
+    user_growth_rate: number
+  }
+  course_stats: {
+    total_courses: number
+    published_courses: number
+    private_courses: number
+    courses_this_month: number
+    avg_price: number
+    total_modules: number
+    average_rating: number
+    avg_modules_per_course: number
+  }
+  enrollment_stats: {
+    total_enrollments: number
+    active_enrollments: number
+    completed_enrollments: number
+    dropped_enrollments: number
+    enrollments_this_month: number
+    avg_progress: number
+    completion_rate: number
+    dropout_rate: number
+  }
+  revenue_stats: {
+    total_revenue: number
+    revenue_this_month: number
+    avg_payment: number
+    total_payments: number
+    revenue_growth_rate: number
+  }
+  class_stats: {
+    total_classes: number
+    completed_classes: number
+    upcoming_classes: number
+    avg_duration: number
+    class_completion_rate: number
+  }
+  popular_courses: Array<{
+    id: string
+    title: string
+    instructor_name: string
+    enrollment_count: number
+    average_rating: number
+  }>
+  recent_activity: {
+    recent_enrollments: Array<{
+      student_name: string
+      course_title: string
+      enrolled_at: string
+    }>
+    recent_courses: Array<{
+      id: string
+      title: string
+      instructor_name: string
+      created_at: string
+      is_public: boolean
+    }>
+  }
+  user_growth_trend: Array<{
+    month: string
+    new_users: number
+  }>
+  system_health: {
+    database_status: string
+    cache_status: string
+    storage_status: string
+    last_backup: string
+  }
 }
 
-export interface SecurityPolicy {
-  id: string
-  name: string
-  description: string
-  enabled: boolean
-  settings: Record<string, any>
-}
+// Security Types - Re-export from dedicated security types file
+export type {
+  SecurityOverview,
+  SecurityAlert,
+  SecurityAlertFilters,
+  SecurityEvent,
+  SecurityPolicy,
+  SecuritySettings,
+  ComplianceReport
+} from './security'
+
+// Analytics Types - Re-export from dedicated analytics types file
+export type {
+  Report,
+  ReportParams,
+  ReportStatus,
+  ScheduledReport,
+  ScheduledReportConfig,
+  PlatformAnalytics,
+  TeacherAnalytics,
+  StudentAnalytics,
+  CourseAnalytics
+} from './analytics'
 
 export interface AuditLog {
   id: string

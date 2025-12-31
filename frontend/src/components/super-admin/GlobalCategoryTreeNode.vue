@@ -119,12 +119,12 @@ const isExpanded = computed(() =>
   props.expandedNodes.has(props.category.id)
 )
 
-const getCourseCount = (category: CourseCategory): number => {
+const getCourseCount = (_category: CourseCategory): number => {
   // This would come from API with course counts
   return 0 // Placeholder
 }
 
-const getOrganizationCount = (category: CourseCategory): number => {
+const getOrganizationCount = (_category: CourseCategory): number => {
   // This would come from API with organization usage counts
   return 0 // Placeholder
 }

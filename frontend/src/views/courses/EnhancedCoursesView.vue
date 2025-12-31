@@ -259,13 +259,9 @@ const loadingMoreOrg = ref<Record<string, boolean>>({})
 
 // API calls for main platform courses
 const { 
-  data: allMainCourses, 
-  loading: mainCoursesLoading, 
-  error: mainCoursesError,
-  refresh: refreshMainCourses
-} = useApiData<Course[]>('/courses/', {
+  data: allMainCourses
+} = useApiData<Course[]>('/courses/?tenant=main&page_size=100&is_public=true', {
   ...CachePresets.courseCatalog,
-  params: { tenant: 'main', page_size: 100, is_public: true },
   transform: (data) => {
     const courses = data.results || data.data || data
     return Array.isArray(courses) ? courses : []
@@ -274,12 +270,9 @@ const {
 
 // Featured main courses
 const { 
-  data: featuredMainCourses, 
-  loading: featuredLoading, 
-  error: featuredError
-} = useApiData<Course[]>('/courses/featured/', {
+  data: featuredMainCourses
+} = useApiData<Course[]>('/courses/featured/?tenant=main', {
   ...CachePresets.courseCatalog,
-  params: { tenant: 'main' },
   transform: (data) => {
     const courses = data.data || data
     return Array.isArray(courses) ? courses.slice(0, 6) : []
@@ -288,9 +281,7 @@ const {
 
 // Available organizations
 const { 
-  data: availableOrganizations, 
-  loading: orgsLoading, 
-  error: orgsError 
+  data: availableOrganizations
 } = useApiData<Organization[]>('/organizations/', {
   ...CachePresets.courseCatalog,
   transform: (data) => {

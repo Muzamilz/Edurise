@@ -179,30 +179,47 @@ export class AssignmentService {
   }
 
   static async issueCertificate(id: string): Promise<Certificate> {
-    const response = await api.post<Certificate>(`/api/v1/certificates/${id}/issue/`)
+    const response = await api.post<Certificate>(`/certificates/${id}/issue/`)
     return response.data.data
   }
 
   static async revokeCertificate(id: string): Promise<Certificate> {
-    const response = await api.post<Certificate>(`/api/v1/certificates/${id}/revoke/`)
+    const response = await api.post<Certificate>(`/certificates/${id}/revoke/`)
     return response.data.data
   }
 
   static async verifyCertificate(data: CertificateVerificationRequest): Promise<CertificateVerificationResponse> {
-    const response = await api.get<CertificateVerificationResponse>(`/api/v1/certificates/verify/?certificate_number=${data.certificate_number}`)
+    const response = await api.get<CertificateVerificationResponse>(`/certificates/verify/?certificate_number=${data.certificate_number}`)
     return response.data.data
   }
 
   static async verifyByQRCode(qrData: string): Promise<CertificateVerificationResponse> {
-    const response = await api.post<CertificateVerificationResponse>('/api/v1/certificates/verify_by_qr/', {
+    const response = await api.post<CertificateVerificationResponse>('/certificates/verify_by_qr/', {
       qr_data: qrData
     })
     return response.data.data
   }
 
   static async downloadCertificate(id: string): Promise<string> {
-    const response = await api.get(`/api/v1/certificates/${id}/download/`)
+    const response = await api.get(`/certificates/${id}/download/`)
     return response.data.data.download_url
+  }
+
+  /**
+   * Download certificate as blob for direct file download
+   * @param id - Certificate ID
+   * @returns Blob containing the certificate file
+   */
+  static async downloadCertificateBlob(id: string): Promise<Blob> {
+    try {
+      const response = await api.get(`/certificates/${id}/download/`, {
+        responseType: 'blob'
+      })
+      return response.data as unknown as Blob
+    } catch (error) {
+      console.error('Error downloading certificate:', error)
+      throw error
+    }
   }
 
   static async generateCertificatePDF(id: string, templateType: string = 'completion'): Promise<{
@@ -211,14 +228,14 @@ export class AssignmentService {
     file_size: number
     filename: string
   }> {
-    const response = await api.post(`/api/v1/certificates/${id}/generate_pdf/`, {
+    const response = await api.post(`/certificates/${id}/generate_pdf/`, {
       template_type: templateType
     })
     return response.data.data
   }
 
   static async sendCertificateEmail(id: string): Promise<void> {
-    await api.post(`/api/v1/certificates/${id}/send_email/`)
+    await api.post(`/certificates/${id}/send_email/`)
   }
 
   static async generateQRCode(id: string): Promise<{
@@ -226,12 +243,12 @@ export class AssignmentService {
     qr_code_url: string
     verification_url: string
   }> {
-    const response = await api.post(`/api/v1/certificates/${id}/generate_qr_code/`)
+    const response = await api.post(`/certificates/${id}/generate_qr_code/`)
     return response.data.data
   }
 
   static async getMyCertificates(): Promise<Certificate[]> {
-    const response = await api.get<Certificate[]>('/api/v1/certificates/my_certificates/')
+    const response = await api.get<Certificate[]>('/certificates/my_certificates/')
     return response.data.data
   }
 

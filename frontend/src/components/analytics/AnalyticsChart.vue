@@ -57,7 +57,7 @@ const chartCanvas = ref<HTMLCanvasElement | null>(null)
 
 // Simple chart drawing functions
 const drawLineChart = (ctx: CanvasRenderingContext2D, data: ChartData, width: number, height: number) => {
-  if (!data.datasets.length || !data.labels.length) return
+  if (!data || !data.datasets || !data.datasets.length || !data.labels || !data.labels.length) return
 
   const padding = 40
   const chartWidth = width - 2 * padding

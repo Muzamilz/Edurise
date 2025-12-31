@@ -308,10 +308,9 @@ const totalTeachers = computed(() =>
   dashboardData.value?.userStats?.teacherCount || 0
 )
 
-const pendingTeachersCount = computed(() => {
-  // This would need to be added to the admin dashboard API
-  return 0 // Placeholder - would come from backend
-})
+const pendingTeachersCount = computed(() => 
+  dashboardData.value?.userStats?.pendingTeacherApprovals || 0
+)
 
 const totalCourses = computed(() => 
   dashboardData.value?.courseStats?.totalCourses || 0
@@ -353,14 +352,13 @@ const enrollmentGrowth = computed(() =>
   Math.round(dashboardData.value?.revenueStats?.revenueGrowth || 0)
 )
 
-const liveClassesActive = computed(() => {
-  // This would need to be added to admin dashboard API
-  return 0 // Placeholder
-})
+const liveClassesActive = computed(() => 
+  dashboardData.value?.classStats?.upcomingClasses || 0
+)
 
 const contentModerationQueue = computed(() => {
-  // This would need to be added to admin dashboard API
-  return 0 // Placeholder
+  // Count unpublished courses as content needing moderation
+  return dashboardData.value?.courseStats?.privateCourses || 0
 })
 
 // System health data

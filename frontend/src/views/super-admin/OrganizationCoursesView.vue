@@ -212,21 +212,22 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { api } from '@/services/api'
-import type { APIError } from '@/services/api'
+import { useRoute } from 'vue-router'
+import { type APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { OrganizationService } from '@/services/organizations'
+import { CourseService } from '@/services/courses'
+import { CategoryService } from '@/services/categories'
 
 const route = useRoute()
-const router = useRouter()
 const { handleApiError } = useErrorHandler()
 
 const organizationId = route.params.id as string
-const organization = ref(null)
-const courses = ref([])
-const categories = ref([])
+const organization = ref<any>(null)
+const courses = ref<any[]>([])
+const categories = ref<any[]>([])
 const loading = ref(true)
-const error = ref(null)
+const error = ref<any>(null)
 
 // Filters
 const searchQuery = ref('')
@@ -284,17 +285,14 @@ const loadCourses = async () => {
     error.value = null
 
     // Load organization info
-    const orgResponse = await api.get(`/organizations/${organizationId}/`)
-    organization.value = orgResponse.data.data || orgResponse.data
+    organization.value = await OrganizationService.getOrganization(organizationId)
 
     // Load courses for this organization
-    const coursesResponse = await api.get(`/organizations/${organizationId}/courses/`)
-    courses.value = coursesResponse.data.data || coursesResponse.data || []
+    courses.value = await OrganizationService.getOrganizationCourses(organizationId)
 
     // Load categories
     try {
-      const categoriesResponse = await api.get('/categories/')
-      categories.value = categoriesResponse.data.data || categoriesResponse.data || []
+      categories.value = await CategoryService.getCategories()
     } catch (err) {
       console.warn('Failed to load categories:', err)
     }
@@ -328,7 +326,7 @@ const editCourse = (course: any) => {
 const toggleCourseStatus = async (course: any) => {
   try {
     const newStatus = !course.is_public
-    await api.patch(`/courses/${course.id}/`, {
+    await CourseService.updateCourse(course.id, {
       is_public: newStatus
     })
     

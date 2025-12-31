@@ -90,6 +90,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePayments } from '../../composables/usePayments'
 import { useAnimations } from '../../composables/useAnimations'
+import { PaymentService } from '@/services/payments'
 
 interface Props {
   amount: number
@@ -262,26 +263,11 @@ const capturePayPalPayment = async (paymentId: string, payerId: string) => {
   try {
     emit('loading', true)
     
-    // Call backend to capture PayPal payment
-    const response = await fetch('/api/payments/capture-paypal/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        payment_id: paymentId,
-        payer_id: payerId
-      })
-    })
-
-    const result = await response.json()
-
-    if (response.ok) {
-      paymentStatus.value = 'success'
-      emit('paymentSuccess', result)
-    } else {
-      throw new Error(result.message || 'Failed to capture PayPal payment')
-    }
+    // Call PaymentService to capture PayPal payment
+    const result = await PaymentService.capturePayPalPayment(paymentId, payerId)
+    
+    paymentStatus.value = 'success'
+    emit('paymentSuccess', result)
 
   } catch (error: any) {
     emit('paymentError', error.message || 'Failed to complete PayPal payment')

@@ -54,6 +54,23 @@ export class NotificationService {
     return (response.data as any).data || response.data
   }
 
+  /**
+   * Create a custom notification
+   * @param notificationData - Notification data including type, class_id, scheduled_for, etc.
+   * @returns Created notification
+   */
+  static async createNotification(notificationData: {
+    type: string
+    class_id?: string
+    scheduled_for?: Date | string
+    title?: string
+    message?: string
+    [key: string]: any
+  }): Promise<Notification> {
+    const response = await api.post<Notification>('/notifications/', notificationData)
+    return (response.data as any).data || response.data
+  }
+
   static async getUnreadCount(): Promise<{ unread_count: number }> {
     const response = await api.get<{ unread_count: number }>('/notifications/unread_count/')
     return (response.data as any).data || response.data

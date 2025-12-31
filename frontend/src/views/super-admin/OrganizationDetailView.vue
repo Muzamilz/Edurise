@@ -163,7 +163,7 @@ import { useRoute, useRouter } from 'vue-router'
 // import { useApiData } from '@/composables/useApiData'
 import type { APIError } from '@/services/api'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { api } from '@/services/api'
+import { OrganizationService } from '@/services/organizations'
 import OrganizationSubscriptionModal from '@/components/super-admin/OrganizationSubscriptionModal.vue'
 
 const route = useRoute()
@@ -171,10 +171,10 @@ const router = useRouter()
 const { handleApiError } = useErrorHandler()
 
 const organizationId = route.params.id as string
-const organization = ref(null)
-const stats = ref({})
+const organization = ref<any>(null)
+const stats = ref<any>({})
 const loading = ref(true)
-const error = ref(null)
+const error = ref<any>(null)
 const actionLoading = ref(false)
 const showSubscriptionModal = ref(false)
 
@@ -183,12 +183,10 @@ const loadOrganization = async () => {
     loading.value = true
     error.value = null
     
-    const response = await api.get(`/organizations/${organizationId}/`)
-    organization.value = response.data.data || response.data
+    organization.value = await OrganizationService.getOrganization(organizationId)
     
     // Load organization stats
-    const statsResponse = await api.get(`/organizations/${organizationId}/stats/`)
-    stats.value = statsResponse.data.data || statsResponse.data
+    stats.value = await OrganizationService.getOrganizationStats(organizationId)
     
   } catch (err) {
     error.value = err
@@ -203,11 +201,9 @@ const toggleOrganizationStatus = async () => {
     actionLoading.value = true
     
     const newStatus = !organization.value.is_active
-    await api.patch(`/organizations/${organizationId}/`, {
+    organization.value = await OrganizationService.updateOrganization(organizationId, {
       is_active: newStatus
     })
-    
-    organization.value.is_active = newStatus
     
   } catch (err) {
     handleApiError(err as APIError, { context: { action: 'toggle_organization_status' } })

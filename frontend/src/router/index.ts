@@ -207,6 +207,12 @@ const routes: RouteRecordRaw[] = [
         name: 'student-wishlist',
         component: () => import('../views/student/WishlistView.vue'),
         meta: { title: 'Wishlist - Edurise', requiresAuth: true }
+      },
+      {
+        path: 'ai-tutor',
+        name: 'student-ai-tutor',
+        component: () => import('../views/student/AITutorView.vue'),
+        meta: { title: 'AI Tutor - Edurise', requiresAuth: true }
       }
     ]
   },
@@ -295,8 +301,24 @@ const routes: RouteRecordRaw[] = [
         name: 'teacher-resources',
         component: () => import('../views/teacher/ResourcesView.vue'),
         meta: { title: 'Teaching Resources - Edurise', requiresAuth: true }
+      },
+      {
+        path: 'ai-assistant',
+        name: 'teacher-ai-assistant',
+        component: () => import('../views/teacher/AIAssistantView.vue'),
+        beforeEnter: teacherGuard,
+        meta: { title: 'AI Assistant - Edurise', requiresAuth: true, requiresTeacher: true }
       }
     ]
+  },
+
+  // Assignments routes
+  {
+    path: '/assignments',
+    name: 'assignments',
+    component: () => import('../views/assignments/AssignmentsView.vue'),
+    beforeEnter: authGuard,
+    meta: { title: 'Assignments - Edurise', requiresAuth: true }
   },
 
   // Live Classes routes
